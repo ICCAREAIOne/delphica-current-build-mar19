@@ -1,11 +1,27 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { 
+  InsertUser, 
+  users,
+  patients,
+  InsertPatient,
+  daoProtocolEntries,
+  InsertDaoProtocolEntry,
+  delphiSimulations,
+  InsertDelphiSimulation,
+  causalInsights,
+  InsertCausalInsight,
+  precisionCarePlans,
+  InsertPrecisionCarePlan,
+  safetyReviews,
+  InsertSafetyReview,
+  clinicalOutcomes,
+  InsertClinicalOutcome
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -17,6 +33,8 @@ export async function getDb() {
   }
   return _db;
 }
+
+// ============ User Management ============
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -85,8 +103,293 @@ export async function getUserByOpenId(openId: string) {
   }
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============ Patient Management ============
+
+export async function getAllPatients(physicianId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  if (physicianId) {
+    return await db.select().from(patients)
+      .where(eq(patients.assignedPhysicianId, physicianId))
+      .orderBy(desc(patients.updatedAt));
+  }
+  
+  return await db.select().from(patients).orderBy(desc(patients.updatedAt));
+}
+
+export async function getPatientById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(patients).where(eq(patients.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getPatientByMRN(mrn: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(patients).where(eq(patients.mrn, mrn)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createPatient(patient: InsertPatient) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(patients).values(patient) as any;
+  return Number(result.insertId);
+}
+
+export async function updatePatient(id: number, updates: Partial<InsertPatient>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(patients).set(updates).where(eq(patients.id, id));
+}
+
+export async function searchPatients(query: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(patients)
+    .where(
+      sql`CONCAT(${patients.firstName}, ' ', ${patients.lastName}) LIKE ${`%${query}%`} OR ${patients.mrn} LIKE ${`%${query}%`}`
+    )
+    .orderBy(desc(patients.updatedAt))
+    .limit(50);
+}
+
+// ============ DAO Protocol Entries ============
+
+export async function getDAOEntriesByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(daoProtocolEntries)
+    .where(eq(daoProtocolEntries.patientId, patientId))
+    .orderBy(desc(daoProtocolEntries.createdAt));
+}
+
+export async function getDAOEntryById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(daoProtocolEntries).where(eq(daoProtocolEntries.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createDAOEntry(entry: InsertDaoProtocolEntry) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(daoProtocolEntries).values(entry) as any;
+  return Number(result.insertId);
+}
+
+export async function updateDAOEntry(id: number, updates: Partial<InsertDaoProtocolEntry>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(daoProtocolEntries).set(updates).where(eq(daoProtocolEntries.id, id));
+}
+
+// ============ Delphi Simulations ============
+
+export async function getDelphiSimulationsByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(delphiSimulations)
+    .where(eq(delphiSimulations.patientId, patientId))
+    .orderBy(desc(delphiSimulations.createdAt));
+}
+
+export async function getDelphiSimulationById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(delphiSimulations).where(eq(delphiSimulations.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createDelphiSimulation(simulation: InsertDelphiSimulation) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(delphiSimulations).values(simulation) as any;
+  return Number(result.insertId);
+}
+
+export async function updateDelphiSimulation(id: number, updates: Partial<InsertDelphiSimulation>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(delphiSimulations).set(updates).where(eq(delphiSimulations.id, id));
+}
+
+// ============ Causal Insights ============
+
+export async function getCausalInsightsByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(causalInsights)
+    .where(eq(causalInsights.patientId, patientId))
+    .orderBy(desc(causalInsights.confidenceScore), desc(causalInsights.aiGeneratedAt));
+}
+
+export async function getCausalInsightById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(causalInsights).where(eq(causalInsights.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createCausalInsight(insight: InsertCausalInsight) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(causalInsights).values(insight) as any;
+  return Number(result.insertId);
+}
+
+export async function markInsightReviewed(id: number, reviewedAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(causalInsights)
+    .set({ reviewedByPhysician: true, reviewedAt })
+    .where(eq(causalInsights.id, id));
+}
+
+// ============ Precision Care Plans ============
+
+export async function getCarePlansByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(precisionCarePlans)
+    .where(eq(precisionCarePlans.patientId, patientId))
+    .orderBy(desc(precisionCarePlans.createdAt));
+}
+
+export async function getCarePlanById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(precisionCarePlans).where(eq(precisionCarePlans.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createCarePlan(plan: InsertPrecisionCarePlan) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(precisionCarePlans).values(plan) as any;
+  return Number(result.insertId);
+}
+
+export async function updateCarePlan(id: number, updates: Partial<InsertPrecisionCarePlan>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(precisionCarePlans).set(updates).where(eq(precisionCarePlans.id, id));
+}
+
+export async function approveCarePlan(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(precisionCarePlans)
+    .set({ status: "approved", approvedAt: new Date() })
+    .where(eq(precisionCarePlans.id, id));
+}
+
+// ============ Safety Reviews ============
+
+export async function getSafetyReviewByCarePlan(carePlanId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(safetyReviews)
+    .where(eq(safetyReviews.carePlanId, carePlanId))
+    .orderBy(desc(safetyReviews.createdAt))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createSafetyReview(review: InsertSafetyReview) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(safetyReviews).values(review) as any;
+  return Number(result.insertId);
+}
+
+export async function updateSafetyReview(id: number, updates: Partial<InsertSafetyReview>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(safetyReviews).set(updates).where(eq(safetyReviews.id, id));
+}
+
+// ============ Clinical Outcomes ============
+
+export async function getOutcomesByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(clinicalOutcomes)
+    .where(eq(clinicalOutcomes.patientId, patientId))
+    .orderBy(desc(clinicalOutcomes.outcomeDate));
+}
+
+export async function getOutcomesByCarePlan(carePlanId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(clinicalOutcomes)
+    .where(eq(clinicalOutcomes.carePlanId, carePlanId))
+    .orderBy(desc(clinicalOutcomes.outcomeDate));
+}
+
+export async function createClinicalOutcome(outcome: InsertClinicalOutcome) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(clinicalOutcomes).values(outcome) as any;
+  return Number(result.insertId);
+}
+
+export async function updateClinicalOutcome(id: number, updates: Partial<InsertClinicalOutcome>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(clinicalOutcomes).set(updates).where(eq(clinicalOutcomes.id, id));
+}
+
+// ============ Analytics & Dashboard ============
+
+export async function getPatientStats(physicianId?: number) {
+  const db = await getDb();
+  if (!db) return { total: 0, active: 0, inactive: 0 };
+
+  const baseQuery = physicianId 
+    ? db.select().from(patients).where(eq(patients.assignedPhysicianId, physicianId))
+    : db.select().from(patients);
+
+  const allPatients = await baseQuery;
+  
+  return {
+    total: allPatients.length,
+    active: allPatients.filter(p => p.status === 'active').length,
+    inactive: allPatients.filter(p => p.status === 'inactive').length,
+    discharged: allPatients.filter(p => p.status === 'discharged').length,
+  };
+}

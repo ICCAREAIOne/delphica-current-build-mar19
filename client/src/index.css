@@ -43,6 +43,14 @@
 }
 
 :root {
+  /* Clinical status colors */
+  --success: oklch(0.65 0.15 145);
+  --success-foreground: oklch(1 0 0);
+  --warning: oklch(0.75 0.15 85);
+  --warning-foreground: oklch(0.2 0 0);
+  --info: oklch(0.65 0.15 230);
+  --info-foreground: oklch(1 0 0);
+  
   --primary: var(--color-blue-700);
   --primary-foreground: var(--color-blue-50);
   --sidebar-primary: var(--color-blue-600);
@@ -158,6 +166,53 @@
   .flex {
     min-height: 0;
     min-width: 0;
+  }
+
+  /* Clinical design utilities */
+  .clinical-label {
+    @apply text-sm font-medium text-muted-foreground uppercase tracking-wide;
+  }
+  
+  .clinical-value {
+    @apply text-base font-medium text-foreground;
+  }
+  
+  /* Status indicators */
+  .status-active {
+    @apply bg-green-50 text-green-700 border border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800;
+  }
+  
+  .status-inactive {
+    @apply bg-muted text-muted-foreground border border-border;
+  }
+  
+  .status-critical {
+    @apply bg-red-50 text-red-700 border border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800;
+  }
+  
+  .status-warning {
+    @apply bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800;
+  }
+  
+  /* Framework component indicators */
+  .framework-dao {
+    @apply border-l-4 border-l-blue-500;
+  }
+  
+  .framework-delphi {
+    @apply border-l-4 border-l-purple-500;
+  }
+  
+  .framework-causal {
+    @apply border-l-4 border-l-cyan-500;
+  }
+  
+  .framework-precision {
+    @apply border-l-4 border-l-green-500;
+  }
+  
+  .framework-safety {
+    @apply border-l-4 border-l-red-500;
   }
 
   @media (min-width: 640px) {

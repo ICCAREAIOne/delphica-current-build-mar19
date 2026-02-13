@@ -1,28 +1,638 @@
+import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import * as db from "./db";
+import * as aiService from "./aiService";
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+  
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  // ============ Patient Management ============
+  patients: router({
+    list: protectedProcedure
+      .input(z.object({ physicianId: z.number().optional() }).optional())
+      .query(async ({ input }) => {
+        return await db.getAllPatients(input?.physicianId);
+      }),
+
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getPatientById(input.id);
+      }),
+
+    search: protectedProcedure
+      .input(z.object({ query: z.string() }))
+      .query(async ({ input }) => {
+        return await db.searchPatients(input.query);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        mrn: z.string(),
+        firstName: z.string(),
+        lastName: z.string(),
+        dateOfBirth: z.date(),
+        gender: z.enum(["male", "female", "other", "unknown"]),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+        address: z.string().optional(),
+        allergies: z.array(z.string()).optional(),
+        chronicConditions: z.array(z.string()).optional(),
+        currentMedications: z.array(z.string()).optional(),
+        assignedPhysicianId: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const id = await db.createPatient(input);
+        return { id, success: true };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        updates: z.object({
+          firstName: z.string().optional(),
+          lastName: z.string().optional(),
+          email: z.string().email().optional(),
+          phone: z.string().optional(),
+          address: z.string().optional(),
+          allergies: z.array(z.string()).optional(),
+          chronicConditions: z.array(z.string()).optional(),
+          currentMedications: z.array(z.string()).optional(),
+          status: z.enum(["active", "inactive", "discharged"]).optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updatePatient(input.id, input.updates);
+        return { success: true };
+      }),
+
+    stats: protectedProcedure
+      .input(z.object({ physicianId: z.number().optional() }).optional())
+      .query(async ({ input }) => {
+        return await db.getPatientStats(input?.physicianId);
+      }),
+  }),
+
+  // ============ DAO Protocol ============
+  dao: router({
+    listByPatient: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getDAOEntriesByPatient(input.patientId);
+      }),
+
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getDAOEntryById(input.id);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        chiefComplaint: z.string(),
+        symptoms: z.array(z.string()),
+        vitalSigns: z.object({
+          temperature: z.number().optional(),
+          bloodPressure: z.string().optional(),
+          heartRate: z.number().optional(),
+          respiratoryRate: z.number().optional(),
+          oxygenSaturation: z.number().optional(),
+        }).optional(),
+        physicalExamFindings: z.string().optional(),
+        labResults: z.array(z.object({
+          testName: z.string(),
+          value: z.string(),
+          unit: z.string(),
+          normalRange: z.string(),
+          date: z.string(),
+        })).optional(),
+        imagingResults: z.array(z.object({
+          type: z.string(),
+          findings: z.string(),
+          date: z.string(),
+        })).optional(),
+        diagnosis: z.string(),
+        differentialDiagnosis: z.array(z.string()).optional(),
+        treatmentPlan: z.string(),
+        status: z.enum(["draft", "completed", "revised"]).default("draft"),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const id = await db.createDAOEntry({
+          ...input,
+          physicianId: ctx.user.id,
+        });
+        return { id, success: true };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        updates: z.object({
+          chiefComplaint: z.string().optional(),
+          symptoms: z.array(z.string()).optional(),
+          vitalSigns: z.object({
+            temperature: z.number().optional(),
+            bloodPressure: z.string().optional(),
+            heartRate: z.number().optional(),
+            respiratoryRate: z.number().optional(),
+            oxygenSaturation: z.number().optional(),
+          }).optional(),
+          physicalExamFindings: z.string().optional(),
+          diagnosis: z.string().optional(),
+          treatmentPlan: z.string().optional(),
+          status: z.enum(["draft", "completed", "revised"]).optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateDAOEntry(input.id, input.updates);
+        return { success: true };
+      }),
+  }),
+
+  // ============ Delphi Simulator ============
+  delphi: router({
+    listByPatient: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getDelphiSimulationsByPatient(input.patientId);
+      }),
+
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getDelphiSimulationById(input.id);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        daoEntryId: z.number().optional(),
+        scenarioDescription: z.string(),
+        treatmentOptions: z.array(z.object({
+          option: z.string(),
+          description: z.string(),
+          predictedOutcome: z.string(),
+          confidence: z.number(),
+          risks: z.array(z.string()),
+          benefits: z.array(z.string()),
+        })),
+        aiAnalysis: z.string(),
+        conversationHistory: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string(),
+          timestamp: z.number(),
+        })).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const id = await db.createDelphiSimulation({
+          ...input,
+          physicianId: ctx.user.id,
+        });
+        return { id, success: true };
+      }),
+
+    updateSelection: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        selectedOption: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateDelphiSimulation(input.id, {
+          selectedOption: input.selectedOption,
+        });
+        return { success: true };
+      }),
+  }),
+
+  // ============ Causal Brain Insights ============
+  causal: router({
+    listByPatient: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getCausalInsightsByPatient(input.patientId);
+      }),
+
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getCausalInsightById(input.id);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        daoEntryId: z.number().optional(),
+        insightType: z.enum(["risk_prediction", "treatment_efficacy", "pattern_analysis", "causal_relationship"]),
+        title: z.string(),
+        description: z.string(),
+        causalFactors: z.array(z.object({
+          factor: z.string(),
+          impact: z.string(),
+          confidence: z.number(),
+        })),
+        evidenceSources: z.array(z.object({
+          source: z.string(),
+          citation: z.string(),
+          relevance: z.number(),
+        })).optional(),
+        recommendations: z.array(z.string()),
+        confidenceScore: z.number().min(0).max(100),
+      }))
+      .mutation(async ({ input }) => {
+        const id = await db.createCausalInsight(input);
+        return { id, success: true };
+      }),
+
+    markReviewed: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.markInsightReviewed(input.id, new Date());
+        return { success: true };
+      }),
+  }),
+
+  // ============ Precision Care Plans ============
+  carePlans: router({
+    listByPatient: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getCarePlansByPatient(input.patientId);
+      }),
+
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getCarePlanById(input.id);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        daoEntryId: z.number().optional(),
+        delphiSimulationId: z.number().optional(),
+        planTitle: z.string(),
+        diagnosis: z.string(),
+        goals: z.array(z.string()),
+        interventions: z.array(z.object({
+          intervention: z.string(),
+          frequency: z.string(),
+          duration: z.string(),
+          rationale: z.string(),
+        })),
+        medications: z.array(z.object({
+          name: z.string(),
+          dosage: z.string(),
+          frequency: z.string(),
+          duration: z.string(),
+          purpose: z.string(),
+        })).optional(),
+        lifestyle: z.array(z.object({
+          recommendation: z.string(),
+          rationale: z.string(),
+        })).optional(),
+        followUp: z.array(z.object({
+          action: z.string(),
+          timeframe: z.string(),
+        })),
+        aiRationale: z.string(),
+        status: z.enum(["draft", "pending_review", "approved", "active", "completed", "revised"]).default("draft"),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const id = await db.createCarePlan({
+          ...input,
+          physicianId: ctx.user.id,
+        });
+        return { id, success: true };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        updates: z.object({
+          planTitle: z.string().optional(),
+          goals: z.array(z.string()).optional(),
+          interventions: z.array(z.object({
+            intervention: z.string(),
+            frequency: z.string(),
+            duration: z.string(),
+            rationale: z.string(),
+          })).optional(),
+          status: z.enum(["draft", "pending_review", "approved", "active", "completed", "revised"]).optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateCarePlan(input.id, input.updates);
+        return { success: true };
+      }),
+
+    approve: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.approveCarePlan(input.id);
+        return { success: true };
+      }),
+  }),
+
+  // ============ Safety Reviews (Digital Review Board) ============
+  safety: router({
+    getByCarePlan: protectedProcedure
+      .input(z.object({ carePlanId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getSafetyReviewByCarePlan(input.carePlanId);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        carePlanId: z.number().optional(),
+        daoEntryId: z.number().optional(),
+        reviewType: z.enum(["automated", "physician_override", "compliance_check"]),
+        safetyAlerts: z.array(z.object({
+          severity: z.enum(["critical", "warning", "info"]),
+          category: z.string(),
+          message: z.string(),
+          recommendation: z.string(),
+        })).optional(),
+        complianceChecks: z.array(z.object({
+          guideline: z.string(),
+          status: z.enum(["pass", "fail", "warning"]),
+          details: z.string(),
+        })).optional(),
+        overallStatus: z.enum(["approved", "flagged", "rejected"]),
+        reviewerNotes: z.string().optional(),
+        overrideJustification: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const id = await db.createSafetyReview({
+          ...input,
+          reviewedById: ctx.user.id,
+        });
+        return { id, success: true };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        updates: z.object({
+          overallStatus: z.enum(["approved", "flagged", "rejected"]).optional(),
+          reviewerNotes: z.string().optional(),
+          overrideJustification: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateSafetyReview(input.id, input.updates);
+        return { success: true };
+      }),
+  }),
+
+  // ============ AI-Powered Features ============
+  ai: router({    
+    delphiSimulation: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        daoEntryId: z.number().optional(),
+        scenarioDescription: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Get patient data
+        const patient = await db.getPatientById(input.patientId);
+        if (!patient) throw new Error("Patient not found");
+
+        // Get DAO entry if provided
+        let diagnosis = "";
+        let symptoms: string[] = [];
+        if (input.daoEntryId) {
+          const daoEntry = await db.getDAOEntryById(input.daoEntryId);
+          if (daoEntry) {
+            diagnosis = daoEntry.diagnosis;
+            symptoms = daoEntry.symptoms as string[];
+          }
+        }
+
+        // Calculate age
+        const age = Math.floor((Date.now() - patient.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+        // Run Delphi simulation
+        const result = await aiService.runDelphiSimulation({
+          patientContext: {
+            age,
+            gender: patient.gender,
+            chiefComplaint: symptoms[0] || "General assessment",
+            symptoms,
+            chronicConditions: patient.chronicConditions as string[] || [],
+            currentMedications: patient.currentMedications as string[] || [],
+          },
+          diagnosis,
+          scenarioDescription: input.scenarioDescription,
+        });
+
+        // Save simulation to database
+        const simulationId = await db.createDelphiSimulation({
+          patientId: input.patientId,
+          physicianId: ctx.user.id,
+          daoEntryId: input.daoEntryId,
+          scenarioDescription: input.scenarioDescription,
+          treatmentOptions: result.treatmentOptions,
+          aiAnalysis: result.analysis,
+        });
+
+        return { id: simulationId, ...result };
+      }),
+
+    generateCausalInsight: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        daoEntryId: z.number().optional(),
+        insightType: z.enum(["risk_prediction", "treatment_efficacy", "pattern_analysis", "causal_relationship"]),
+      }))
+      .mutation(async ({ input }) => {
+        // Get patient data
+        const patient = await db.getPatientById(input.patientId);
+        if (!patient) throw new Error("Patient not found");
+
+        // Get DAO entry if provided
+        let diagnosis = "";
+        let symptoms: string[] = [];
+        if (input.daoEntryId) {
+          const daoEntry = await db.getDAOEntryById(input.daoEntryId);
+          if (daoEntry) {
+            diagnosis = daoEntry.diagnosis;
+            symptoms = daoEntry.symptoms as string[];
+          }
+        }
+
+        // Calculate age
+        const age = Math.floor((Date.now() - patient.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+        // Generate causal insight
+        const result = await aiService.generateCausalInsight({
+          patientData: {
+            age,
+            gender: patient.gender,
+            chronicConditions: patient.chronicConditions as string[] || [],
+            currentMedications: patient.currentMedications as string[] || [],
+          },
+          clinicalData: {
+            diagnosis,
+            symptoms,
+          },
+          insightType: input.insightType,
+        });
+
+        // Save insight to database
+        const insightId = await db.createCausalInsight({
+          patientId: input.patientId,
+          daoEntryId: input.daoEntryId,
+          insightType: input.insightType,
+          title: result.title,
+          description: result.description,
+          causalFactors: result.causalFactors,
+          evidenceSources: result.evidenceSources,
+          recommendations: result.recommendations,
+          confidenceScore: result.confidenceScore,
+        });
+
+        return { id: insightId, ...result };
+      }),
+
+    generateCarePlan: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        daoEntryId: z.number().optional(),
+        delphiSimulationId: z.number().optional(),
+        diagnosis: z.string(),
+        treatmentGoals: z.array(z.string()),
+        selectedTreatmentOption: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Get patient data
+        const patient = await db.getPatientById(input.patientId);
+        if (!patient) throw new Error("Patient not found");
+
+        // Calculate age
+        const age = Math.floor((Date.now() - patient.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+        // Get causal insights for this patient
+        const insights = await db.getCausalInsightsByPatient(input.patientId);
+        const causalInsights = insights.slice(0, 3).map(i => `${i.title}: ${i.description}`);
+
+        // Generate care plan
+        const result = await aiService.generatePrecisionCarePlan({
+          patientData: {
+            age,
+            gender: patient.gender,
+            chronicConditions: patient.chronicConditions as string[] || [],
+            allergies: patient.allergies as string[] || [],
+          },
+          diagnosis: input.diagnosis,
+          treatmentGoals: input.treatmentGoals,
+          selectedTreatmentOption: input.selectedTreatmentOption,
+          causalInsights,
+        });
+
+        // Save care plan to database
+        const carePlanId = await db.createCarePlan({
+          patientId: input.patientId,
+          physicianId: ctx.user.id,
+          daoEntryId: input.daoEntryId,
+          delphiSimulationId: input.delphiSimulationId,
+          planTitle: result.planTitle,
+          diagnosis: input.diagnosis,
+          goals: result.goals,
+          interventions: result.interventions,
+          medications: result.medications,
+          lifestyle: result.lifestyle,
+          followUp: result.followUp,
+          aiRationale: result.aiRationale,
+          status: "draft",
+        });
+
+        // Automatically run safety review
+        const safetyResult = await aiService.performSafetyReview({
+          patientData: {
+            age,
+            allergies: patient.allergies as string[] || [],
+            chronicConditions: patient.chronicConditions as string[] || [],
+            currentMedications: patient.currentMedications as string[] || [],
+          },
+          carePlan: {
+            diagnosis: input.diagnosis,
+            medications: result.medications,
+            interventions: result.interventions,
+          },
+        });
+
+        // Save safety review
+        await db.createSafetyReview({
+          carePlanId,
+          reviewType: "automated",
+          safetyAlerts: safetyResult.safetyAlerts,
+          complianceChecks: safetyResult.complianceChecks,
+          overallStatus: safetyResult.overallStatus,
+          reviewedById: ctx.user.id,
+        });
+
+        return { id: carePlanId, ...result, safetyReview: safetyResult };
+      }),
+  }),
+
+  // ============ Clinical Outcomes (Marketplace Feedback) ============
+  outcomes: router({
+    listByPatient: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getOutcomesByPatient(input.patientId);
+      }),
+
+    listByCarePlan: protectedProcedure
+      .input(z.object({ carePlanId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getOutcomesByCarePlan(input.carePlanId);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        carePlanId: z.number().optional(),
+        daoEntryId: z.number().optional(),
+        outcomeType: z.enum(["treatment_success", "partial_success", "no_improvement", "adverse_event", "followup"]),
+        description: z.string(),
+        metrics: z.array(z.object({
+          metric: z.string(),
+          baseline: z.string(),
+          current: z.string(),
+          improvement: z.string(),
+        })).optional(),
+        patientSatisfaction: z.number().min(1).max(10).optional(),
+        adverseEvents: z.array(z.object({
+          event: z.string(),
+          severity: z.string(),
+          resolution: z.string(),
+        })).optional(),
+        lessonsLearned: z.string().optional(),
+        feedbackForAI: z.string().optional(),
+        outcomeDate: z.date(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const id = await db.createClinicalOutcome({
+          ...input,
+          documentedById: ctx.user.id,
+        });
+        return { id, success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
