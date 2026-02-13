@@ -62,8 +62,14 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <Link href="/demo">
+                <Button variant="default" className="bg-gradient-to-r from-primary to-blue-600">
+                  <Brain className="h-4 w-4 mr-2" />
+                  Try Demo
+                </Button>
+              </Link>
               <Link href="/patients/new">
-                <Button>
+                <Button variant="outline">
                   <Plus className="h-4 w-4 mr-2" />
                   New Patient
                 </Button>

@@ -140,3 +140,20 @@
 - [ ] Add export functionality for reports
 - [ ] Write unit tests for QA services
 - [ ] Test dashboard with sample data
+
+
+## Interactive Coding Demo Page
+- [x] Design clinical note input form with SOAP note fields
+- [x] Create real-time analysis results display layout
+- [x] Implement ICD-10 code suggestions with confidence scores
+- [x] Implement CPT code suggestions with descriptions
+- [x] Add quality metrics visualization (completeness, specificity, clarity)
+- [x] Display coding accuracy analysis with potential errors
+- [x] Show reimbursement optimization opportunities
+- [x] Add prioritized improvement suggestions panel
+- [x] Implement loading states and progress indicators
+- [x] Add sample clinical notes for quick testing
+- [x] Create tRPC mutation for complete analysis pipeline
+- [x] Add error handling and validation
+- [ ] Test with various clinical scenarios
+- [ ] Add export/save analysis results functionality
