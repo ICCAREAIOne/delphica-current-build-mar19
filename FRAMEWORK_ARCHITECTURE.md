@@ -23,7 +23,7 @@ The **Causal Brain** serves as the central processing unit that:
 - Patient-initiated symptom reporting
 - Electronic health record integration
 
-**Output**: Standardized clinical data → **Causal Brain**
+**Output**: Clinical documentation → **Semantic Processor**
 
 **Key Features**:
 - Structured data entry forms
@@ -33,11 +33,53 @@ The **Causal Brain** serves as the central processing unit that:
 
 ---
 
-### 2. **Causal Brain** (Central Intelligence Hub) ⭐
+### 2. **Semantic Processor** (Medical Coding & Terminology Bridge) 🔗
+**Function**: Converts clinical documentation into standardized coded data for AI analysis
+
+**Input**: Clinical notes, diagnoses, procedures from **DAO Protocol**
+
+**Output**: Structured, coded data → **Causal Brain**
+
+**Core Functions**:
+1. **ICD-10 Coding**: Automatically assigns diagnosis codes from clinical documentation
+2. **CPT Coding**: Identifies and codes procedures, interventions, and services
+3. **Medical Terminology Standardization**: Maps clinical terms to SNOMED CT, LOINC, RxNorm
+4. **Natural Language Processing**: Extracts clinical entities from free-text notes
+5. **Code Validation**: Ensures coding accuracy and compliance with guidelines
+6. **Billing Support**: Generates documentation for insurance authorization
+
+**Key Features**:
+- Real-time coding suggestions during documentation
+- Multi-terminology support (ICD-10, CPT, SNOMED, LOINC, RxNorm)
+- AI-powered clinical entity extraction
+- Code hierarchy and relationship mapping
+- Confidence scoring for suggested codes
+- Compliance checking against coding guidelines
+- Audit trail for all coding decisions
+
+**Workflow**:
+1. Physician documents patient encounter in DAO Protocol
+2. Semantic Processor analyzes clinical text in real-time
+3. Suggests relevant ICD-10 diagnosis codes
+4. Suggests CPT procedure codes for interventions
+5. Physician reviews and approves/modifies codes
+6. Structured, coded data flows to Causal Brain
+7. Also generates billing documentation for revenue cycle
+
+**Why It's Critical**:
+- **Data Quality**: Ensures Causal Brain receives standardized, machine-readable data
+- **Interoperability**: Enables data exchange with other systems using standard terminologies
+- **Revenue Integrity**: Accurate coding supports proper reimbursement
+- **Regulatory Compliance**: Meets documentation requirements for quality reporting
+- **Research Enablement**: Coded data supports population health analytics
+
+---
+
+### 3. **Causal Brain** (Central Intelligence Hub) ⭐
 **Function**: Central processing unit for causal analysis, policy learning, and workflow orchestration
 
 **Bidirectional Interactions**:
-- **Receives from DAO Protocol**: Patient clinical data
+- **Receives from Semantic Processor**: Structured, coded patient clinical data
 - **↔ Delphi Simulator**: Two-way communication for scenario refinement
   - Sends patient context and clinical questions to simulator
   - Receives treatment scenarios and outcomes
@@ -61,7 +103,7 @@ The **Causal Brain** serves as the central processing unit that:
 
 ---
 
-### 3. **Delphi Simulator** (Scenario Exploration Engine)
+### 4. **Delphi Simulator** (Scenario Exploration Engine)
 **Function**: AI-powered generative role-play for treatment scenario exploration
 
 **Bidirectional Communication with Causal Brain**:
@@ -85,7 +127,7 @@ The **Causal Brain** serves as the central processing unit that:
 
 ---
 
-### 4. **Precision Care** (Optimized Output Layer)
+### 5. **Precision Care** (Optimized Output Layer)
 **Function**: Delivers personalized, evidence-based treatment plans
 
 **Input**: Optimized recommendations from **Causal Brain**
@@ -157,7 +199,15 @@ The **Causal Brain** serves as the central processing unit that:
 Patient Data Entry (Physician or Patient)
            ↓
     [DAO Protocol]
+    • Clinical Documentation
+    • Free-text Notes
            ↓
+    [Semantic Processor] 🔗
+    • ICD-10 Coding
+    • CPT Coding
+    • Terminology Standardization
+    • Entity Extraction
+           ↓ (Structured, Coded Data)
     ═══════════════════════════════════════
     ║      CAUSAL BRAIN (Hub)             ║
     ║  • Causal Analysis                  ║

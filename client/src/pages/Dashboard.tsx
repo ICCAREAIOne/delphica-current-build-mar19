@@ -91,8 +91,8 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <img 
-              src="https://private-us-east-1.manuscdn.com/sessionFile/9CepucBjaJXpBZhdWXIIeQ/sandbox/Uqmn1IOjlPXqwawKgWHKy1-img-1_1770984646000_na1fn_ZnJhbWV3b3JrLXYy.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvOUNlcHVjQmphSlhwQlpoZFdYSUllUS9zYW5kYm94L1VxbW4xSU9qbFBYcXdhd0tnV0hLeTEtaW1nLTFfMTc3MDk4NDY0NjAwMF9uYTFmbl9abkpoYldWM2IzSnJMWFl5LnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSx3XzE5MjAsaF8xOTIwL2Zvcm1hdCx3ZWJwL3F1YWxpdHkscV84MCIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc5ODc2MTYwMH19fV19&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=ZxcpIv7J8SM5UCDIED4lbZx8UuHgv4m3v9YRLH5bNoBctzuhDIB-qXm2bGLVZ0CCYuefWz7LuJ-ZmngpCuMZdKdBt~sDhsZ7VhX59qPBjnXRtfJn9XREp4RR4vubxxuPEafg0ajVHuQXsSm119MD70cx2Tt02K5mi-4F3Wz0HeVrEJdjj4Y5Ixy866WrbHzp462JRa3pBMApK39jlJTJnOFqqX~TDUj4MCnYd-OB-~YX4tMsIhRB9iBJfQRvazlJHfqDAqb3xuxFSqLLf~a~7X~6bQ5FjCg3jL-eaC~TDhNWYWAgWGSEtS4GT~VCxDf~11Hv4GhRERHkz~sCnc3JbA__" 
-              alt="Clinical Workflow Framework" 
+              src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663160662498/EKeXghyMCKQhzZaT.png" 
+              alt="Clinical Workflow Framework with Semantic Processor" 
               className="w-full max-w-4xl mx-auto rounded-lg shadow-lg"
             />
             <div className="mt-6 p-4 bg-white/50 dark:bg-black/20 rounded-lg">
@@ -175,6 +175,30 @@ export default function Dashboard() {
               </p>
               <Button variant="outline" size="sm" className="w-full">
                 Start Assessment
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="framework-semantic hover:shadow-lg transition-shadow cursor-pointer border-2 border-amber-500/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                🔗 Semantic Processor
+              </CardTitle>
+              <CardDescription>Medical Coding Bridge</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Converts clinical documentation into standardized coded data (ICD-10, CPT, SNOMED) for AI analysis
+              </p>
+              <div className="flex flex-wrap gap-1 mb-4">
+                <Badge variant="secondary" className="text-xs">ICD-10</Badge>
+                <Badge variant="secondary" className="text-xs">CPT</Badge>
+                <Badge variant="secondary" className="text-xs">SNOMED</Badge>
+                <Badge variant="secondary" className="text-xs">LOINC</Badge>
+              </div>
+              <Button variant="outline" size="sm" className="w-full">
+                Process Note
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardContent>

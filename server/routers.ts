@@ -5,6 +5,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import * as aiService from "./aiService";
+import * as semanticProcessor from "./semanticProcessor";
 
 export const appRouter = router({
   system: systemRouter,
@@ -16,6 +17,59 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+  }),
+
+  // ============ Semantic Processor (Medical Coding Bridge) ============
+  semanticProcessor: router({
+    processClinicalNote: protectedProcedure
+      .input(z.object({
+        chiefComplaint: z.string(),
+        historyOfPresentIllness: z.string().optional(),
+        physicalExam: z.string().optional(),
+        assessment: z.string().optional(),
+        plan: z.string().optional(),
+        procedures: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const result = await semanticProcessor.processClinicalNote(input);
+        return result;
+      }),
+
+    generateICD10: protectedProcedure
+      .input(z.object({
+        chiefComplaint: z.string(),
+        historyOfPresentIllness: z.string().optional(),
+        physicalExam: z.string().optional(),
+        assessment: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const codes = await semanticProcessor.generateICD10Codes(input);
+        return codes;
+      }),
+
+    generateCPT: protectedProcedure
+      .input(z.object({
+        chiefComplaint: z.string(),
+        procedures: z.array(z.string()).optional(),
+        plan: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const codes = await semanticProcessor.generateCPTCodes(input);
+        return codes;
+      }),
+
+    extractEntities: protectedProcedure
+      .input(z.object({
+        chiefComplaint: z.string(),
+        historyOfPresentIllness: z.string().optional(),
+        physicalExam: z.string().optional(),
+        assessment: z.string().optional(),
+        plan: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const entities = await semanticProcessor.extractClinicalEntities(input);
+        return entities;
+      }),
   }),
 
   // ============ Patient Management ============

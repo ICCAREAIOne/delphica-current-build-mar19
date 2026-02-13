@@ -107,3 +107,18 @@
 - [x] Update dashboard UI to reflect new framework visualization
 - [x] Update component descriptions to match new workflow
 - [ ] Test complete bidirectional workflow
+
+
+## Semantic Processor Integration
+- [x] Design semantic processor component architecture
+- [x] Define placement in framework diagram (between DAO Protocol and Causal Brain)
+- [x] Create new framework diagram with semantic processor
+- [x] Update FRAMEWORK_ARCHITECTURE.md with semantic processor documentation
+- [x] Implement semantic processor AI service for ICD-10 coding
+- [x] Implement semantic processor AI service for CPT coding
+- [x] Add medical terminology standardization
+- [x] Add tRPC procedures for semantic processing
+- [x] Update dashboard UI with semantic processor card
+- [ ] Create database schema for coded data (if needed for persistence)
+- [ ] Test semantic processor with sample clinical notes
+- [ ] Validate coding accuracy
