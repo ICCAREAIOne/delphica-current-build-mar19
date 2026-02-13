@@ -1,4 +1,4 @@
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, 
@@ -16,7 +16,11 @@ import {
   safetyReviews,
   InsertSafetyReview,
   clinicalOutcomes,
-  InsertClinicalOutcome
+  InsertClinicalOutcome,
+  codingQualityMetrics,
+  InsertCodingQualityMetric,
+  physicianPerformanceAnalytics,
+  InsertPhysicianPerformanceAnalytic
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -392,4 +396,82 @@ export async function getPatientStats(physicianId?: number) {
     inactive: allPatients.filter(p => p.status === 'inactive').length,
     discharged: allPatients.filter(p => p.status === 'discharged').length,
   };
+}
+
+
+// ============ Quality Assurance Metrics ============
+
+export async function saveCodingQualityMetric(metric: InsertCodingQualityMetric) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(codingQualityMetrics).values(metric);
+  return { id: Number(result[0].insertId) };
+}
+
+export async function getPhysicianQualityMetrics(physicianId: number, limit: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(codingQualityMetrics)
+    .where(eq(codingQualityMetrics.physicianId, physicianId))
+    .orderBy(desc(codingQualityMetrics.createdAt))
+    .limit(limit);
+}
+
+export async function getQualityMetricsByDateRange(
+  physicianId: number,
+  startDate: Date,
+  endDate: Date
+) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(codingQualityMetrics)
+    .where(
+      and(
+        eq(codingQualityMetrics.physicianId, physicianId),
+        gte(codingQualityMetrics.createdAt, startDate),
+        lte(codingQualityMetrics.createdAt, endDate)
+      )
+    )
+    .orderBy(desc(codingQualityMetrics.createdAt));
+}
+
+export async function savePhysicianPerformanceAnalytics(analytics: InsertPhysicianPerformanceAnalytic) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(physicianPerformanceAnalytics).values(analytics);
+  return { id: Number(result[0].insertId) };
+}
+
+export async function getLatestPhysicianPerformance(physicianId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const results = await db
+    .select()
+    .from(physicianPerformanceAnalytics)
+    .where(eq(physicianPerformanceAnalytics.physicianId, physicianId))
+    .orderBy(desc(physicianPerformanceAnalytics.createdAt))
+    .limit(1);
+  
+  return results.length > 0 ? results[0] : null;
+}
+
+export async function getPhysicianPerformanceHistory(physicianId: number, limit: number = 12) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(physicianPerformanceAnalytics)
+    .where(eq(physicianPerformanceAnalytics.physicianId, physicianId))
+    .orderBy(desc(physicianPerformanceAnalytics.periodEnd))
+    .limit(limit);
 }

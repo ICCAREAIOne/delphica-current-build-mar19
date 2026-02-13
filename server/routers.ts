@@ -6,6 +6,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import * as aiService from "./aiService";
 import * as semanticProcessor from "./semanticProcessor";
+import * as qaAnalytics from "./qaAnalytics";
 
 export const appRouter = router({
   system: systemRouter,
@@ -17,6 +18,54 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+  }),
+
+  // ============ Quality Assurance Dashboard ============
+  qa: router({    
+    analyzeQuality: protectedProcedure
+      .input(z.object({
+        clinicalNote: z.object({
+          chiefComplaint: z.string(),
+          historyOfPresentIllness: z.string().optional(),
+          physicalExam: z.string().optional(),
+          assessment: z.string().optional(),
+          plan: z.string().optional(),
+          procedures: z.array(z.string()).optional(),
+        }),
+        codingResult: z.object({
+          icd10Codes: z.array(z.any()),
+          cptCodes: z.array(z.any()),
+          snomedConcepts: z.array(z.any()),
+          extractedEntities: z.any(),
+          codingNotes: z.string(),
+          confidenceScore: z.number(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        const metrics = await qaAnalytics.analyzeQualityMetrics(
+          input.clinicalNote,
+          input.codingResult
+        );
+        return metrics;
+      }),
+
+    getPhysicianMetrics: protectedProcedure
+      .input(z.object({ physicianId: z.number(), limit: z.number().optional() }))
+      .query(async ({ input }) => {
+        return await db.getPhysicianQualityMetrics(input.physicianId, input.limit);
+      }),
+
+    getPerformanceAnalytics: protectedProcedure
+      .input(z.object({ physicianId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getLatestPhysicianPerformance(input.physicianId);
+      }),
+
+    getPerformanceHistory: protectedProcedure
+      .input(z.object({ physicianId: z.number(), limit: z.number().optional() }))
+      .query(async ({ input }) => {
+        return await db.getPhysicianPerformanceHistory(input.physicianId, input.limit);
+      }),
   }),
 
   // ============ Semantic Processor (Medical Coding Bridge) ============

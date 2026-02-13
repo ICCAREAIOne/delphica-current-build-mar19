@@ -197,10 +197,12 @@ export default function Dashboard() {
                 <Badge variant="secondary" className="text-xs">SNOMED</Badge>
                 <Badge variant="secondary" className="text-xs">LOINC</Badge>
               </div>
-              <Button variant="outline" size="sm" className="w-full">
-                Process Note
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+              <Link href="/qa">
+                <Button variant="outline" size="sm" className="w-full">
+                  View QA Dashboard
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 

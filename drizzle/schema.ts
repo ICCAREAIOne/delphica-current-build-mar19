@@ -250,3 +250,102 @@ export const clinicalOutcomes = mysqlTable("clinical_outcomes", {
 
 export type ClinicalOutcome = typeof clinicalOutcomes.$inferSelect;
 export type InsertClinicalOutcome = typeof clinicalOutcomes.$inferInsert;
+
+/**
+ * Coding Quality Metrics - tracks accuracy and quality of medical coding
+ */
+export const codingQualityMetrics = mysqlTable("coding_quality_metrics", {
+  id: int("id").autoincrement().primaryKey(),
+  daoEntryId: int("daoEntryId").notNull().references(() => daoProtocolEntries.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  
+  // ICD-10 Coding Metrics
+  icd10CodesGenerated: int("icd10CodesGenerated").notNull(),
+  icd10CodesAccepted: int("icd10CodesAccepted").notNull(),
+  icd10CodesModified: int("icd10CodesModified").notNull(),
+  icd10CodesRejected: int("icd10CodesRejected").notNull(),
+  icd10AvgConfidence: int("icd10AvgConfidence").notNull(), // 0-100
+  
+  // CPT Coding Metrics
+  cptCodesGenerated: int("cptCodesGenerated").notNull(),
+  cptCodesAccepted: int("cptCodesAccepted").notNull(),
+  cptCodesModified: int("cptCodesModified").notNull(),
+  cptCodesRejected: int("cptCodesRejected").notNull(),
+  cptAvgConfidence: int("cptAvgConfidence").notNull(), // 0-100
+  
+  // Documentation Quality Scores
+  documentationCompletenessScore: int("documentationCompletenessScore").notNull(), // 0-100
+  clinicalSpecificityScore: int("clinicalSpecificityScore").notNull(), // 0-100
+  codingAccuracyScore: int("codingAccuracyScore").notNull(), // 0-100
+  reimbursementOptimizationScore: int("reimbursementOptimizationScore").notNull(), // 0-100
+  overallQualityScore: int("overallQualityScore").notNull(), // 0-100
+  
+  // Improvement Suggestions
+  suggestions: json("suggestions").$type<Array<{
+    category: "documentation" | "coding" | "specificity" | "reimbursement";
+    priority: "high" | "medium" | "low";
+    issue: string;
+    recommendation: string;
+    potentialImpact: string;
+  }>>(),
+  
+  // Processing Metadata
+  processingTimeMs: int("processingTimeMs").notNull(),
+  aiModelVersion: varchar("aiModelVersion", { length: 64 }),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CodingQualityMetric = typeof codingQualityMetrics.$inferSelect;
+export type InsertCodingQualityMetric = typeof codingQualityMetrics.$inferInsert;
+
+/**
+ * Physician Performance Analytics - aggregated metrics per physician
+ */
+export const physicianPerformanceAnalytics = mysqlTable("physician_performance_analytics", {
+  id: int("id").autoincrement().primaryKey(),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  periodStart: timestamp("periodStart").notNull(),
+  periodEnd: timestamp("periodEnd").notNull(),
+  
+  // Volume Metrics
+  totalEncounters: int("totalEncounters").notNull(),
+  totalCodesGenerated: int("totalCodesGenerated").notNull(),
+  totalCodesAccepted: int("totalCodesAccepted").notNull(),
+  
+  // Accuracy Metrics
+  avgCodingAccuracy: int("avgCodingAccuracy").notNull(), // 0-100
+  avgDocumentationQuality: int("avgDocumentationQuality").notNull(), // 0-100
+  avgReimbursementOptimization: int("avgReimbursementOptimization").notNull(), // 0-100
+  
+  // Trend Analysis
+  accuracyTrend: mysqlEnum("accuracyTrend", ["improving", "stable", "declining"]).notNull(),
+  qualityTrend: mysqlEnum("qualityTrend", ["improving", "stable", "declining"]).notNull(),
+  
+  // Common Patterns
+  commonCodingGaps: json("commonCodingGaps").$type<Array<{
+    gap: string;
+    frequency: number;
+    recommendation: string;
+  }>>(),
+  strengthAreas: json("strengthAreas").$type<Array<{
+    area: string;
+    score: number;
+  }>>(),
+  improvementAreas: json("improvementAreas").$type<Array<{
+    area: string;
+    currentScore: number;
+    targetScore: number;
+    actionItems: string[];
+  }>>(),
+  
+  // Financial Impact
+  estimatedReimbursementImpact: int("estimatedReimbursementImpact"), // in cents
+  potentialReimbursementGain: int("potentialReimbursementGain"), // in cents
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PhysicianPerformanceAnalytic = typeof physicianPerformanceAnalytics.$inferSelect;
+export type InsertPhysicianPerformanceAnalytic = typeof physicianPerformanceAnalytics.$inferInsert;
