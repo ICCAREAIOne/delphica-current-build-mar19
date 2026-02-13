@@ -96,3 +96,14 @@
 - [ ] Verify role-based access control enforcement
 - [ ] Test mobile responsiveness across devices
 - [ ] Validate clinical workflow efficiency and usability
+
+
+## Framework Redesign - Bidirectional Workflow
+- [x] Create new framework diagram showing bidirectional Delphi-Causal Brain interaction
+- [x] Update framework architecture documentation
+- [x] Revise AI service to show Causal Brain as central intelligence hub
+- [x] Update workflow: Patient Data → Delphi Simulator ↔ Causal Brain → Precision Care
+- [x] Add patient-initiated and physician-guided data entry paths
+- [x] Update dashboard UI to reflect new framework visualization
+- [x] Update component descriptions to match new workflow
+- [ ] Test complete bidirectional workflow

@@ -83,18 +83,24 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="h-6 w-6 text-primary" />
-              Clinical Decision Support Framework
+              Clinical Decision Support Framework - Bidirectional Workflow
             </CardTitle>
             <CardDescription>
-              AI-powered workflow integrating DAO Protocol, Delphi Simulator, Causal Brain, Precision Care, and Digital Review Board
+              Causal Brain as central intelligence hub orchestrating bidirectional communication between all components for optimized precision care
             </CardDescription>
           </CardHeader>
           <CardContent>
             <img 
-              src="/framework.png" 
+              src="https://private-us-east-1.manuscdn.com/sessionFile/9CepucBjaJXpBZhdWXIIeQ/sandbox/Uqmn1IOjlPXqwawKgWHKy1-img-1_1770984646000_na1fn_ZnJhbWV3b3JrLXYy.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvOUNlcHVjQmphSlhwQlpoZFdYSUllUS9zYW5kYm94L1VxbW4xSU9qbFBYcXdhd0tnV0hLeTEtaW1nLTFfMTc3MDk4NDY0NjAwMF9uYTFmbl9abkpoYldWM2IzSnJMWFl5LnBuZz94LW9zcy1wcm9jZXNzPWltYWdlL3Jlc2l6ZSx3XzE5MjAsaF8xOTIwL2Zvcm1hdCx3ZWJwL3F1YWxpdHkscV84MCIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc5ODc2MTYwMH19fV19&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=ZxcpIv7J8SM5UCDIED4lbZx8UuHgv4m3v9YRLH5bNoBctzuhDIB-qXm2bGLVZ0CCYuefWz7LuJ-ZmngpCuMZdKdBt~sDhsZ7VhX59qPBjnXRtfJn9XREp4RR4vubxxuPEafg0ajVHuQXsSm119MD70cx2Tt02K5mi-4F3Wz0HeVrEJdjj4Y5Ixy866WrbHzp462JRa3pBMApK39jlJTJnOFqqX~TDUj4MCnYd-OB-~YX4tMsIhRB9iBJfQRvazlJHfqDAqb3xuxFSqLLf~a~7X~6bQ5FjCg3jL-eaC~TDhNWYWAgWGSEtS4GT~VCxDf~11Hv4GhRERHkz~sCnc3JbA__" 
               alt="Clinical Workflow Framework" 
               className="w-full max-w-4xl mx-auto rounded-lg shadow-lg"
             />
+            <div className="mt-6 p-4 bg-white/50 dark:bg-black/20 rounded-lg">
+              <p className="text-sm text-foreground font-medium mb-2">Key Innovation: Bidirectional Causal Brain ↔ Delphi Communication</p>
+              <p className="text-sm text-muted-foreground">
+                The Causal Brain serves as the central intelligence hub, orchestrating iterative refinement with the Delphi Simulator to ensure treatment scenarios are both creative and causally valid before delivering optimized precision care.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -161,11 +167,11 @@ export default function Dashboard() {
                 <FileText className="h-5 w-5" />
                 DAO Protocol
               </CardTitle>
-              <CardDescription>Structured diagnosis & treatment</CardDescription>
+              <CardDescription>Data Entry Layer</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Standardized clinical data entry with comprehensive assessment forms
+                Physician-guided or patient-initiated structured clinical data collection → Feeds Causal Brain
               </p>
               <Button variant="outline" size="sm" className="w-full">
                 Start Assessment
@@ -180,11 +186,11 @@ export default function Dashboard() {
                 <Brain className="h-5 w-5" />
                 Delphi Simulator
               </CardTitle>
-              <CardDescription>AI-powered scenario exploration</CardDescription>
+              <CardDescription>Scenario Exploration Engine</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Explore treatment options with generative AI role-play simulations
+                Bidirectional communication with Causal Brain for iterative treatment scenario refinement
               </p>
               <Button variant="outline" size="sm" className="w-full">
                 Run Simulation
@@ -193,20 +199,20 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="framework-causal hover:shadow-lg transition-shadow cursor-pointer">
+          <Card className="framework-causal hover:shadow-lg transition-shadow cursor-pointer border-2 border-cyan-500">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-cyan-700 dark:text-cyan-400">
                 <Activity className="h-5 w-5" />
-                Causal Brain
+                Causal Brain ⭐
               </CardTitle>
-              <CardDescription>Evidence-based insights</CardDescription>
+              <CardDescription className="font-semibold">Central Intelligence Hub</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Policy learning and causal relationship analysis with citations
+                Orchestrates all workflow: causal analysis, policy learning, bidirectional Delphi communication, and optimization
               </p>
               <Button variant="outline" size="sm" className="w-full">
-                View Insights
+                View Analysis
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardContent>
@@ -218,11 +224,11 @@ export default function Dashboard() {
                 <Target className="h-5 w-5" />
                 Precision Care
               </CardTitle>
-              <CardDescription>Optimized treatment plans</CardDescription>
+              <CardDescription>Optimized Output Layer</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                AI-generated personalized care plans with detailed rationale
+                Receives optimized recommendations from Causal Brain and generates detailed personalized care plans
               </p>
               <Button variant="outline" size="sm" className="w-full">
                 Generate Plan
@@ -254,13 +260,13 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
                 <TrendingUp className="h-5 w-5" />
-                Outcome Tracking
+                Marketplace Entry
               </CardTitle>
-              <CardDescription>Marketplace feedback loop</CardDescription>
+              <CardDescription>Continuous Learning Loop</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Document outcomes and contribute to continuous system learning
+                Tracks real-world outcomes and feeds data back to Causal Brain for continuous model improvement
               </p>
               <Button variant="outline" size="sm" className="w-full">
                 Track Outcomes

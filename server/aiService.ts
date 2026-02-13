@@ -2,10 +2,162 @@ import { invokeLLM } from "./_core/llm";
 
 /**
  * AI Service for Clinical Decision Support
- * Implements AI-powered features for the framework components
+ * Implements the bidirectional framework with Causal Brain as central intelligence hub
  */
 
-// ============ Delphi Simulator ============
+// ============ Causal Brain (Central Intelligence Hub) ============
+
+export interface PatientContext {
+  age: number;
+  gender: string;
+  chiefComplaint: string;
+  symptoms: string[];
+  vitalSigns?: Record<string, any>;
+  chronicConditions?: string[];
+  currentMedications?: string[];
+  allergies?: string[];
+  labResults?: any[];
+}
+
+export interface CausalAnalysisRequest {
+  patientContext: PatientContext;
+  clinicalQuestion: string;
+  dataSource: "physician_guided" | "patient_initiated";
+}
+
+export interface CausalFactor {
+  factor: string;
+  impact: string;
+  confidence: number;
+  evidenceLevel: string;
+}
+
+export interface EvidenceSource {
+  source: string;
+  citation: string;
+  relevance: number;
+  qualityRating: string;
+}
+
+export interface CausalAnalysisResult {
+  analysisId: string;
+  patientSummary: string;
+  causalFactors: CausalFactor[];
+  evidenceSources: EvidenceSource[];
+  clinicalInsights: string[];
+  recommendedSimulationScenarios: string[];
+  confidenceScore: number;
+}
+
+/**
+ * Causal Brain: Central intelligence hub that performs causal analysis
+ * This is the FIRST step - analyzes patient data before engaging Delphi
+ */
+export async function performCausalAnalysis(
+  request: CausalAnalysisRequest
+): Promise<CausalAnalysisResult> {
+  const systemPrompt = `You are the Causal Brain - the central intelligence hub of a clinical decision support system.
+Your role is to perform deep causal analysis of patient data to identify:
+1. Key causal factors affecting the patient's condition
+2. Evidence-based relationships between factors and outcomes
+3. Optimal scenarios to explore through simulation
+4. Clinical insights that guide treatment decisions
+
+You use causal inference, policy learning, and evidence integration to provide the foundation for all downstream decisions.
+Be rigorous, evidence-based, and identify the most clinically relevant causal relationships.`;
+
+  const userPrompt = `Patient Context (${request.dataSource === "physician_guided" ? "Physician-Guided Entry" : "Patient-Initiated Entry"}):
+- Age: ${request.patientContext.age}
+- Gender: ${request.patientContext.gender}
+- Chief Complaint: ${request.patientContext.chiefComplaint}
+- Symptoms: ${request.patientContext.symptoms.join(", ")}
+${request.patientContext.chronicConditions?.length ? `- Chronic Conditions: ${request.patientContext.chronicConditions.join(", ")}` : ""}
+${request.patientContext.currentMedications?.length ? `- Current Medications: ${request.patientContext.currentMedications.join(", ")}` : ""}
+${request.patientContext.allergies?.length ? `- Allergies: ${request.patientContext.allergies.join(", ")}` : ""}
+
+Clinical Question: ${request.clinicalQuestion}
+
+Perform comprehensive causal analysis and recommend scenarios for Delphi Simulator exploration.`;
+
+  const response = await invokeLLM({
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "causal_analysis",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            analysisId: { type: "string", description: "Unique identifier for this analysis" },
+            patientSummary: { type: "string", description: "Concise clinical summary" },
+            causalFactors: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  factor: { type: "string", description: "Causal factor name" },
+                  impact: { type: "string", description: "Description of causal impact" },
+                  confidence: { type: "number", description: "Confidence 0-1" },
+                  evidenceLevel: { type: "string", description: "Evidence quality (high/moderate/low)" },
+                },
+                required: ["factor", "impact", "confidence", "evidenceLevel"],
+                additionalProperties: false,
+              },
+            },
+            evidenceSources: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  source: { type: "string", description: "Source name" },
+                  citation: { type: "string", description: "Citation or reference" },
+                  relevance: { type: "number", description: "Relevance score 0-1" },
+                  qualityRating: { type: "string", description: "Quality rating (A/B/C)" },
+                },
+                required: ["source", "citation", "relevance", "qualityRating"],
+                additionalProperties: false,
+              },
+            },
+            clinicalInsights: {
+              type: "array",
+              items: { type: "string" },
+              description: "Key clinical insights from causal analysis",
+            },
+            recommendedSimulationScenarios: {
+              type: "array",
+              items: { type: "string" },
+              description: "Scenarios to explore with Delphi Simulator",
+            },
+            confidenceScore: { type: "number", description: "Overall confidence 0-100" },
+          },
+          required: [
+            "analysisId",
+            "patientSummary",
+            "causalFactors",
+            "evidenceSources",
+            "clinicalInsights",
+            "recommendedSimulationScenarios",
+            "confidenceScore",
+          ],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content || typeof content !== 'string') {
+    throw new Error("No valid response from Causal Brain");
+  }
+
+  return JSON.parse(content);
+}
+
+// ============ Delphi Simulator (Bidirectional with Causal Brain) ============
 
 export interface TreatmentOption {
   option: string;
@@ -14,50 +166,57 @@ export interface TreatmentOption {
   confidence: number;
   risks: string[];
   benefits: string[];
+  evidenceSupport: string;
 }
 
 export interface DelphiSimulationRequest {
-  patientContext: {
-    age: number;
-    gender: string;
-    chiefComplaint: string;
-    symptoms: string[];
-    vitalSigns?: Record<string, any>;
-    chronicConditions?: string[];
-    currentMedications?: string[];
-  };
-  diagnosis: string;
-  scenarioDescription: string;
+  causalAnalysis: CausalAnalysisResult;
+  scenarioToExplore: string;
+  iterationNumber: number;
+  previousFeedback?: string;
 }
 
+export interface DelphiSimulationResult {
+  simulationId: string;
+  scenarioDescription: string;
+  treatmentOptions: TreatmentOption[];
+  outcomeAnalysis: string;
+  uncertaintyFactors: string[];
+  recommendationsForCausalBrain: string[];
+}
+
+/**
+ * Delphi Simulator: Generates treatment scenarios based on Causal Brain guidance
+ * Receives causal analysis and produces scenarios for validation
+ */
 export async function runDelphiSimulation(
   request: DelphiSimulationRequest
-): Promise<{ analysis: string; treatmentOptions: TreatmentOption[] }> {
-  const systemPrompt = `You are an expert clinical decision support AI assistant specializing in treatment scenario simulation. 
-Your role is to analyze patient cases and generate evidence-based treatment options with detailed risk-benefit analysis.
+): Promise<DelphiSimulationResult> {
+  const systemPrompt = `You are the Delphi Simulator - an AI-powered generative role-play engine for clinical scenario exploration.
+You work in BIDIRECTIONAL communication with the Causal Brain:
+- You RECEIVE: Causal analysis, patient context, and specific scenarios to explore
+- You GENERATE: Multiple treatment options with detailed predictions
+- You PROVIDE: Recommendations back to Causal Brain for validation
 
-Provide responses in a structured format that includes:
-1. Comprehensive clinical analysis
-2. Multiple treatment options (at least 3-4)
-3. For each option: description, predicted outcome, confidence level (0-1), specific risks, and specific benefits
+Your role is to creatively explore treatment possibilities while staying grounded in medical evidence.
+Generate diverse, clinically plausible scenarios with detailed outcome predictions.`;
 
-Base your recommendations on current medical evidence and guidelines.`;
+  const feedbackContext = request.previousFeedback
+    ? `\n\nPrevious Causal Brain Feedback (Iteration ${request.iterationNumber}):\n${request.previousFeedback}\n\nRefine your scenarios based on this feedback.`
+    : "";
 
-  const userPrompt = `Patient Context:
-- Age: ${request.patientContext.age}
-- Gender: ${request.patientContext.gender}
-- Chief Complaint: ${request.patientContext.chiefComplaint}
-- Symptoms: ${request.patientContext.symptoms.join(", ")}
-${request.patientContext.chronicConditions?.length ? `- Chronic Conditions: ${request.patientContext.chronicConditions.join(", ")}` : ""}
-${request.patientContext.currentMedications?.length ? `- Current Medications: ${request.patientContext.currentMedications.join(", ")}` : ""}
+  const userPrompt = `Causal Brain Analysis Summary:
+${request.causalAnalysis.patientSummary}
 
-Diagnosis: ${request.diagnosis}
+Key Causal Factors:
+${request.causalAnalysis.causalFactors.map((f) => `- ${f.factor}: ${f.impact} (Confidence: ${f.confidence})`).join("\n")}
 
-Scenario: ${request.scenarioDescription}
+Clinical Insights:
+${request.causalAnalysis.clinicalInsights.map((i) => `- ${i}`).join("\n")}
 
-Please provide:
-1. A detailed clinical analysis of this scenario
-2. At least 3-4 evidence-based treatment options with complete risk-benefit analysis`;
+Scenario to Explore: ${request.scenarioToExplore}${feedbackContext}
+
+Generate detailed treatment options with outcome predictions for Causal Brain validation.`;
 
   const response = await invokeLLM({
     messages: [
@@ -72,36 +231,53 @@ Please provide:
         schema: {
           type: "object",
           properties: {
-            analysis: {
-              type: "string",
-              description: "Comprehensive clinical analysis of the scenario",
-            },
+            simulationId: { type: "string", description: "Unique simulation identifier" },
+            scenarioDescription: { type: "string", description: "Detailed scenario description" },
             treatmentOptions: {
               type: "array",
               items: {
                 type: "object",
                 properties: {
-                  option: { type: "string", description: "Name of the treatment option" },
-                  description: { type: "string", description: "Detailed description of the treatment" },
-                  predictedOutcome: { type: "string", description: "Expected clinical outcome" },
-                  confidence: { type: "number", description: "Confidence level 0-1" },
+                  option: { type: "string", description: "Treatment option name" },
+                  description: { type: "string", description: "Detailed description" },
+                  predictedOutcome: { type: "string", description: "Expected outcome" },
+                  confidence: { type: "number", description: "Confidence 0-1" },
                   risks: {
                     type: "array",
                     items: { type: "string" },
-                    description: "List of potential risks",
+                    description: "Potential risks",
                   },
                   benefits: {
                     type: "array",
                     items: { type: "string" },
-                    description: "List of expected benefits",
+                    description: "Expected benefits",
                   },
+                  evidenceSupport: { type: "string", description: "Evidence level for this option" },
                 },
-                required: ["option", "description", "predictedOutcome", "confidence", "risks", "benefits"],
+                required: ["option", "description", "predictedOutcome", "confidence", "risks", "benefits", "evidenceSupport"],
                 additionalProperties: false,
               },
             },
+            outcomeAnalysis: { type: "string", description: "Comparative outcome analysis" },
+            uncertaintyFactors: {
+              type: "array",
+              items: { type: "string" },
+              description: "Factors creating uncertainty",
+            },
+            recommendationsForCausalBrain: {
+              type: "array",
+              items: { type: "string" },
+              description: "Recommendations for Causal Brain to consider",
+            },
           },
-          required: ["analysis", "treatmentOptions"],
+          required: [
+            "simulationId",
+            "scenarioDescription",
+            "treatmentOptions",
+            "outcomeAnalysis",
+            "uncertaintyFactors",
+            "recommendationsForCausalBrain",
+          ],
           additionalProperties: false,
         },
       },
@@ -110,82 +286,65 @@ Please provide:
 
   const content = response.choices[0]?.message?.content;
   if (!content || typeof content !== 'string') {
-    throw new Error("No valid response from AI");
+    throw new Error("No valid response from Delphi Simulator");
   }
 
   return JSON.parse(content);
 }
 
-// ============ Causal Brain ============
+// ============ Causal Brain: Validation & Optimization ============
 
-export interface CausalFactor {
-  factor: string;
-  impact: string;
-  confidence: number;
+export interface CausalValidationRequest {
+  causalAnalysis: CausalAnalysisResult;
+  delphiSimulation: DelphiSimulationResult;
 }
 
-export interface EvidenceSource {
-  source: string;
-  citation: string;
-  relevance: number;
+export interface CausalValidationResult {
+  validatedOptions: Array<{
+    option: string;
+    causalValidity: number;
+    evidenceAlignment: number;
+    recommendation: "approved" | "needs_refinement" | "rejected";
+    rationale: string;
+  }>;
+  optimalChoice: string;
+  optimizationRationale: string;
+  needsRefinement: boolean;
+  refinementGuidance?: string;
 }
 
-export interface CausalInsightRequest {
-  patientData: {
-    age: number;
-    gender: string;
-    chronicConditions?: string[];
-    currentMedications?: string[];
-  };
-  clinicalData: {
-    diagnosis: string;
-    symptoms: string[];
-    labResults?: any[];
-    treatmentHistory?: string[];
-  };
-  insightType: "risk_prediction" | "treatment_efficacy" | "pattern_analysis" | "causal_relationship";
-}
+/**
+ * Causal Brain: Validates Delphi scenarios and selects optimal treatment
+ * This completes the bidirectional loop before sending to Precision Care
+ */
+export async function validateAndOptimize(
+  request: CausalValidationRequest
+): Promise<CausalValidationResult> {
+  const systemPrompt = `You are the Causal Brain performing validation and optimization.
+You received treatment scenarios from Delphi Simulator. Now you must:
+1. Validate each scenario against your causal analysis
+2. Check evidence alignment and causal validity
+3. Select the optimal treatment path
+4. Determine if refinement is needed (send back to Delphi)
 
-export async function generateCausalInsight(
-  request: CausalInsightRequest
-): Promise<{
-  title: string;
-  description: string;
-  causalFactors: CausalFactor[];
-  evidenceSources: EvidenceSource[];
-  recommendations: string[];
-  confidenceScore: number;
-}> {
-  const systemPrompt = `You are an expert clinical AI specializing in causal analysis and evidence-based medicine.
-Your role is to identify causal relationships, predict risks, and analyze treatment efficacy based on patient data.
+Use rigorous causal reasoning and evidence-based validation. Be conservative - if scenarios don't align with causal analysis, request refinement.`;
 
-Provide insights with:
-1. Clear identification of causal factors and their impact
-2. Evidence-based sources and citations
-3. Actionable clinical recommendations
-4. Confidence scoring based on evidence strength`;
+  const userPrompt = `Your Original Causal Analysis:
+${request.causalAnalysis.patientSummary}
 
-  const insightTypeDescriptions = {
-    risk_prediction: "Predict clinical risks and identify contributing factors",
-    treatment_efficacy: "Analyze treatment effectiveness and outcomes",
-    pattern_analysis: "Identify clinical patterns and trends",
-    causal_relationship: "Establish causal relationships between factors and outcomes",
-  };
+Key Causal Factors:
+${request.causalAnalysis.causalFactors.map((f) => `- ${f.factor} (${f.evidenceLevel} evidence)`).join("\n")}
 
-  const userPrompt = `Patient Data:
-- Age: ${request.patientData.age}
-- Gender: ${request.patientData.gender}
-${request.patientData.chronicConditions?.length ? `- Chronic Conditions: ${request.patientData.chronicConditions.join(", ")}` : ""}
-${request.patientData.currentMedications?.length ? `- Current Medications: ${request.patientData.currentMedications.join(", ")}` : ""}
+Delphi Simulator Results:
+Scenario: ${request.delphiSimulation.scenarioDescription}
 
-Clinical Data:
-- Diagnosis: ${request.clinicalData.diagnosis}
-- Symptoms: ${request.clinicalData.symptoms.join(", ")}
-${request.clinicalData.treatmentHistory?.length ? `- Treatment History: ${request.clinicalData.treatmentHistory.join(", ")}` : ""}
+Treatment Options:
+${request.delphiSimulation.treatmentOptions.map((opt, i) => `${i + 1}. ${opt.option}: ${opt.description} (Confidence: ${opt.confidence})`).join("\n")}
 
-Analysis Type: ${insightTypeDescriptions[request.insightType]}
+Delphi's Recommendations:
+${request.delphiSimulation.recommendationsForCausalBrain.join("\n")}
 
-Please provide a comprehensive causal analysis with evidence-based insights.`;
+Validate these options against your causal analysis and select the optimal path.`;
 
   const response = await invokeLLM({
     messages: [
@@ -195,50 +354,36 @@ Please provide a comprehensive causal analysis with evidence-based insights.`;
     response_format: {
       type: "json_schema",
       json_schema: {
-        name: "causal_insight",
+        name: "causal_validation",
         strict: true,
         schema: {
           type: "object",
           properties: {
-            title: { type: "string", description: "Concise title for the insight" },
-            description: { type: "string", description: "Detailed description of the insight" },
-            causalFactors: {
+            validatedOptions: {
               type: "array",
               items: {
                 type: "object",
                 properties: {
-                  factor: { type: "string", description: "Name of the causal factor" },
-                  impact: { type: "string", description: "Description of the impact" },
-                  confidence: { type: "number", description: "Confidence level 0-1" },
+                  option: { type: "string", description: "Treatment option name" },
+                  causalValidity: { type: "number", description: "Causal validity score 0-1" },
+                  evidenceAlignment: { type: "number", description: "Evidence alignment 0-1" },
+                  recommendation: {
+                    type: "string",
+                    enum: ["approved", "needs_refinement", "rejected"],
+                    description: "Validation recommendation",
+                  },
+                  rationale: { type: "string", description: "Validation rationale" },
                 },
-                required: ["factor", "impact", "confidence"],
+                required: ["option", "causalValidity", "evidenceAlignment", "recommendation", "rationale"],
                 additionalProperties: false,
               },
             },
-            evidenceSources: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  source: { type: "string", description: "Name of the evidence source" },
-                  citation: { type: "string", description: "Citation or reference" },
-                  relevance: { type: "number", description: "Relevance score 0-1" },
-                },
-                required: ["source", "citation", "relevance"],
-                additionalProperties: false,
-              },
-            },
-            recommendations: {
-              type: "array",
-              items: { type: "string" },
-              description: "List of clinical recommendations",
-            },
-            confidenceScore: {
-              type: "number",
-              description: "Overall confidence score 0-100",
-            },
+            optimalChoice: { type: "string", description: "Selected optimal treatment" },
+            optimizationRationale: { type: "string", description: "Why this is optimal" },
+            needsRefinement: { type: "boolean", description: "Should scenarios be refined?" },
+            refinementGuidance: { type: "string", description: "Guidance for Delphi refinement (if needed)" },
           },
-          required: ["title", "description", "causalFactors", "evidenceSources", "recommendations", "confidenceScore"],
+          required: ["validatedOptions", "optimalChoice", "optimizationRationale", "needsRefinement"],
           additionalProperties: false,
         },
       },
@@ -247,7 +392,7 @@ Please provide a comprehensive causal analysis with evidence-based insights.`;
 
   const content = response.choices[0]?.message?.content;
   if (!content || typeof content !== 'string') {
-    throw new Error("No valid response from AI");
+    throw new Error("No valid response from Causal Brain validation");
   }
 
   return JSON.parse(content);
@@ -280,57 +425,53 @@ export interface FollowUp {
   timeframe: string;
 }
 
-export interface CarePlanRequest {
-  patientData: {
-    age: number;
-    gender: string;
-    chronicConditions?: string[];
-    allergies?: string[];
-  };
-  diagnosis: string;
-  treatmentGoals: string[];
-  selectedTreatmentOption?: string;
-  causalInsights?: string[];
+export interface PrecisionCarePlanRequest {
+  causalAnalysis: CausalAnalysisResult;
+  validatedTreatment: CausalValidationResult;
+  patientContext: PatientContext;
 }
 
-export async function generatePrecisionCarePlan(
-  request: CarePlanRequest
-): Promise<{
+export interface PrecisionCarePlanResult {
   planTitle: string;
+  executiveSummary: string;
   goals: string[];
   interventions: Intervention[];
   medications: Medication[];
   lifestyle: LifestyleRecommendation[];
   followUp: FollowUp[];
-  aiRationale: string;
-}> {
-  const systemPrompt = `You are an expert clinical AI specializing in personalized care plan generation.
-Your role is to create comprehensive, evidence-based, and patient-specific treatment plans.
+  causalRationale: string;
+  evidenceBasis: string[];
+}
 
-Generate care plans that include:
-1. Clear, measurable treatment goals
-2. Specific clinical interventions with rationale
-3. Detailed medication regimens (considering allergies and interactions)
-4. Lifestyle modifications with evidence-based rationale
-5. Follow-up schedule and monitoring plan
-6. Comprehensive rationale for all recommendations`;
+/**
+ * Precision Care: Generates detailed care plan from Causal Brain's optimized output
+ */
+export async function generatePrecisionCarePlan(
+  request: PrecisionCarePlanRequest
+): Promise<PrecisionCarePlanResult> {
+  const systemPrompt = `You are the Precision Care output generator.
+You receive OPTIMIZED treatment recommendations from the Causal Brain and create detailed, actionable care plans.
 
-  const userPrompt = `Patient Profile:
-- Age: ${request.patientData.age}
-- Gender: ${request.patientData.gender}
-${request.patientData.chronicConditions?.length ? `- Chronic Conditions: ${request.patientData.chronicConditions.join(", ")}` : ""}
-${request.patientData.allergies?.length ? `- Allergies: ${request.patientData.allergies.join(", ")}` : ""}
+Your plans must be:
+1. Personalized to the specific patient
+2. Based on the causal analysis and validated treatment
+3. Actionable with specific steps and timelines
+4. Evidence-based with clear rationale
+5. Ready for Digital Review Board safety verification`;
 
-Diagnosis: ${request.diagnosis}
+  const userPrompt = `Patient Context:
+- Age: ${request.patientContext.age}
+- Gender: ${request.patientContext.gender}
+${request.patientContext.allergies?.length ? `- Allergies: ${request.patientContext.allergies.join(", ")}` : ""}
+${request.patientContext.chronicConditions?.length ? `- Chronic Conditions: ${request.patientContext.chronicConditions.join(", ")}` : ""}
 
-Treatment Goals:
-${request.treatmentGoals.map((goal, i) => `${i + 1}. ${goal}`).join("\n")}
+Causal Brain's Optimal Treatment: ${request.validatedTreatment.optimalChoice}
 
-${request.selectedTreatmentOption ? `Selected Treatment Approach: ${request.selectedTreatmentOption}` : ""}
+Optimization Rationale: ${request.validatedTreatment.optimizationRationale}
 
-${request.causalInsights?.length ? `AI-Generated Insights:\n${request.causalInsights.join("\n")}` : ""}
+Causal Analysis Summary: ${request.causalAnalysis.patientSummary}
 
-Please generate a comprehensive, personalized care plan optimized for this patient.`;
+Generate a comprehensive, personalized precision care plan.`;
 
   const response = await invokeLLM({
     messages: [
@@ -345,21 +486,22 @@ Please generate a comprehensive, personalized care plan optimized for this patie
         schema: {
           type: "object",
           properties: {
-            planTitle: { type: "string", description: "Descriptive title for the care plan" },
+            planTitle: { type: "string", description: "Care plan title" },
+            executiveSummary: { type: "string", description: "Executive summary" },
             goals: {
               type: "array",
               items: { type: "string" },
-              description: "List of specific, measurable treatment goals",
+              description: "Treatment goals",
             },
             interventions: {
               type: "array",
               items: {
                 type: "object",
                 properties: {
-                  intervention: { type: "string", description: "Name of the intervention" },
-                  frequency: { type: "string", description: "How often to perform" },
-                  duration: { type: "string", description: "How long to continue" },
-                  rationale: { type: "string", description: "Clinical rationale" },
+                  intervention: { type: "string", description: "Intervention name" },
+                  frequency: { type: "string", description: "Frequency" },
+                  duration: { type: "string", description: "Duration" },
+                  rationale: { type: "string", description: "Rationale" },
                 },
                 required: ["intervention", "frequency", "duration", "rationale"],
                 additionalProperties: false,
@@ -371,10 +513,10 @@ Please generate a comprehensive, personalized care plan optimized for this patie
                 type: "object",
                 properties: {
                   name: { type: "string", description: "Medication name" },
-                  dosage: { type: "string", description: "Dosage amount" },
-                  frequency: { type: "string", description: "Dosing frequency" },
-                  duration: { type: "string", description: "Treatment duration" },
-                  purpose: { type: "string", description: "Purpose of medication" },
+                  dosage: { type: "string", description: "Dosage" },
+                  frequency: { type: "string", description: "Frequency" },
+                  duration: { type: "string", description: "Duration" },
+                  purpose: { type: "string", description: "Purpose" },
                 },
                 required: ["name", "dosage", "frequency", "duration", "purpose"],
                 additionalProperties: false,
@@ -386,7 +528,7 @@ Please generate a comprehensive, personalized care plan optimized for this patie
                 type: "object",
                 properties: {
                   recommendation: { type: "string", description: "Lifestyle recommendation" },
-                  rationale: { type: "string", description: "Evidence-based rationale" },
+                  rationale: { type: "string", description: "Rationale" },
                 },
                 required: ["recommendation", "rationale"],
                 additionalProperties: false,
@@ -397,19 +539,34 @@ Please generate a comprehensive, personalized care plan optimized for this patie
               items: {
                 type: "object",
                 properties: {
-                  action: { type: "string", description: "Follow-up action required" },
-                  timeframe: { type: "string", description: "When to perform" },
+                  action: { type: "string", description: "Follow-up action" },
+                  timeframe: { type: "string", description: "Timeframe" },
                 },
                 required: ["action", "timeframe"],
                 additionalProperties: false,
               },
             },
-            aiRationale: {
+            causalRationale: {
               type: "string",
-              description: "Comprehensive explanation of the AI's reasoning for this care plan",
+              description: "Explanation of causal reasoning behind plan",
+            },
+            evidenceBasis: {
+              type: "array",
+              items: { type: "string" },
+              description: "Evidence supporting this plan",
             },
           },
-          required: ["planTitle", "goals", "interventions", "medications", "lifestyle", "followUp", "aiRationale"],
+          required: [
+            "planTitle",
+            "executiveSummary",
+            "goals",
+            "interventions",
+            "medications",
+            "lifestyle",
+            "followUp",
+            "causalRationale",
+            "evidenceBasis",
+          ],
           additionalProperties: false,
         },
       },
@@ -418,7 +575,7 @@ Please generate a comprehensive, personalized care plan optimized for this patie
 
   const content = response.choices[0]?.message?.content;
   if (!content || typeof content !== 'string') {
-    throw new Error("No valid response from AI");
+    throw new Error("No valid response from Precision Care generator");
   }
 
   return JSON.parse(content);
@@ -440,44 +597,41 @@ export interface ComplianceCheck {
 }
 
 export interface SafetyReviewRequest {
-  patientData: {
-    age: number;
-    allergies?: string[];
-    chronicConditions?: string[];
-    currentMedications?: string[];
-  };
-  carePlan: {
-    diagnosis: string;
-    medications: Medication[];
-    interventions: Intervention[];
-  };
+  carePlan: PrecisionCarePlanResult;
+  patientContext: PatientContext;
 }
 
-export async function performSafetyReview(
-  request: SafetyReviewRequest
-): Promise<{
+export interface SafetyReviewResult {
   safetyAlerts: SafetyAlert[];
   complianceChecks: ComplianceCheck[];
   overallStatus: "approved" | "flagged" | "rejected";
-}> {
-  const systemPrompt = `You are a clinical safety verification AI specializing in medication safety, drug interactions, and clinical guideline compliance.
+  reviewSummary: string;
+}
 
-Your role is to:
-1. Identify potential safety concerns (drug interactions, contraindications, allergies)
-2. Check compliance with clinical guidelines
-3. Flag critical issues that require physician review
-4. Provide specific recommendations for safety improvements
+/**
+ * Digital Review Board: Multi-layer safety verification
+ */
+export async function performSafetyReview(
+  request: SafetyReviewRequest
+): Promise<SafetyReviewResult> {
+  const systemPrompt = `You are the Digital Review Board - the final safety verification layer.
+You perform multi-layer safety checks on care plans before implementation:
+1. Drug interaction screening
+2. Allergy contraindication checks
+3. Dosage validation
+4. Clinical guideline compliance
+5. Age/condition-specific safety rules
 
-Be thorough and conservative in safety assessments.`;
+Be thorough and conservative. Patient safety is paramount.`;
 
   const userPrompt = `Patient Safety Profile:
-- Age: ${request.patientData.age}
-${request.patientData.allergies?.length ? `- Known Allergies: ${request.patientData.allergies.join(", ")}` : "- No known allergies"}
-${request.patientData.chronicConditions?.length ? `- Chronic Conditions: ${request.patientData.chronicConditions.join(", ")}` : ""}
-${request.patientData.currentMedications?.length ? `- Current Medications: ${request.patientData.currentMedications.join(", ")}` : ""}
+- Age: ${request.patientContext.age}
+${request.patientContext.allergies?.length ? `- Allergies: ${request.patientContext.allergies.join(", ")}` : "- No known allergies"}
+${request.patientContext.chronicConditions?.length ? `- Chronic Conditions: ${request.patientContext.chronicConditions.join(", ")}` : ""}
+${request.patientContext.currentMedications?.length ? `- Current Medications: ${request.patientContext.currentMedications.join(", ")}` : ""}
 
 Proposed Care Plan:
-Diagnosis: ${request.carePlan.diagnosis}
+Title: ${request.carePlan.planTitle}
 
 Medications:
 ${request.carePlan.medications.map((m) => `- ${m.name} ${m.dosage} ${m.frequency}`).join("\n")}
@@ -485,7 +639,7 @@ ${request.carePlan.medications.map((m) => `- ${m.name} ${m.dosage} ${m.frequency
 Interventions:
 ${request.carePlan.interventions.map((i) => `- ${i.intervention}`).join("\n")}
 
-Please perform a comprehensive safety review and identify any concerns.`;
+Perform comprehensive safety review and compliance verification.`;
 
   const response = await invokeLLM({
     messages: [
@@ -508,11 +662,11 @@ Please perform a comprehensive safety review and identify any concerns.`;
                   severity: {
                     type: "string",
                     enum: ["critical", "warning", "info"],
-                    description: "Severity level of the alert",
+                    description: "Alert severity",
                   },
-                  category: { type: "string", description: "Category of safety concern" },
-                  message: { type: "string", description: "Description of the safety issue" },
-                  recommendation: { type: "string", description: "Recommended action" },
+                  category: { type: "string", description: "Alert category" },
+                  message: { type: "string", description: "Alert message" },
+                  recommendation: { type: "string", description: "Recommendation" },
                 },
                 required: ["severity", "category", "message", "recommendation"],
                 additionalProperties: false,
@@ -523,13 +677,13 @@ Please perform a comprehensive safety review and identify any concerns.`;
               items: {
                 type: "object",
                 properties: {
-                  guideline: { type: "string", description: "Name of clinical guideline" },
+                  guideline: { type: "string", description: "Guideline name" },
                   status: {
                     type: "string",
                     enum: ["pass", "fail", "warning"],
                     description: "Compliance status",
                   },
-                  details: { type: "string", description: "Details of compliance check" },
+                  details: { type: "string", description: "Details" },
                 },
                 required: ["guideline", "status", "details"],
                 additionalProperties: false,
@@ -538,10 +692,11 @@ Please perform a comprehensive safety review and identify any concerns.`;
             overallStatus: {
               type: "string",
               enum: ["approved", "flagged", "rejected"],
-              description: "Overall safety review status",
+              description: "Overall review status",
             },
+            reviewSummary: { type: "string", description: "Review summary" },
           },
-          required: ["safetyAlerts", "complianceChecks", "overallStatus"],
+          required: ["safetyAlerts", "complianceChecks", "overallStatus", "reviewSummary"],
           additionalProperties: false,
         },
       },
@@ -550,7 +705,7 @@ Please perform a comprehensive safety review and identify any concerns.`;
 
   const content = response.choices[0]?.message?.content;
   if (!content || typeof content !== 'string') {
-    throw new Error("No valid response from AI");
+    throw new Error("No valid response from Digital Review Board");
   }
 
   return JSON.parse(content);
