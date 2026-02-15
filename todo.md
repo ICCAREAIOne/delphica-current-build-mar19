@@ -303,3 +303,37 @@
 - [ ] Implement alert generation from real data
 - [ ] Add historical data analysis
 - [ ] Test real-time alert generation
+
+
+## Clinical Protocol Authoring Tool
+- [x] Design protocol authoring interface with rich text editor
+- [x] Create protocol template system with predefined structures
+- [x] Implement protocol metadata fields (title, specialty, evidence level, version)
+- [x] Add protocol content editor with sections (indications, contraindications, steps)
+- [x] Add AI-assisted protocol generation from literature
+- [x] Link from Clinical Library
+- [ ] Build protocol validation and quality checks
+- [ ] Create protocol publishing workflow with review process
+- [ ] Implement protocol versioning and revision history
+- [ ] Add protocol sharing and permissions system
+- [ ] Build protocol search and discovery within library
+- [ ] Create protocol usage analytics
+- [ ] Implement protocol export functionality
+- [ ] Test protocol creation and publishing workflow
+
+## Multi-Provider Case Consultation
+- [x] Design consultation room architecture
+- [x] Build consultation room interface
+- [x] Implement physician invitation system (mock)
+- [x] Add real-time presence indicators
+- [x] Create shared case view with patient data
+- [x] Build commenting and discussion thread system
+- [x] Create activity feed for consultation updates
+- [x] Link from Dashboard
+- [ ] Create consultation room database schema (deferred)
+- [ ] Implement collaborative Delphi simulation sharing
+- [ ] Add care plan co-editing features
+- [ ] Build notification system for consultation events
+- [ ] Add consultation history and archiving
+- [ ] Implement consultation summary generation
+- [ ] Test multi-user collaboration scenarios

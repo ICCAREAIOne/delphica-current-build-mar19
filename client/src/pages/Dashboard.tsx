@@ -82,6 +82,12 @@ export default function Dashboard() {
                   Try Demo
                 </Button>
               </Link>
+              <Link href="/consultation/demo-1">
+                <Button variant="outline">
+                  <Users className="h-4 w-4 mr-2" />
+                  Consultation
+                </Button>
+              </Link>
               <Link href="/patients/new">
                 <Button variant="outline">
                   <Plus className="h-4 w-4 mr-2" />

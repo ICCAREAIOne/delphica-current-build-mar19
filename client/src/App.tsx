@@ -3,6 +3,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import NotificationSettings from "@/pages/NotificationSettings";
 import ClinicalLibrary from "@/pages/ClinicalLibrary";
+import ProtocolAuthor from "@/pages/ProtocolAuthor";
+import ConsultationRoom from "@/pages/ConsultationRoom";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -28,6 +30,8 @@ function Router() {
       <Route path={"/analytics"} component={OutcomeAnalytics} />
       <Route path={"/settings/notifications"} component={NotificationSettings} />
       <Route path={"/library"} component={ClinicalLibrary} />
+      <Route path={"/library/author"} component={ProtocolAuthor} />
+      <Route path={"/consultation/:id"} component={ConsultationRoom} />
       <Route path={"/workflow/:encounterId"} component={FrameworkWorkflow} />
       <Route path={"/alerts"} component={ClinicalAlerts} />
       <Route path={"/404"} component={NotFound} />

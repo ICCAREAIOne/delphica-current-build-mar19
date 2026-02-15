@@ -16,7 +16,8 @@ import {
   Activity,
   Pill,
   Stethoscope,
-  Shield
+  Shield,
+  Plus
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -196,9 +197,17 @@ export default function ClinicalLibrary() {
             </h1>
             <p className="text-slate-600 mt-1">Evidence-based protocols and treatment guidelines</p>
           </div>
-          <Link href="/dashboard">
-            <Button variant="outline">← Back to Dashboard</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/dashboard">
+              <Button variant="outline">← Back to Dashboard</Button>
+            </Link>
+            <Link href="/library/author">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Create Protocol
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Search and Filter */}
