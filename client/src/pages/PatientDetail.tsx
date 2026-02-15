@@ -347,10 +347,12 @@ export default function PatientDetail() {
                               <FileText className="h-3 w-3 mr-2" />
                               View Full Details
                             </Button>
-                            <Button variant="default" size="sm" className="flex-1">
-                              <Brain className="h-3 w-3 mr-2" />
-                              Run AI Analysis
-                            </Button>
+                            <Link href={`/workflow/${encounter.id}`}>
+                              <Button variant="default" size="sm" className="flex-1">
+                                <Brain className="h-3 w-3 mr-2" />
+                                Run AI Analysis
+                              </Button>
+                            </Link>
                           </div>
                         </CardContent>
                       </Card>

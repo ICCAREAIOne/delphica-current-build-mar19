@@ -11,6 +11,8 @@ import PatientDetail from "./pages/PatientDetail";
 import NewPatient from "./pages/NewPatient";
 import NewEncounter from "./pages/NewEncounter";
 import OutcomeAnalytics from "./pages/OutcomeAnalytics";
+import FrameworkWorkflow from "./pages/FrameworkWorkflow";
+import ClinicalAlerts from "./pages/ClinicalAlerts";
 
 function Router() {
   return (
@@ -22,6 +24,8 @@ function Router() {
       <Route path={"/patients/:id"} component={PatientDetail} />
       <Route path={"/patients/:patientId/encounters/new"} component={NewEncounter} />
       <Route path={"/analytics"} component={OutcomeAnalytics} />
+      <Route path={"/workflow/:encounterId"} component={FrameworkWorkflow} />
+      <Route path={"/alerts"} component={ClinicalAlerts} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

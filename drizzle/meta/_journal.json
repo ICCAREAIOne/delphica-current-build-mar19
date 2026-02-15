@@ -22,6 +22,20 @@
       "when": 1770987786259,
       "tag": "0002_cute_network",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1771145837102,
+      "tag": "0003_legal_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1771146185911,
+      "tag": "0004_outstanding_zarda",
+      "breakpoints": true
     }
   ]
 }

@@ -15,7 +15,8 @@ import {
   Search,
   Plus,
   ArrowRight,
-  Loader2
+  Loader2,
+  Bell
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -62,6 +63,13 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <Link href="/alerts">
+                <Button variant="outline" className="relative">
+                  <Bell className="h-4 w-4 mr-2" />
+                  Alerts
+                  <Badge variant="destructive" className="ml-2 px-1.5 py-0 text-xs">3</Badge>
+                </Button>
+              </Link>
               <Link href="/demo">
                 <Button variant="default" className="bg-gradient-to-r from-primary to-blue-600">
                   <Brain className="h-4 w-4 mr-2" />

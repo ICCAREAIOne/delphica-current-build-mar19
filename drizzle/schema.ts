@@ -349,3 +349,4 @@ export const physicianPerformanceAnalytics = mysqlTable("physician_performance_a
 
 export type PhysicianPerformanceAnalytic = typeof physicianPerformanceAnalytics.$inferSelect;
 export type InsertPhysicianPerformanceAnalytic = typeof physicianPerformanceAnalytics.$inferInsert;
+
