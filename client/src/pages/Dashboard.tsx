@@ -300,10 +300,12 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground mb-4">
                 Tracks real-world outcomes and feeds data back to Causal Brain for continuous model improvement
               </p>
-              <Button variant="outline" size="sm" className="w-full">
-                Track Outcomes
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+              <Link href="/analytics">
+                <Button variant="outline" size="sm" className="w-full">
+                  View Analytics
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>

@@ -176,3 +176,37 @@
 - [ ] Integrate full AI framework workflow for encounters
 - [ ] Add print/export functionality for medical records
 - [ ] Test with sample patient data
+
+
+## New Patient & Encounter Forms
+- [x] Design new patient registration form layout
+- [x] Create patient demographics input fields
+- [x] Add medical history input (allergies, medications, chronic conditions)
+- [x] Implement form validation for required fields
+- [x] Create tRPC mutation for patient creation
+- [x] Build new encounter documentation form with SOAP structure
+- [x] Add chief complaint and HPI input
+- [x] Create physical exam findings section
+- [x] Add vital signs input with validation
+- [x] Add diagnosis and differential diagnosis fields
+- [x] Create treatment plan input section
+- [x] Implement form submission with error handling
+- [x] Add success notifications and navigation
+- [x] Connect forms to patient detail page
+- [ ] Test form validation and data persistence
+
+## Outcome Analytics Dashboard
+- [x] Design outcome analytics dashboard layout
+- [x] Create metrics cards for AI performance overview
+- [x] Build predicted vs actual outcomes comparison chart
+- [x] Add treatment success rate visualization
+- [x] Implement time-series analysis of outcomes
+- [x] Create AI recommendation accuracy metrics
+- [x] Add filtering by diagnosis, treatment type, time period
+- [x] Build detailed outcome drill-down views
+- [x] Implement feedback loop visualization
+- [x] Add export functionality for analytics reports
+- [ ] Create tRPC procedures for outcome analytics queries (using mock data currently)
+- [ ] Integrate with clinical outcomes data
+- [ ] Add real-time updates for new outcomes
+- [ ] Test with sample outcome data

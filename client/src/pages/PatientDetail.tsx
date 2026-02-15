@@ -116,6 +116,12 @@ export default function PatientDetail() {
               <Badge variant={patient.status === "active" ? "default" : "secondary"}>
                 {patient.status}
               </Badge>
+              <Link href={`/patients/${patientId}/encounters/new`}>
+                <Button variant="default">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  New Encounter
+                </Button>
+              </Link>
               <Button variant="outline">
                 <FileText className="h-4 w-4 mr-2" />
                 Export Records
