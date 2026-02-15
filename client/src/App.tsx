@@ -1,6 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
+import NotificationSettings from "@/pages/NotificationSettings";
+import ClinicalLibrary from "@/pages/ClinicalLibrary";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -24,6 +26,8 @@ function Router() {
       <Route path={"/patients/:id"} component={PatientDetail} />
       <Route path={"/patients/:patientId/encounters/new"} component={NewEncounter} />
       <Route path={"/analytics"} component={OutcomeAnalytics} />
+      <Route path={"/settings/notifications"} component={NotificationSettings} />
+      <Route path={"/library"} component={ClinicalLibrary} />
       <Route path={"/workflow/:encounterId"} component={FrameworkWorkflow} />
       <Route path={"/alerts"} component={ClinicalAlerts} />
       <Route path={"/404"} component={NotFound} />

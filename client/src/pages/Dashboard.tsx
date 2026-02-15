@@ -16,7 +16,8 @@ import {
   Plus,
   ArrowRight,
   Loader2,
-  Bell
+  Bell,
+  Settings
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -63,6 +64,11 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <Link href="/settings/notifications">
+                <Button variant="ghost" size="icon">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </Link>
               <Link href="/alerts">
                 <Button variant="outline" className="relative">
                   <Bell className="h-4 w-4 mr-2" />
@@ -270,10 +276,17 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground mb-4">
                 Receives optimized recommendations from Causal Brain and generates detailed personalized care plans
               </p>
-              <Button variant="outline" size="sm" className="w-full">
-                Generate Plan
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+              <div className="space-y-2">
+                <Link href="/library">
+                  <Button variant="outline" size="sm" className="w-full">
+                    Clinical Library
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+                <Button variant="ghost" size="sm" className="w-full">
+                  Generate Plan
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

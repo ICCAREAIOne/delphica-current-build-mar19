@@ -256,3 +256,50 @@
 - [x] Add alert analytics dashboard
 - [ ] Add physician alert preferences
 - [ ] Test alert triggering and delivery
+
+
+## Physician Notification Preferences
+- [x] Design notification preferences settings page layout
+- [x] Create alert threshold customization interface
+- [x] Add notification channel selection (email, SMS, in-app)
+- [x] Implement quiet hours configuration
+- [x] Add alert type filtering preferences
+- [x] Create severity level customization
+- [x] Add notification frequency controls
+- [x] Implement preferences persistence (localStorage)
+- [x] Add preferences to user profile
+- [x] Link from dashboard settings icon
+- [ ] Implement patient-specific alert overrides
+- [ ] Build preferences database schema (deferred)
+- [ ] Create tRPC procedures for preferences management (using localStorage)
+- [ ] Test preferences application to alerts
+
+## Clinical Decision Support Library
+- [x] Design clinical library interface and architecture
+- [x] Build searchable protocol repository
+- [x] Add treatment guidelines by condition (mock data)
+- [x] Implement best practices documentation
+- [x] Build integration with Precision Care module
+- [x] Implement quick reference search
+- [x] Create favorites and bookmarks system
+- [x] Add protocol versioning and evidence levels
+- [x] Link from Precision Care card on dashboard
+- [ ] Create evidence-based protocols database schema (using mock data)
+- [ ] Create drug interaction reference
+- [ ] Add clinical calculators and tools
+- [ ] Add protocol recommendations based on patient context
+- [ ] Test library search and integration
+
+## Real-Time Data Integration
+- [ ] Design real-time monitoring architecture
+- [ ] Create data ingestion pipeline for vital signs
+- [ ] Implement lab results monitoring
+- [ ] Add medication adherence tracking
+- [ ] Build risk threshold detection system
+- [ ] Create alert triggering logic
+- [ ] Implement data validation and quality checks
+- [ ] Add integration with external monitoring devices
+- [ ] Create data streaming infrastructure
+- [ ] Implement alert generation from real data
+- [ ] Add historical data analysis
+- [ ] Test real-time alert generation
