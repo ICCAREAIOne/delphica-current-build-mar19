@@ -186,6 +186,36 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return await db.getPatientStats(input?.physicianId);
       }),
+
+    getWithHistory: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getPatientWithHistory(input.patientId);
+      }),
+
+    getEncounters: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getPatientEncounters(input.patientId);
+      }),
+
+    getEncounterWithAnalysis: protectedProcedure
+      .input(z.object({ encounterId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getEncounterWithAnalysis(input.encounterId);
+      }),
+
+    getVitalSignsHistory: protectedProcedure
+      .input(z.object({ patientId: z.number(), limit: z.number().optional() }))
+      .query(async ({ input }) => {
+        return await db.getPatientVitalSignsHistory(input.patientId, input.limit);
+      }),
+
+    getDiagnosisHistory: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getPatientDiagnosisHistory(input.patientId);
+      }),
   }),
 
   // ============ DAO Protocol ============

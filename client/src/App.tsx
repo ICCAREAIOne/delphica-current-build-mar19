@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import QADashboard from "./pages/QADashboard";
 import CodingDemo from "./pages/CodingDemo";
+import PatientDetail from "./pages/PatientDetail";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path={"/"} component={Dashboard} />
       <Route path={"/qa"} component={QADashboard} />
       <Route path={"/demo"} component={CodingDemo} />
+      <Route path={"/patients/:id"} component={PatientDetail} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

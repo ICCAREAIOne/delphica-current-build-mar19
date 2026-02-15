@@ -475,3 +475,107 @@ export async function getPhysicianPerformanceHistory(physicianId: number, limit:
     .orderBy(desc(physicianPerformanceAnalytics.periodEnd))
     .limit(limit);
 }
+
+
+// ============ Patient Detail Queries ============
+
+export async function getPatientWithHistory(patientId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const patientResults = await db
+    .select()
+    .from(patients)
+    .where(eq(patients.id, patientId))
+    .limit(1);
+  
+  if (patientResults.length === 0) return null;
+  
+  return patientResults[0];
+}
+
+export async function getPatientEncounters(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  // Get all DAO protocol entries (encounters) for this patient
+  const encounters = await db
+    .select()
+    .from(daoProtocolEntries)
+    .where(eq(daoProtocolEntries.patientId, patientId))
+    .orderBy(desc(daoProtocolEntries.createdAt));
+  
+  return encounters;
+}
+
+export async function getEncounterWithAnalysis(encounterId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  // Get the encounter
+  const encounterResults = await db
+    .select()
+    .from(daoProtocolEntries)
+    .where(eq(daoProtocolEntries.id, encounterId))
+    .limit(1);
+  
+  if (encounterResults.length === 0) return null;
+  
+  const encounter = encounterResults[0];
+  
+  // Get related analysis data
+  const [simulations, insights, carePlans, reviews, outcomes, qualityMetrics] = await Promise.all([
+    db.select().from(delphiSimulations).where(eq(delphiSimulations.daoEntryId, encounterId)),
+    db.select().from(causalInsights).where(eq(causalInsights.daoEntryId, encounterId)),
+    db.select().from(precisionCarePlans).where(eq(precisionCarePlans.daoEntryId, encounterId)),
+    db.select().from(safetyReviews).where(eq(safetyReviews.daoEntryId, encounterId)),
+    db.select().from(clinicalOutcomes).where(eq(clinicalOutcomes.daoEntryId, encounterId)),
+    db.select().from(codingQualityMetrics).where(eq(codingQualityMetrics.daoEntryId, encounterId))
+  ]);
+  
+  return {
+    encounter,
+    simulations,
+    insights,
+    carePlans,
+    reviews,
+    outcomes,
+    qualityMetrics: qualityMetrics.length > 0 ? qualityMetrics[0] : null
+  };
+}
+
+export async function getPatientVitalSignsHistory(patientId: number, limit: number = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const encounters = await db
+    .select({
+      id: daoProtocolEntries.id,
+      vitalSigns: daoProtocolEntries.vitalSigns,
+      createdAt: daoProtocolEntries.createdAt
+    })
+    .from(daoProtocolEntries)
+    .where(eq(daoProtocolEntries.patientId, patientId))
+    .orderBy(desc(daoProtocolEntries.createdAt))
+    .limit(limit);
+  
+  return encounters.filter(e => e.vitalSigns !== null);
+}
+
+export async function getPatientDiagnosisHistory(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const encounters = await db
+    .select({
+      id: daoProtocolEntries.id,
+      diagnosis: daoProtocolEntries.diagnosis,
+      differentialDiagnosis: daoProtocolEntries.differentialDiagnosis,
+      createdAt: daoProtocolEntries.createdAt
+    })
+    .from(daoProtocolEntries)
+    .where(eq(daoProtocolEntries.patientId, patientId))
+    .orderBy(desc(daoProtocolEntries.createdAt));
+  
+  return encounters;
+}
