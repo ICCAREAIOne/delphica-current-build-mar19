@@ -33,6 +33,12 @@ export default function FatigueProtocol() {
               </Button>
             </Link>
             <div className="flex gap-2">
+              <Link href="/new-encounter-with-protocol/fatigue">
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Apply Protocol
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 size="sm"

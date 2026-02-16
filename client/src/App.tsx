@@ -18,6 +18,8 @@ import OutcomeAnalytics from "./pages/OutcomeAnalytics";
 import FrameworkWorkflow from "./pages/FrameworkWorkflow";
 import ClinicalAlerts from "./pages/ClinicalAlerts";
 import FatigueProtocol from "./pages/FatigueProtocol";
+import NewEncounterWithProtocol from "./pages/NewEncounterWithProtocol";
+import ProtocolAnalytics from "./pages/ProtocolAnalytics";
 
 function Router() {
   return (
@@ -28,6 +30,7 @@ function Router() {
       <Route path={"/patients/new"} component={NewPatient} />
       <Route path={"/patients/:id"} component={PatientDetail} />
       <Route path={"/patients/:patientId/encounters/new"} component={NewEncounter} />
+      <Route path={"/new-encounter-with-protocol/:protocolId"} component={NewEncounterWithProtocol} />
       <Route path={"/analytics"} component={OutcomeAnalytics} />
       <Route path={"/settings/notifications"} component={NotificationSettings} />
       <Route path={"/library"} component={ClinicalLibrary} />
@@ -36,6 +39,7 @@ function Router() {
       <Route path={"/workflow/:encounterId"} component={FrameworkWorkflow} />
       <Route path={"/alerts"} component={ClinicalAlerts} />
       <Route path={"/protocols/fatigue"} component={FatigueProtocol} />
+      <Route path={"/protocols/analytics"} component={ProtocolAnalytics} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

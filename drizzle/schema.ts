@@ -350,3 +350,95 @@ export const physicianPerformanceAnalytics = mysqlTable("physician_performance_a
 export type PhysicianPerformanceAnalytic = typeof physicianPerformanceAnalytics.$inferSelect;
 export type InsertPhysicianPerformanceAnalytic = typeof physicianPerformanceAnalytics.$inferInsert;
 
+
+/**
+ * Protocol Applications - tracks when protocols are applied to encounters
+ */
+export const protocolApplications = mysqlTable("protocol_applications", {
+  id: int("id").autoincrement().primaryKey(),
+  protocolId: varchar("protocolId", { length: 128 }).notNull(), // e.g., "fatigue", "chest-pain"
+  protocolName: varchar("protocolName", { length: 255 }).notNull(),
+  daoEntryId: int("daoEntryId").notNull().references(() => daoProtocolEntries.id),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  appliedAt: timestamp("appliedAt").defaultNow().notNull(),
+  
+  // Track which protocol sections were used
+  sectionsUsed: json("sectionsUsed").$type<string[]>(), // e.g., ["initial_assessment", "lab_workup", "differential"]
+  
+  // Feedback tracking
+  feedbackSubmitted: boolean("feedbackSubmitted").default(false).notNull(),
+  feedbackRating: int("feedbackRating"), // 1-5 stars
+  feedbackComment: text("feedbackComment"),
+  feedbackSubmittedAt: timestamp("feedbackSubmittedAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProtocolApplication = typeof protocolApplications.$inferSelect;
+export type InsertProtocolApplication = typeof protocolApplications.$inferInsert;
+
+/**
+ * Lab Order Templates - protocol-specific lab order bundles
+ */
+export const labOrderTemplates = mysqlTable("lab_order_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  protocolId: varchar("protocolId", { length: 128 }).notNull(), // Links to protocol
+  templateName: varchar("templateName", { length: 255 }).notNull(),
+  description: text("description"),
+  category: mysqlEnum("category", ["first_line", "additional", "specialized"]).notNull(),
+  
+  // Lab tests in this template
+  labTests: json("labTests").$type<Array<{
+    testName: string;
+    testCode: string; // CPT code
+    description: string;
+    normalRange?: string;
+    priority: "routine" | "urgent" | "stat";
+  }>>().notNull(),
+  
+  // Usage tracking
+  timesOrdered: int("timesOrdered").default(0).notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type LabOrderTemplate = typeof labOrderTemplates.$inferSelect;
+export type InsertLabOrderTemplate = typeof labOrderTemplates.$inferInsert;
+
+/**
+ * Protocol Outcomes - clinical results from using protocols
+ */
+export const protocolOutcomes = mysqlTable("protocol_outcomes", {
+  id: int("id").autoincrement().primaryKey(),
+  protocolApplicationId: int("protocolApplicationId").notNull().references(() => protocolApplications.id),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  daoEntryId: int("daoEntryId").notNull().references(() => daoProtocolEntries.id),
+  
+  // Outcome tracking
+  outcomeType: mysqlEnum("outcomeType", ["diagnosis_confirmed", "diagnosis_changed", "treatment_successful", "treatment_modified", "referred", "ongoing"]).notNull(),
+  finalDiagnosis: text("finalDiagnosis"),
+  diagnosisMatchedProtocol: boolean("diagnosisMatchedProtocol"), // Did final diagnosis match protocol's differential?
+  
+  // Clinical metrics
+  timeToResolution: int("timeToResolution"), // Days from protocol application to resolution
+  labsOrdered: int("labsOrdered"),
+  labsAbnormal: int("labsAbnormal"),
+  followUpVisits: int("followUpVisits"),
+  
+  // Quality metrics
+  protocolAdherence: int("protocolAdherence"), // 0-100 percentage
+  patientSatisfaction: int("patientSatisfaction"), // 1-10 scale
+  
+  notes: text("notes"),
+  documentedById: int("documentedById").notNull().references(() => users.id),
+  outcomeDate: timestamp("outcomeDate").notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProtocolOutcome = typeof protocolOutcomes.$inferSelect;
+export type InsertProtocolOutcome = typeof protocolOutcomes.$inferInsert;

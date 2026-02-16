@@ -769,6 +769,37 @@ export const appRouter = router({
           recommendedSteps: causalAnalysis.recommendedSimulationScenarios,
         };
       }),
+
+    getLabTemplates: protectedProcedure
+      .input(z.object({ protocolId: z.string() }))
+      .query(async ({ input }) => {
+        return await db.getLabTemplatesByProtocol(input.protocolId);
+      }),
+
+    applyProtocol: protectedProcedure
+      .input(z.object({
+        protocolId: z.string(),
+        protocolName: z.string(),
+        daoEntryId: z.number(),
+        patientId: z.number(),
+        sectionsUsed: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error("Unauthorized");
+        return await db.createProtocolApplication({
+          protocolId: input.protocolId,
+          protocolName: input.protocolName,
+          daoEntryId: input.daoEntryId,
+          patientId: input.patientId,
+          physicianId: ctx.user.id,
+          sectionsUsed: input.sectionsUsed,
+        });
+      }),
+
+    getAnalytics: protectedProcedure
+      .query(async () => {
+        return await db.getProtocolAnalytics();
+      }),
   }),
 
   // ============ Clinical Outcomes (Marketplace Feedback) ============

@@ -579,3 +579,244 @@ export async function getPatientDiagnosisHistory(patientId: number) {
   
   return encounters;
 }
+
+// ============ Protocol System ============
+
+export async function getLabTemplatesByProtocol(protocolId: string) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const { labOrderTemplates } = await import("../drizzle/schema");
+  const templates = await db.select().from(labOrderTemplates).where(eq(labOrderTemplates.protocolId, protocolId));
+  return templates;
+}
+
+export async function createProtocolApplication(data: {
+  protocolId: string;
+  protocolName: string;
+  daoEntryId: number;
+  patientId: number;
+  physicianId: number;
+  sectionsUsed?: string[];
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const { protocolApplications } = await import("../drizzle/schema");
+  const [result] = await db.insert(protocolApplications).values({
+    protocolId: data.protocolId,
+    protocolName: data.protocolName,
+    daoEntryId: data.daoEntryId,
+    patientId: data.patientId,
+    physicianId: data.physicianId,
+    sectionsUsed: data.sectionsUsed,
+    feedbackSubmitted: false,
+  });
+  
+  return { id: result.insertId, success: true };
+}
+
+export async function getProtocolApplicationsByProtocol(protocolId: string) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const { protocolApplications } = await import("../drizzle/schema");
+  const applications = await db.select().from(protocolApplications).where(eq(protocolApplications.protocolId, protocolId));
+  return applications;
+}
+
+export async function submitProtocolFeedback(applicationId: number, rating: number, comment?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const { protocolApplications } = await import("../drizzle/schema");
+  await db.update(protocolApplications)
+    .set({
+      feedbackSubmitted: true,
+      feedbackRating: rating,
+      feedbackComment: comment,
+      feedbackSubmittedAt: new Date(),
+    })
+    .where(eq(protocolApplications.id, applicationId));
+  
+  return { success: true };
+}
+
+export async function createProtocolOutcome(data: {
+  protocolApplicationId: number;
+  patientId: number;
+  daoEntryId: number;
+  outcomeType: "diagnosis_confirmed" | "diagnosis_changed" | "treatment_successful" | "treatment_modified" | "referred" | "ongoing";
+  finalDiagnosis?: string;
+  diagnosisMatchedProtocol?: boolean;
+  timeToResolution?: number;
+  labsOrdered?: number;
+  labsAbnormal?: number;
+  followUpVisits?: number;
+  protocolAdherence?: number;
+  patientSatisfaction?: number;
+  notes?: string;
+  documentedById: number;
+  outcomeDate: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const { protocolOutcomes } = await import("../drizzle/schema");
+  const [result] = await db.insert(protocolOutcomes).values(data);
+  
+  return { id: result.insertId, success: true };
+}
+
+export async function getProtocolOutcomesByProtocol(protocolId: string) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const { protocolOutcomes, protocolApplications } = await import("../drizzle/schema");
+  
+  const outcomes = await db
+    .select()
+    .from(protocolOutcomes)
+    .innerJoin(protocolApplications, eq(protocolOutcomes.protocolApplicationId, protocolApplications.id))
+    .where(eq(protocolApplications.protocolId, protocolId));
+  
+  return outcomes.map(row => row.protocol_outcomes);
+}
+
+export async function getProtocolAnalytics() {
+  const db = await getDb();
+  if (!db) return {
+    totalProtocols: 0,
+    totalApplications: 0,
+    averageFeedbackRate: 0,
+    averageRating: 0,
+    protocolStats: []
+  };
+  
+  const { protocolApplications, protocolOutcomes } = await import("../drizzle/schema");
+  
+  // Get all applications
+  const applications = await db.select().from(protocolApplications);
+  
+  // Group by protocol
+  const protocolMap = new Map<string, any>();
+  
+  for (const app of applications) {
+    if (!protocolMap.has(app.protocolId)) {
+      protocolMap.set(app.protocolId, {
+        protocolId: app.protocolId,
+        protocolName: app.protocolName,
+        usageCount: 0,
+        feedbackCount: 0,
+        feedbackRatings: [],
+        outcomesCount: 0,
+        outcomes: [],
+        qualityMetrics: {
+          averageAdherence: null,
+          averageTimeToResolution: null,
+          diagnosisMatchRate: null,
+          averagePatientSatisfaction: null,
+        }
+      });
+    }
+    
+    const stats = protocolMap.get(app.protocolId);
+    stats.usageCount++;
+    
+    if (app.feedbackSubmitted && app.feedbackRating) {
+      stats.feedbackCount++;
+      stats.feedbackRatings.push(app.feedbackRating);
+    }
+  }
+  
+  // Get outcomes for each protocol
+  for (const [protocolId, stats] of Array.from(protocolMap.entries())) {
+    const outcomes = await db
+      .select()
+      .from(protocolOutcomes)
+      .innerJoin(protocolApplications, eq(protocolOutcomes.protocolApplicationId, protocolApplications.id))
+      .where(eq(protocolApplications.protocolId, protocolId));
+    
+    stats.outcomesCount = outcomes.length;
+    
+    // Group outcomes by type
+    const outcomeTypes = new Map<string, number>();
+    let totalAdherence = 0;
+    let adherenceCount = 0;
+    let totalTimeToResolution = 0;
+    let timeCount = 0;
+    let diagnosisMatches = 0;
+    let diagnosisTotal = 0;
+    let totalPatientSatisfaction = 0;
+    let satisfactionCount = 0;
+    
+    for (const row of outcomes) {
+      const outcome = row.protocol_outcomes;
+      
+      // Count outcome types
+      const type = outcome.outcomeType;
+      outcomeTypes.set(type, (outcomeTypes.get(type) || 0) + 1);
+      
+      // Calculate quality metrics
+      if (outcome.protocolAdherence !== null) {
+        totalAdherence += outcome.protocolAdherence;
+        adherenceCount++;
+      }
+      
+      if (outcome.timeToResolution !== null) {
+        totalTimeToResolution += outcome.timeToResolution;
+        timeCount++;
+      }
+      
+      if (outcome.diagnosisMatchedProtocol !== null) {
+        diagnosisTotal++;
+        if (outcome.diagnosisMatchedProtocol) {
+          diagnosisMatches++;
+        }
+      }
+      
+      if (outcome.patientSatisfaction !== null) {
+        totalPatientSatisfaction += outcome.patientSatisfaction;
+        satisfactionCount++;
+      }
+    }
+    
+    stats.outcomes = Array.from(outcomeTypes.entries()).map(([type, count]) => ({
+      type,
+      count
+    }));
+    
+    stats.qualityMetrics = {
+      averageAdherence: adherenceCount > 0 ? totalAdherence / adherenceCount : null,
+      averageTimeToResolution: timeCount > 0 ? totalTimeToResolution / timeCount : null,
+      diagnosisMatchRate: diagnosisTotal > 0 ? (diagnosisMatches / diagnosisTotal) * 100 : null,
+      averagePatientSatisfaction: satisfactionCount > 0 ? totalPatientSatisfaction / satisfactionCount : null,
+    };
+  }
+  
+  // Calculate protocol stats
+  const protocolStats = Array.from(protocolMap.values()).map(stats => ({
+    ...stats,
+    feedbackRate: stats.usageCount > 0 ? (stats.feedbackCount / stats.usageCount) * 100 : 0,
+    averageRating: stats.feedbackRatings.length > 0
+      ? stats.feedbackRatings.reduce((a: number, b: number) => a + b, 0) / stats.feedbackRatings.length
+      : null,
+  }));
+  
+  // Calculate overall stats
+  const totalApplications = applications.length;
+  const totalFeedback = applications.filter(app => app.feedbackSubmitted).length;
+  const allRatings = applications
+    .filter(app => app.feedbackRating !== null)
+    .map(app => app.feedbackRating!);
+  
+  return {
+    totalProtocols: protocolMap.size,
+    totalApplications,
+    averageFeedbackRate: totalApplications > 0 ? (totalFeedback / totalApplications) * 100 : 0,
+    averageRating: allRatings.length > 0
+      ? allRatings.reduce((a, b) => a + b, 0) / allRatings.length
+      : null,
+    protocolStats,
+  };
+}
