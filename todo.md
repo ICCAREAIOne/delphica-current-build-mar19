@@ -366,3 +366,17 @@
 - [x] Create treatment plan for excessive caffeine use
 - [x] Add lifestyle modifications for hydration optimization
 - [x] Test updated protocol content
+
+## Fatigue Protocol Enhancement - Phase 2
+- [x] Add ICD-10 code E86.0 for dehydration
+- [x] Add ICD-10 code F15.90 for caffeine use disorder
+- [x] Add ICD-10 codes for stimulant-related conditions (F15.93 withdrawal, F15.20 dependence, F15.23 withdrawal)
+- [x] Create hydration guidelines patient handout (Markdown)
+- [x] Create caffeine content reference chart (Markdown)
+- [x] Create caffeine tapering schedule template (Markdown)
+- [x] Add download buttons for patient handouts to protocol page
+- [x] Integrate hydration assessment questions into DAO Protocol form
+- [x] Integrate caffeine/stimulant screening into DAO Protocol form
+- [x] Pre-populate DAO form when fatigue protocol is selected (auto-displays when fatigue detected)
+- [x] Test handout generation and downloads
+- [x] Test DAO Protocol integration (all 11 tests passing)

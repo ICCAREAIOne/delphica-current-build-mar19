@@ -190,6 +190,52 @@ export default function NewEncounter() {
                   </div>
                 )}
               </div>
+
+              {/* Fatigue Protocol Screening */}
+              {(chiefComplaint.toLowerCase().includes('fatigue') || 
+                chiefComplaint.toLowerCase().includes('tired') || 
+                chiefComplaint.toLowerCase().includes('exhausted') ||
+                symptoms.some(s => s.toLowerCase().includes('fatigue') || s.toLowerCase().includes('tired'))) && (
+                <div className="border-l-4 border-blue-500 bg-blue-50 p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Activity className="h-5 w-5 text-blue-600" />
+                    <Label className="text-base font-semibold text-blue-900">Fatigue Protocol Screening</Label>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Based on the chief complaint, consider these key screening questions:
+                  </p>
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600 font-semibold">•</span>
+                      <span className="text-gray-700"><strong>Hydration:</strong> Daily water intake? Urine color/frequency? Signs of dehydration?</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600 font-semibold">•</span>
+                      <span className="text-gray-700"><strong>Caffeine:</strong> Coffee/tea/energy drinks (quantity, timing)? Recent changes in intake?</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600 font-semibold">•</span>
+                      <span className="text-gray-700"><strong>Stimulants:</strong> Prescription stimulants? OTC supplements? Pattern of use?</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600 font-semibold">•</span>
+                      <span className="text-gray-700"><strong>Sleep:</strong> Hours per night? Quality? STOP-BANG score?</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600 font-semibold">•</span>
+                      <span className="text-gray-700"><strong>Mood:</strong> PHQ-9 score? Recent stressors?</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-blue-200">
+                    <Link href="/protocols/fatigue">
+                      <Button type="button" variant="outline" size="sm" className="text-blue-700 border-blue-300 hover:bg-blue-100">
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Full Fatigue Protocol
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

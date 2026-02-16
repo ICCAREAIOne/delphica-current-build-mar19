@@ -400,6 +400,29 @@ This underscores the importance of:
                   <div className="font-mono font-semibold">F48.0</div>
                   <div className="text-gray-600">Neurasthenia (CFS)</div>
                 </div>
+                <div className="text-sm border-t pt-2 mt-2">
+                  <div className="font-semibold text-xs text-gray-500 mb-1">Lifestyle-Related</div>
+                </div>
+                <div className="text-sm">
+                  <div className="font-mono font-semibold">E86.0</div>
+                  <div className="text-gray-600">Dehydration</div>
+                </div>
+                <div className="text-sm">
+                  <div className="font-mono font-semibold">F15.90</div>
+                  <div className="text-gray-600">Caffeine use disorder, uncomplicated</div>
+                </div>
+                <div className="text-sm">
+                  <div className="font-mono font-semibold">F15.93</div>
+                  <div className="text-gray-600">Caffeine withdrawal</div>
+                </div>
+                <div className="text-sm">
+                  <div className="font-mono font-semibold">F15.20</div>
+                  <div className="text-gray-600">Stimulant dependence, uncomplicated</div>
+                </div>
+                <div className="text-sm">
+                  <div className="font-mono font-semibold">F15.23</div>
+                  <div className="text-gray-600">Stimulant withdrawal</div>
+                </div>
               </CardContent>
             </Card>
 
@@ -443,6 +466,34 @@ This underscores the importance of:
                   <div className="font-semibold">White B et al.</div>
                   <div className="text-gray-600">Underlying Disease Risk Among Patients With Fatigue. Br J Gen Pract. 2024.</div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Patient Education */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Patient Education</CardTitle>
+                <CardDescription className="text-xs">Downloadable handouts for patients</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <a href="/handouts/hydration-guidelines.md" download="Hydration-Guidelines.md" target="_blank">
+                  <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Download className="h-4 w-4 mr-2" />
+                    Hydration Guidelines
+                  </Button>
+                </a>
+                <a href="/handouts/caffeine-content-chart.md" download="Caffeine-Content-Chart.md" target="_blank">
+                  <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Download className="h-4 w-4 mr-2" />
+                    Caffeine Content Chart
+                  </Button>
+                </a>
+                <a href="/handouts/caffeine-tapering-schedule.md" download="Caffeine-Tapering-Schedule.md" target="_blank">
+                  <Button variant="outline" size="sm" className="w-full justify-start">
+                    <Download className="h-4 w-4 mr-2" />
+                    Caffeine Tapering Plan
+                  </Button>
+                </a>
               </CardContent>
             </Card>
 
