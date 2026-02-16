@@ -111,6 +111,16 @@ export default function FatigueProtocol() {
 - **Mood assessment** using validated tools:
   - PHQ-9 for depression screening
   - GAD-7 for anxiety assessment
+- **Hydration assessment**:
+  - Daily water intake (target: 8-10 glasses or 2-3 liters)
+  - Urine color and frequency
+  - Signs of dehydration (dry mouth, dark urine, dizziness)
+- **Caffeine and stimulant use**:
+  - Coffee, tea, energy drinks (quantity, timing, frequency)
+  - Caffeinated sodas and supplements
+  - Prescription stimulants (amphetamines, methylphenidate)
+  - Over-the-counter stimulants and weight-loss supplements
+  - Pattern of use (chronic high intake vs recent cessation)
 - **Substance use screening** (alcohol, medications, illicit drugs)
 - **Complete medication review** to identify iatrogenic causes
 - **Review of systems** targeting common causes:
@@ -186,7 +196,7 @@ Consider the following based on clinical presentation:
                     <Streamdown>{`
 ## Most Common Causes (Primary Care)
 
-The following account for the majority of persistent fatigue cases:
+The following account for the majority of persi## Most Common Causes
 
 1. **Sleep disorders** (sleep apnea, insomnia, restless legs syndrome)
 2. **Depression** (18.5% of cases)
@@ -196,6 +206,24 @@ The following account for the majority of persistent fatigue cases:
 6. **Thyroid dysfunction** (particularly in women)
 7. **Chronic infections** (including post-viral syndromes)
 
+## Lifestyle and Substance-Related Causes
+
+### Hydration Issues
+- **Dehydration** - Even mild dehydration (1-2% body weight loss) can cause fatigue, difficulty concentrating, and mood changes
+- **Chronic inadequate fluid intake**
+
+### Caffeine and Stimulant-Related
+- **Excessive caffeine consumption** (>400mg/day or ~4 cups coffee)
+  - Leads to tolerance, requiring increasing amounts for same effect
+  - Disrupts sleep quality even when consumed 6+ hours before bedtime
+  - Can cause "caffeine crash" as effects wear off
+- **Caffeine withdrawal** - Occurs 12-24 hours after last dose in regular users
+  - Symptoms: fatigue, headache, difficulty concentrating, irritability
+  - Peaks at 20-51 hours, can last 2-9 days
+- **Energy drink overuse** - High caffeine + sugar content causes energy crashes
+- **Stimulant medication effects**:
+  - Rebound fatigue from prescription stimulants (ADHD medications)
+  - Withdrawal from weight-loss supplements or recreational stimulants
 ## Less Common But Important Causes
 
 ### Cardiovascular
@@ -234,17 +262,40 @@ The following account for the majority of persistent fatigue cases:
 
 Treat any specific conditions identified during evaluation (e.g., anemia, hypothyroidism, depression, sleep apnea).
 
-## Non-Pharmacologic Interventions
+## Lifestyle Modifications (First-Line for All Patients)
 
-**Recommended regardless of specific diagnosis:**
+### Hydration Optimization
+- **Target**: 8-10 glasses (2-3 liters) of water daily
+- **Monitor**: Urine should be pale yellow; dark urine indicates dehydration
+- **Timing**: Spread intake throughout day; increase with exercise, heat, illness
+- **Avoid**: Excessive caffeine/alcohol which promote dehydration
+- **Expected improvement**: 1-2 weeks with adequate hydration
 
+### Caffeine Management
+- **Assessment of current intake**:
+  - Coffee: ~95mg per 8oz cup
+  - Energy drinks: 80-300mg per serving
+  - Tea: 25-50mg per cup
+  - Soda: 30-40mg per 12oz
+- **Recommendations**:
+  - **Limit to <400mg/day** (about 4 cups coffee)
+  - **Avoid after 2 PM** to prevent sleep disruption
+  - **Gradual reduction** if excessive (decrease by 25% weekly to avoid withdrawal)
+  - **Caffeine-free days** 1-2x/week to prevent tolerance
+- **Caffeine withdrawal management**:
+  - Taper slowly over 2-4 weeks rather than abrupt cessation
+  - Temporary fatigue expected for 2-9 days
+  - Adequate hydration and rest during withdrawal
+  - Consider switching to half-caf or decaf gradually
+
+### Other Lifestyle Interventions
 - **Psychoeducation** about fatigue and realistic expectations for recovery
 - **Graded exercise therapy** or individually adapted physical activity program
-- **Sleep hygiene counseling**
+- **Sleep hygiene counseling** (consistent schedule, cool dark room, no screens 1hr before bed)
 - **Cognitive behavioral therapy (CBT)** for persistent fatigue
 - **Energy conservation strategies** and pacing techniques
-- **Nutritional counseling** and adequate hydration
-- **Stress management techniques**
+- **Nutritional counseling** - balanced diet, regular meals, avoid high-sugar foods
+- **Stress management techniques** (meditation, yoga, deep breathing)
 
 ## Pharmacologic Management
 

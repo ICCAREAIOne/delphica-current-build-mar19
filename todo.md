@@ -354,3 +354,15 @@
 - [x] Verify protocol metadata structure
 - [x] Validate ICD-10/CPT codes inclusion
 - [x] Confirm evidence-based references
+
+## Fatigue Protocol Enhancement - Hydration & Substance Use
+- [x] Add water intake assessment to Initial Assessment section
+- [x] Add caffeine consumption evaluation to history taking
+- [x] Add stimulant use screening (prescription and recreational)
+- [x] Add energy drink consumption assessment
+- [x] Include dehydration as differential diagnosis
+- [x] Add caffeine withdrawal to differential diagnosis
+- [x] Create treatment plan for inadequate hydration
+- [x] Create treatment plan for excessive caffeine use
+- [x] Add lifestyle modifications for hydration optimization
+- [x] Test updated protocol content
