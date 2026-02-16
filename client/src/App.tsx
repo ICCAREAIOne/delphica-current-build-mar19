@@ -17,6 +17,7 @@ import NewEncounter from "./pages/NewEncounter";
 import OutcomeAnalytics from "./pages/OutcomeAnalytics";
 import FrameworkWorkflow from "./pages/FrameworkWorkflow";
 import ClinicalAlerts from "./pages/ClinicalAlerts";
+import FatigueProtocol from "./pages/FatigueProtocol";
 
 function Router() {
   return (
@@ -34,6 +35,7 @@ function Router() {
       <Route path={"/consultation/:id"} component={ConsultationRoom} />
       <Route path={"/workflow/:encounterId"} component={FrameworkWorkflow} />
       <Route path={"/alerts"} component={ClinicalAlerts} />
+      <Route path={"/protocols/fatigue"} component={FatigueProtocol} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

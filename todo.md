@@ -337,3 +337,20 @@
 - [ ] Add consultation history and archiving
 - [ ] Implement consultation summary generation
 - [ ] Test multi-user collaboration scenarios
+
+
+## Fatigue Protocol Integration
+- [x] Parse fatigue evaluation protocol content
+- [x] Structure protocol into clinical library format
+- [x] Add fatigue protocol to clinical library
+- [x] Create detailed protocol page with all sections
+- [x] Add ICD-10 and CPT coding information
+- [x] Include evidence-based references
+- [x] Link from clinical library
+- [x] Create protocol router with tRPC procedures (list, getById, applyToPatient)
+- [x] Implement protocol.applyToPatient procedure for AI integration
+- [x] Connect protocol to Causal Brain analysis for patient-specific recommendations
+- [x] Write comprehensive protocol tests (6 tests passing)
+- [x] Verify protocol metadata structure
+- [x] Validate ICD-10/CPT codes inclusion
+- [x] Confirm evidence-based references

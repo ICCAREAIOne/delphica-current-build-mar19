@@ -698,6 +698,79 @@ export const appRouter = router({
       }),
   }),
 
+  // ============ Clinical Protocols ============
+  protocols: router({
+    list: protectedProcedure
+      .query(async () => {
+        // Return list of available protocols
+        return [
+          {
+            id: "fatigue",
+            title: "Fatigue: Diagnostic Evaluation and Management",
+            specialty: "Internal Medicine",
+            category: "Diagnostic Evaluation",
+            lastUpdated: new Date("2026-02-15"),
+            evidenceLevel: "A",
+            description: "Comprehensive protocol for evaluating and managing patients presenting with fatigue, including differential diagnosis, laboratory workup, and treatment strategies."
+          }
+        ];
+      }),
+
+    getById: protectedProcedure
+      .input(z.object({ id: z.string() }))
+      .query(async ({ input }) => {
+        // For now, only fatigue protocol is available
+        if (input.id !== "fatigue") {
+          throw new Error("Protocol not found");
+        }
+        
+        return {
+          id: "fatigue",
+          title: "Fatigue: Diagnostic Evaluation and Management",
+          specialty: "Internal Medicine",
+          category: "Diagnostic Evaluation",
+          lastUpdated: new Date("2026-02-15"),
+          evidenceLevel: "A",
+          // Protocol content will be rendered from the frontend page
+        };
+      }),
+
+    applyToPatient: protectedProcedure
+      .input(z.object({
+        protocolId: z.string(),
+        patientId: z.number(),
+        clinicalContext: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Get patient data
+        const patient = await db.getPatientById(input.patientId);
+        if (!patient) throw new Error("Patient not found");
+
+        const age = Math.floor((Date.now() - patient.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+        // Use Causal Brain to analyze patient in context of protocol
+        const causalAnalysis = await aiService.performCausalAnalysis({
+          patientContext: {
+            age,
+            gender: patient.gender,
+            chiefComplaint: input.clinicalContext || "Fatigue evaluation",
+            symptoms: ["fatigue"],
+            chronicConditions: patient.chronicConditions as string[] || [],
+            currentMedications: patient.currentMedications as string[] || [],
+            allergies: patient.allergies as string[] || [],
+          },
+          clinicalQuestion: `Apply the ${input.protocolId} protocol to this patient. ${input.clinicalContext || ""}`,
+          dataSource: "physician_guided",
+        });
+
+        return {
+          success: true,
+          causalAnalysis,
+          recommendedSteps: causalAnalysis.recommendedSimulationScenarios,
+        };
+      }),
+  }),
+
   // ============ Clinical Outcomes (Marketplace Feedback) ============
   outcomes: router({
     listByPatient: protectedProcedure

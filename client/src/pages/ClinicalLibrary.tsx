@@ -134,6 +134,18 @@ const MOCK_PROTOCOLS: Protocol[] = [
     viewCount: 1034,
     isFavorite: false,
   },
+  {
+    id: "9",
+    title: "Fatigue Evaluation and Management Protocol",
+    category: "diagnosis",
+    condition: "Fatigue",
+    specialty: "Primary Care",
+    summary: "Comprehensive evidence-based protocol for evaluating and managing patients presenting with persistent fatigue, including systematic assessment, differential diagnosis, and treatment strategies.",
+    evidenceLevel: "A",
+    lastReviewed: "2023-12-01",
+    viewCount: 0,
+    isFavorite: false,
+  },
 ];
 
 const EVIDENCE_COLORS = {
@@ -324,10 +336,12 @@ export default function ClinicalLibrary() {
                             {protocol.viewCount} views
                           </span>
                         </div>
-                        <Button variant="link" className="gap-1 p-0 h-auto">
-                          View Protocol
-                          <ExternalLink className="h-3 w-3" />
-                        </Button>
+                        <Link href={protocol.id === "9" ? "/protocols/fatigue" : "#"}>
+                          <Button variant="link" className="gap-1 p-0 h-auto">
+                            View Protocol
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </Link>
                       </div>
                       
                       <div className="text-xs text-slate-500">
