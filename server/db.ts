@@ -20,7 +20,13 @@ import {
   codingQualityMetrics,
   InsertCodingQualityMetric,
   physicianPerformanceAnalytics,
-  InsertPhysicianPerformanceAnalytic
+  InsertPhysicianPerformanceAnalytic,
+  knowledgeBase,
+  InsertKnowledgeBase,
+  knowledgeBaseReferences,
+  InsertKnowledgeBaseReference,
+  knowledgeBaseUsage,
+  InsertKnowledgeBaseUsage
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -819,4 +825,120 @@ export async function getProtocolAnalytics() {
       : null,
     protocolStats,
   };
+}
+
+// ============ Clinical Knowledge Base Functions ============
+
+export async function getAllKnowledgeBaseEntries() {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(knowledgeBase).orderBy(desc(knowledgeBase.createdAt));
+}
+
+export async function getKnowledgeBaseEntry(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [entry] = await db.select().from(knowledgeBase).where(eq(knowledgeBase.id, id));
+  if (!entry) return null;
+  
+  // Also fetch references
+  const references = await db
+    .select()
+    .from(knowledgeBaseReferences)
+    .where(eq(knowledgeBaseReferences.knowledgeBaseId, id));
+  
+  return { ...entry, references };
+}
+
+export async function createKnowledgeBaseEntry(data: {
+  compoundName: string;
+  category: string;
+  summary: string;
+  mechanisms: Array<{name: string, description: string}>;
+  clinicalEvidence: Array<{finding: string, source: string}>;
+  dosing?: {typical: string, range: string, notes: string};
+  contraindications?: string[];
+  interactions?: string[];
+  sources: string[];
+  tags: string[];
+  createdBy: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(knowledgeBase).values(data);
+  return result.insertId;
+}
+
+export async function searchKnowledgeBase(params: {
+  query?: string;
+  category?: string;
+  tags?: string[];
+}) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  let queryBuilder = db.select().from(knowledgeBase);
+  
+  if (params.category) {
+    queryBuilder = queryBuilder.where(eq(knowledgeBase.category, params.category)) as any;
+  }
+  
+  // Note: Full-text search on JSON fields and text would require more complex SQL
+  // For now, returning all results and filtering on frontend
+  const results = await queryBuilder.orderBy(desc(knowledgeBase.createdAt));
+  
+  if (params.query) {
+    const searchLower = params.query.toLowerCase();
+    return results.filter((entry: any) => 
+      entry.compoundName.toLowerCase().includes(searchLower) ||
+      entry.summary.toLowerCase().includes(searchLower) ||
+      entry.tags.some((tag: string) => tag.toLowerCase().includes(searchLower))
+    );
+  }
+  
+  if (params.tags && params.tags.length > 0) {
+    return results.filter((entry: any) =>
+      params.tags!.some(tag => entry.tags.includes(tag))
+    );
+  }
+  
+  return results;
+}
+
+export async function getRelevantKnowledgeForCondition(condition: string, symptoms?: string[]) {
+  // Get all knowledge entries and filter by relevance
+  const allEntries = await getAllKnowledgeBaseEntries();
+  
+  const conditionLower = condition.toLowerCase();
+  const symptomTerms = symptoms?.map(s => s.toLowerCase()) || [];
+  
+  return allEntries.filter((entry: any) => {
+    const matchesCondition = 
+      entry.compoundName.toLowerCase().includes(conditionLower) ||
+      entry.summary.toLowerCase().includes(conditionLower) ||
+      entry.tags.some((tag: string) => tag.toLowerCase().includes(conditionLower));
+    
+    const matchesSymptoms = symptomTerms.length === 0 || 
+      symptomTerms.some(symptom =>
+        entry.summary.toLowerCase().includes(symptom) ||
+        entry.tags.some((tag: string) => tag.toLowerCase().includes(symptom))
+      );
+    
+    return matchesCondition || matchesSymptoms;
+  });
+}
+
+export async function recordKnowledgeBaseUsage(data: {
+  knowledgeBaseId: number;
+  encounterId?: number;
+  physicianId: number;
+  context: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(knowledgeBaseUsage).values(data);
+  return result.insertId;
 }

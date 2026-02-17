@@ -21,6 +21,7 @@ import FatigueProtocol from "./pages/FatigueProtocol";
 import NewEncounterWithProtocol from "./pages/NewEncounterWithProtocol";
 import ProtocolAnalytics from "./pages/ProtocolAnalytics";
 import ProtocolComparison from "./pages/ProtocolComparison";
+import KnowledgeBase from "./pages/KnowledgeBase";
 
 function Router() {
   return (
@@ -42,6 +43,7 @@ function Router() {
       <Route path={"/protocols/fatigue"} component={FatigueProtocol} />
       <Route path={"/protocols/analytics"} component={ProtocolAnalytics} />
       <Route path={"/protocols/comparison"} component={ProtocolComparison} />
+      <Route path={"/knowledge-base"} component={KnowledgeBase} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

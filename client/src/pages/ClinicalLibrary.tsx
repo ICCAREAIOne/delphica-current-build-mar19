@@ -213,6 +213,12 @@ export default function ClinicalLibrary() {
             <Link href="/dashboard">
               <Button variant="outline">← Back to Dashboard</Button>
             </Link>
+            <Link href="/knowledge-base">
+              <Button variant="outline" className="gap-2">
+                <Brain className="h-4 w-4" />
+                Knowledge Base
+              </Button>
+            </Link>
             <Link href="/protocols/analytics">
               <Button variant="outline" className="gap-2">
                 <TrendingUp className="h-4 w-4" />

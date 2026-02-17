@@ -442,3 +442,51 @@ export const protocolOutcomes = mysqlTable("protocol_outcomes", {
 
 export type ProtocolOutcome = typeof protocolOutcomes.$inferSelect;
 export type InsertProtocolOutcome = typeof protocolOutcomes.$inferInsert;
+
+// Clinical Knowledge Base Tables
+export const knowledgeBase = mysqlTable("knowledge_base", {
+  id: int("id").autoincrement().primaryKey(),
+  compoundName: varchar("compound_name", { length: 255 }).notNull(), // e.g., "Cinnamic Acid", "Ferulic Acid"
+  category: varchar("category", { length: 128 }).notNull(), // e.g., "PPAR-gamma Agonist", "Anti-inflammatory", "Insulin Sensitizer"
+  summary: text("summary").notNull(), // Brief description
+  mechanisms: json("mechanisms").$type<Array<{name: string, description: string}>>().notNull(), // Array of mechanism objects
+  clinicalEvidence: json("clinical_evidence").$type<Array<{finding: string, source: string}>>().notNull(), // Array of evidence objects
+  dosing: json("dosing").$type<{typical: string, range: string, notes: string}>(), // Dosing information
+  contraindications: json("contraindications").$type<string[]>(), // Array of contraindications
+  interactions: json("interactions").$type<string[]>(), // Array of drug/supplement interactions
+  sources: json("sources").$type<string[]>().notNull(), // Array of source URLs/citations
+  tags: json("tags").$type<string[]>().notNull(), // Array of searchable tags
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  createdBy: int("created_by").references(() => users.id),
+});
+
+export const knowledgeBaseReferences = mysqlTable("knowledge_base_references", {
+  id: int("id").autoincrement().primaryKey(),
+  knowledgeBaseId: int("knowledge_base_id").notNull().references(() => knowledgeBase.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 512 }).notNull(),
+  authors: text("authors"),
+  journal: varchar("journal", { length: 255 }),
+  year: int("year"),
+  doi: varchar("doi", { length: 128 }),
+  pmid: varchar("pmid", { length: 32 }),
+  url: text("url"),
+  abstract: text("abstract"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const knowledgeBaseUsage = mysqlTable("knowledge_base_usage", {
+  id: int("id").autoincrement().primaryKey(),
+  knowledgeBaseId: int("knowledge_base_id").notNull().references(() => knowledgeBase.id),
+  encounterId: int("encounter_id"), // Reference to encounter (table not yet created)
+  physicianId: int("physician_id").notNull().references(() => users.id),
+  context: varchar("context", { length: 128 }), // How it was used (e.g., "treatment_plan", "differential_diagnosis")
+  usedAt: timestamp("used_at").defaultNow().notNull(),
+});
+
+export type KnowledgeBase = typeof knowledgeBase.$inferSelect;
+export type InsertKnowledgeBase = typeof knowledgeBase.$inferInsert;
+export type KnowledgeBaseReference = typeof knowledgeBaseReferences.$inferSelect;
+export type InsertKnowledgeBaseReference = typeof knowledgeBaseReferences.$inferInsert;
+export type KnowledgeBaseUsage = typeof knowledgeBaseUsage.$inferSelect;
+export type InsertKnowledgeBaseUsage = typeof knowledgeBaseUsage.$inferInsert;

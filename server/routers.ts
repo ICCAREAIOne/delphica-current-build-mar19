@@ -847,6 +847,85 @@ export const appRouter = router({
         return { id, success: true };
       }),
   }),
+
+  // ============ Clinical Knowledge Base ============
+  knowledgeBase: router({
+    list: protectedProcedure
+      .query(async () => {
+        return await db.getAllKnowledgeBaseEntries();
+      }),
+
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getKnowledgeBaseEntry(input.id);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        compoundName: z.string(),
+        category: z.string(),
+        summary: z.string(),
+        mechanisms: z.array(z.object({
+          name: z.string(),
+          description: z.string(),
+        })),
+        clinicalEvidence: z.array(z.object({
+          finding: z.string(),
+          source: z.string(),
+        })),
+        dosing: z.object({
+          typical: z.string(),
+          range: z.string(),
+          notes: z.string(),
+        }).optional(),
+        contraindications: z.array(z.string()).optional(),
+        interactions: z.array(z.string()).optional(),
+        sources: z.array(z.string()),
+        tags: z.array(z.string()),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const id = await db.createKnowledgeBaseEntry({
+          ...input,
+          createdBy: ctx.user.id,
+        });
+        return { id, success: true };
+      }),
+
+    search: protectedProcedure
+      .input(z.object({
+        query: z.string().optional(),
+        category: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.searchKnowledgeBase(input);
+      }),
+
+    getRelevantForCondition: protectedProcedure
+      .input(z.object({
+        condition: z.string(),
+        symptoms: z.array(z.string()).optional(),
+      }))
+      .query(async ({ input }) => {
+        // This will be used by Causal Brain to retrieve relevant knowledge
+        return await db.getRelevantKnowledgeForCondition(input.condition, input.symptoms);
+      }),
+
+    recordUsage: protectedProcedure
+      .input(z.object({
+        knowledgeBaseId: z.number(),
+        encounterId: z.number().optional(),
+        context: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const id = await db.recordKnowledgeBaseUsage({
+          ...input,
+          physicianId: ctx.user.id,
+        });
+        return { id, success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

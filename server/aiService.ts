@@ -56,6 +56,13 @@ export interface CausalAnalysisResult {
 export async function performCausalAnalysis(
   request: CausalAnalysisRequest
 ): Promise<CausalAnalysisResult> {
+  // Retrieve relevant knowledge base entries for this condition
+  const db = await import("./db");
+  const relevantKnowledge = await db.getRelevantKnowledgeForCondition(
+    request.patientContext.chiefComplaint,
+    request.patientContext.symptoms
+  );
+  
   const systemPrompt = `You are the Causal Brain - the central intelligence hub of a clinical decision support system.
 Your role is to perform deep causal analysis of patient data to identify:
 1. Key causal factors affecting the patient's condition
@@ -76,6 +83,21 @@ ${request.patientContext.currentMedications?.length ? `- Current Medications: ${
 ${request.patientContext.allergies?.length ? `- Allergies: ${request.patientContext.allergies.join(", ")}` : ""}
 
 Clinical Question: ${request.clinicalQuestion}
+
+${relevantKnowledge.length > 0 ? `
+Relevant Clinical Knowledge Base Entries:
+${relevantKnowledge.map((entry: any) => `
+**${entry.compoundName}** (${entry.category}):
+${entry.summary}
+
+Mechanisms:
+${entry.mechanisms.map((m: any) => `- ${m.name}: ${m.description}`).join('\n')}
+
+Clinical Evidence:
+${entry.clinicalEvidence.map((e: any) => `- ${e.finding}`).join('\n')}
+`).join('\n---\n')}
+
+Consider these evidence-based interventions when formulating treatment recommendations.` : ''}
 
 Perform comprehensive causal analysis and recommend scenarios for Delphi Simulator exploration.`;
 
