@@ -434,3 +434,12 @@
 - [x] Add knowledge base link to Clinical Library (Brain icon button in header)
 - [x] Verify TypeScript compilation with no errors
 - [x] Confirm knowledge base integration with Causal Brain
+
+## Bempedoic Acid Knowledge Base Entry
+- [x] Format bempedoic acid content into knowledge base structure
+- [x] Extract mechanisms (4 mechanisms: ATP citrate lyase inhibition, PPARα activation, anti-inflammatory, metabolic health)
+- [x] Extract clinical evidence (5 findings: MACE reduction, LDL/ApoB reduction, hsCRP reduction, safety profile, dual-mechanism confirmation)
+- [x] Define dosing guidelines (180 mg once daily)
+- [x] Identify contraindications (severe renal impairment, ESRD, pregnancy) and interactions (statins, anticoagulants, fibrates)
+- [x] Insert into knowledge base database
+- [ ] Push changes to GitHub
