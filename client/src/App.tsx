@@ -20,6 +20,7 @@ import ClinicalAlerts from "./pages/ClinicalAlerts";
 import FatigueProtocol from "./pages/FatigueProtocol";
 import NewEncounterWithProtocol from "./pages/NewEncounterWithProtocol";
 import ProtocolAnalytics from "./pages/ProtocolAnalytics";
+import ProtocolComparison from "./pages/ProtocolComparison";
 
 function Router() {
   return (
@@ -40,6 +41,7 @@ function Router() {
       <Route path={"/alerts"} component={ClinicalAlerts} />
       <Route path={"/protocols/fatigue"} component={FatigueProtocol} />
       <Route path={"/protocols/analytics"} component={ProtocolAnalytics} />
+      <Route path={"/protocols/comparison"} component={ProtocolComparison} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

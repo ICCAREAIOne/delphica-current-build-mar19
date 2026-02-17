@@ -36,12 +36,20 @@ export default function ProtocolAnalytics() {
               Track usage, feedback, and clinical outcomes across all protocols
             </p>
           </div>
-          <Link href="/library">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Library
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/library">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Library
+              </Button>
+            </Link>
+            <Link href="/protocols/comparison">
+              <Button className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Compare Protocols
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Overall Stats */}

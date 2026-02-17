@@ -401,3 +401,20 @@
 - [x] Create database functions for analytics calculations
 - [x] Verify all existing tests pass (11 tests passing)
 - [x] Confirm protocol system integration with existing codebase
+
+## Protocol Comparison View
+- [x] Create ProtocolComparison page component
+- [x] Add protocol multi-select checkbox interface for comparison
+- [x] Build side-by-side metrics comparison table with 8 key metrics
+- [x] Implement effectiveness scoring algorithm (0-100 scale)
+- [x] Display comparative insights and recommendations (auto-generated)
+- [x] Add "Best Performer" and "Needs Improvement" badges
+- [x] Add route for comparison view in App.tsx
+- [x] Link comparison view from Protocol Analytics dashboard
+- [x] Add visual comparison charts (4 bar charts: usage, feedback rate, adherence, effectiveness)
+- [ ] Create comparison export functionality (PDF/CSV)
+- [x] Add actionable recommendations based on performance gaps
+- [x] Include specific improvement strategies for feedback, adherence, and resolution time
+- [x] Test comparison view integration (all 11 tests passing)
+- [x] Verify TypeScript compilation with no errors
+- [x] Confirm dev server running without issues
