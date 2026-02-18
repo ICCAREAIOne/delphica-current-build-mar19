@@ -4,7 +4,8 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Bot, Send, Loader2 } from "lucide-react";
+import { Bot, Send, Loader2, Mic, MicOff } from "lucide-react";
+import { toast } from "sonner";
 
 export default function PatientIntake() {
   const [location] = useLocation();
@@ -14,7 +15,10 @@ export default function PatientIntake() {
   const [messages, setMessages] = useState<Array<{ role: "assistant" | "user"; content: string }>>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const { data: session } = trpc.intake.getSession.useQuery(
     { sessionToken: sessionToken || "" },
@@ -67,6 +71,43 @@ export default function PatientIntake() {
     }
   }, [session]);
 
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.lang = 'en-US';
+
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setInputValue(transcript);
+          setIsRecording(false);
+        };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsRecording(false);
+          if (event.error === 'not-allowed') {
+            toast.error('Microphone access denied. Please enable microphone permissions.');
+          } else if (event.error === 'no-speech') {
+            toast.error('No speech detected. Please try again.');
+          } else {
+            toast.error('Voice recognition error. Please try typing instead.');
+          }
+        };
+
+        recognitionRef.current.onend = () => {
+          setIsRecording(false);
+        };
+      } else {
+        setSpeechSupported(false);
+      }
+    }
+  }, []);
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -90,6 +131,27 @@ export default function PatientIntake() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const toggleVoiceInput = () => {
+    if (!speechSupported) {
+      toast.error('Voice input is not supported in your browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setIsRecording(true);
+        toast.info('Listening... Speak now');
+      } catch (error) {
+        console.error('Failed to start recognition:', error);
+        toast.error('Failed to start voice input. Please try again.');
+      }
     }
   };
 
@@ -176,10 +238,20 @@ export default function PatientIntake() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type your response here..."
-              disabled={isLoading}
+              placeholder={isRecording ? "Listening..." : "Type your response or use voice input..."}
+              disabled={isLoading || isRecording}
               className="flex-1"
             />
+            <Button
+              onClick={toggleVoiceInput}
+              disabled={isLoading}
+              size="icon"
+              variant={isRecording ? "default" : "outline"}
+              className={isRecording ? "bg-red-600 hover:bg-red-700 animate-pulse" : ""}
+              title={speechSupported ? (isRecording ? "Stop recording" : "Start voice input") : "Voice input not supported"}
+            >
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </Button>
             <Button
               onClick={handleSend}
               disabled={!inputValue.trim() || isLoading}
