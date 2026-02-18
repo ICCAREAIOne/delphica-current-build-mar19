@@ -1033,3 +1033,53 @@ export async function completeIntakeSession(sessionId: number) {
     })
     .where(eq(intakeSessions.id, sessionId));
 }
+
+export async function listIntakeSessions(status?: 'in_progress' | 'completed') {
+  const db = await getDb();
+  if (!db) return [];
+
+  let query = db.select().from(intakeSessions);
+  
+  if (status) {
+    query = query.where(eq(intakeSessions.status, status)) as any;
+  }
+
+  const sessions = await query;
+  
+  // Fetch messages for each session
+  const sessionsWithMessages = await Promise.all(
+    sessions.map(async (session) => {
+      const messages = await db
+        .select()
+        .from(intakeMessages)
+        .where(eq(intakeMessages.sessionId, session.id))
+        .orderBy(intakeMessages.createdAt);
+      
+      return {
+        ...session,
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+      };
+    })
+  );
+
+  return sessionsWithMessages;
+}
+
+export async function createIntakeSessionWithDetails(data: {
+  sessionToken: string;
+  patientName: string;
+  patientEmail: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [result] = await db.insert(intakeSessions).values({
+    sessionToken: data.sessionToken,
+    patientName: data.patientName,
+    patientEmail: data.patientEmail,
+    status: "in_progress",
+    collectedData: {},
+  });
+
+  return Number(result.insertId);
+}

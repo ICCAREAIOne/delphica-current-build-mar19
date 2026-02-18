@@ -71,6 +71,13 @@
       "when": 1771380880273,
       "tag": "0009_abnormal_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1771382128050,
+      "tag": "0010_medical_firelord",
+      "breakpoints": true
     }
   ]
 }

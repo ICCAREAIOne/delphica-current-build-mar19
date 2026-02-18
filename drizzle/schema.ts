@@ -497,6 +497,8 @@ export type InsertKnowledgeBaseUsage = typeof knowledgeBaseUsage.$inferInsert;
 export const intakeSessions = mysqlTable("intake_sessions", {
   id: int("id").autoincrement().primaryKey(),
   patientId: int("patient_id").references(() => patients.id),
+  patientName: varchar("patient_name", { length: 255 }),
+  patientEmail: varchar("patient_email", { length: 320 }),
   sessionToken: varchar("session_token", { length: 128 }).notNull().unique(),
   status: mysqlEnum("status", ["in_progress", "completed", "abandoned"]).default("in_progress").notNull(),
   collectedData: json("collected_data").$type<{

@@ -476,4 +476,19 @@
 - [x] Add browser compatibility detection
 - [x] Add fallback message for unsupported browsers
 - [x] Test voice input functionality (all 11 tests passing, TypeScript compilation successful)
+- [x] Push changes to GitHub (commit 2985d87)
+
+## Intake Session Management Dashboard
+- [x] Create IntakeDashboard page component
+- [x] Add tRPC procedures (listSessions, generateLink)
+- [x] Implement session filtering (in_progress, completed, all)
+- [x] Add session search by patient name or email
+- [x] Create session detail modal with conversation history
+- [x] Display collected data in structured format
+- [x] Add intake link generation functionality
+- [x] Add copy-to-clipboard for intake links
+- [x] Implement "Create Encounter" button from intake data
+- [x] Add route for intake dashboard (/intake-dashboard)
+- [x] Add database columns (patientName, patientEmail) to intake_sessions
+- [x] Test dashboard functionality (all 11 tests passing, TypeScript compilation successful)
 - [ ] Push changes to GitHub

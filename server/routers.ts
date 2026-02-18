@@ -930,6 +930,29 @@ export const appRouter = router({
 
   // ============ Patient Intake Agent ============
   intake: router({    
+    listSessions: protectedProcedure
+      .input(z.object({
+        status: z.enum(['in_progress', 'completed']).optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.listIntakeSessions(input.status);
+      }),
+
+    generateLink: protectedProcedure
+      .input(z.object({
+        patientName: z.string(),
+        patientEmail: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const sessionToken = `intake_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const sessionId = await db.createIntakeSessionWithDetails({
+          sessionToken,
+          patientName: input.patientName,
+          patientEmail: input.patientEmail,
+        });
+        return { sessionId, sessionToken };
+      }),
+
     startSession: publicProcedure
       .input(z.object({
         patientId: z.number().optional(),
