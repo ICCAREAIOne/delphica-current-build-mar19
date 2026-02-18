@@ -541,4 +541,16 @@
 - [x] Add "Intake Sessions" link to DashboardLayout sidebar
 - [x] Add appropriate icon for intake sessions menu item (ClipboardList)
 - [x] Update menu labels for clarity (Dashboard, Patients, Intake Sessions)
+- [x] Push changes to GitHub (commit 48a2d69)
+
+## Quick Actions Dropdown for Intake Sessions
+- [x] Design quick actions dropdown UI component
+- [x] Add dropdown trigger button (ChevronDown) to Intake Sessions nav item
+- [x] Create "Send New Invite" quick action (Send icon)
+- [x] Create "View Completed Today" quick action (CheckCircle icon)
+- [x] Create "View In Progress" quick action (Clock icon)
+- [x] Create "Generate Report" quick action (FileText icon)
+- [x] Implement navigation/modal logic for each action (URL parameters, auto-click for Send Invite)
+- [x] Add data-action attribute to Send Invite button for quick action triggering
+- [x] Test all quick action shortcuts (all 11 tests passing, TypeScript compilation successful)
 - [ ] Push changes to GitHub

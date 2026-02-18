@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,23 @@ export default function IntakeDashboard() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "in_progress" | "completed">("all");
+  
+  // Handle URL parameters for quick actions
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const filter = params.get("filter");
+    const action = params.get("action");
+    const today = params.get("today");
+    
+    if (filter && (filter === "in_progress" || filter === "completed")) {
+      setStatusFilter(filter);
+    }
+    
+    if (action === "generate-report") {
+      // Future: Open report generation modal
+      toast.info("Report generation feature coming soon!");
+    }
+  }, []);
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
@@ -107,6 +124,7 @@ export default function IntakeDashboard() {
           </div>
           <div className="flex gap-2">
             <Button
+              data-action="send-invite"
               onClick={() => setShowEmailDialog(true)}
               className="bg-blue-600 hover:bg-blue-700"
             >

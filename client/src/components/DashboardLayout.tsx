@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, ClipboardList } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, ClipboardList, ChevronDown, Send, CheckCircle, Clock, FileText } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -183,6 +183,77 @@ function DashboardLayoutContent({
             <SidebarMenu className="px-2 py-1">
               {menuItems.map(item => {
                 const isActive = location === item.path;
+                const isIntakeSessions = item.path === "/intake-dashboard";
+                
+                if (isIntakeSessions && !isCollapsed) {
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      <DropdownMenu>
+                        <div className="flex items-center gap-1">
+                          <SidebarMenuButton
+                            isActive={isActive}
+                            onClick={() => setLocation(item.path)}
+                            tooltip={item.label}
+                            className={`h-10 transition-all font-normal flex-1`}
+                          >
+                            <item.icon
+                              className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
+                            />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                          <DropdownMenuTrigger asChild>
+                            <button className="h-10 w-8 flex items-center justify-center hover:bg-accent rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                        </div>
+                        <DropdownMenuContent align="start" side="right" className="w-56">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setLocation("/intake-dashboard");
+                              setTimeout(() => {
+                                const sendBtn = document.querySelector('[data-action="send-invite"]') as HTMLButtonElement;
+                                sendBtn?.click();
+                              }, 100);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Send className="mr-2 h-4 w-4" />
+                            <span>Send New Invite</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setLocation("/intake-dashboard?filter=completed&today=true");
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            <span>View Completed Today</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setLocation("/intake-dashboard?filter=in_progress");
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            <span>View In Progress</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setLocation("/intake-dashboard?action=generate-report");
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            <span>Generate Report</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </SidebarMenuItem>
+                  );
+                }
+                
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
