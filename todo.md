@@ -535,4 +535,10 @@
 - [x] Update voice recognition to support language-specific speech-to-text
 - [ ] Add language preference to email templates
 - [x] Test multilingual conversations for all supported languages (all 11 tests passing, TypeScript compilation successful)
+- [x] Push changes to GitHub (commit 47e6e5e)
+
+## Intake Dashboard Navigation
+- [x] Add "Intake Sessions" link to DashboardLayout sidebar
+- [x] Add appropriate icon for intake sessions menu item (ClipboardList)
+- [x] Update menu labels for clarity (Dashboard, Patients, Intake Sessions)
 - [ ] Push changes to GitHub
