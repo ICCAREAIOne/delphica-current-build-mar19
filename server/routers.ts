@@ -953,6 +953,30 @@ export const appRouter = router({
         return { sessionId, sessionToken };
       }),
 
+    sendIntakeEmail: protectedProcedure
+      .input(z.object({
+        patientEmail: z.string().email(),
+        patientName: z.string(),
+        sessionToken: z.string(),
+        template: z.enum(['intakeInvitation', 'intakeReminder']),
+        appointmentDate: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const { sendIntakeEmail } = await import('./emailService');
+        const intakeLink = `${process.env.VITE_APP_URL || 'http://localhost:3000'}/intake?token=${input.sessionToken}`;
+        
+        const result = await sendIntakeEmail({
+          to: input.patientEmail,
+          patientName: input.patientName,
+          intakeLink,
+          physicianName: ctx.user?.name || 'Your Physician',
+          template: input.template,
+          appointmentDate: input.appointmentDate,
+        });
+
+        return result;
+      }),
+
     startSession: publicProcedure
       .input(z.object({
         patientId: z.number().optional(),

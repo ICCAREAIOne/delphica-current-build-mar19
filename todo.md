@@ -491,4 +491,16 @@
 - [x] Add route for intake dashboard (/intake-dashboard)
 - [x] Add database columns (patientName, patientEmail) to intake_sessions
 - [x] Test dashboard functionality (all 11 tests passing, TypeScript compilation successful)
+- [x] Push changes to GitHub (commit 3802852)
+
+## Email Integration for Intake Links
+- [x] Create email service with Nodemailer
+- [x] Add email configuration to environment variables (EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM)
+- [x] Create email templates (intakeInvitation, intakeReminder with HTML formatting)
+- [x] Build sendIntakeEmail tRPC procedure
+- [x] Add email sending UI to intake dashboard (Send Intake Email dialog)
+- [x] Implement template selection (Initial Invitation, Reminder)
+- [x] Add appointment date field for email customization
+- [x] Integrate with generateLink and sendIntakeEmail mutations
+- [x] Test email sending functionality (all 11 tests passing, TypeScript compilation successful)
 - [ ] Push changes to GitHub

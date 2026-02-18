@@ -18,7 +18,9 @@ import {
   Copy, 
   ExternalLink,
   FileText,
-  Calendar
+  Calendar,
+  Mail,
+  Send
 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -29,6 +31,13 @@ export default function IntakeDashboard() {
   const [statusFilter, setStatusFilter] = useState<"all" | "in_progress" | "completed">("all");
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailForm, setEmailForm] = useState({
+    patientName: "",
+    patientEmail: "",
+    template: "intakeInvitation" as "intakeInvitation" | "intakeReminder",
+    appointmentDate: "",
+  });
 
   const { data: sessions, isLoading, refetch } = trpc.intake.listSessions.useQuery({
     status: statusFilter === "all" ? undefined : statusFilter
@@ -42,6 +51,23 @@ export default function IntakeDashboard() {
     },
     onError: (error) => {
       toast.error(`Failed to generate link: ${error.message}`);
+    }
+  });
+
+  const sendEmail = trpc.intake.sendIntakeEmail.useMutation({
+    onSuccess: () => {
+      toast.success("Email sent successfully!");
+      setShowEmailDialog(false);
+      setEmailForm({
+        patientName: "",
+        patientEmail: "",
+        template: "intakeInvitation",
+        appointmentDate: "",
+      });
+      refetch();
+    },
+    onError: (error) => {
+      toast.error(`Failed to send email: ${error.message}`);
     }
   });
 
@@ -79,19 +105,28 @@ export default function IntakeDashboard() {
               Manage and review patient intake questionnaires
             </p>
           </div>
-          <Button
-            onClick={() => {
-              const name = prompt("Patient Name:");
-              const email = prompt("Patient Email:");
-              if (name && email) {
-                handleGenerateLink(name, email);
-              }
-            }}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <ExternalLink className="w-4 h-4 mr-2" />
-            Generate Intake Link
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowEmailDialog(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Send Intake Email
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const name = prompt("Patient Name:");
+                const email = prompt("Patient Email:");
+                if (name && email) {
+                  handleGenerateLink(name, email);
+                }
+              }}
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Generate Link
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -297,6 +332,90 @@ export default function IntakeDashboard() {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Email Dialog */}
+        <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Send Intake Email</DialogTitle>
+              <DialogDescription>
+                Send a pre-visit health assessment link to a patient via email
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="text-sm font-medium">Patient Name</label>
+                <Input
+                  value={emailForm.patientName}
+                  onChange={(e) => setEmailForm({ ...emailForm, patientName: e.target.value })}
+                  placeholder="John Doe"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Patient Email</label>
+                <Input
+                  type="email"
+                  value={emailForm.patientEmail}
+                  onChange={(e) => setEmailForm({ ...emailForm, patientEmail: e.target.value })}
+                  placeholder="patient@example.com"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Email Template</label>
+                <select
+                  value={emailForm.template}
+                  onChange={(e) => setEmailForm({ ...emailForm, template: e.target.value as any })}
+                  className="w-full mt-1 px-3 py-2 border border-input rounded-md bg-background"
+                >
+                  <option value="intakeInvitation">Initial Invitation</option>
+                  <option value="intakeReminder">Reminder</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Appointment Date (Optional)</label>
+                <Input
+                  type="date"
+                  value={emailForm.appointmentDate}
+                  onChange={(e) => setEmailForm({ ...emailForm, appointmentDate: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex gap-2 justify-end mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEmailDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    // First generate the link
+                    const result = await generateLink.mutateAsync({
+                      patientName: emailForm.patientName,
+                      patientEmail: emailForm.patientEmail,
+                    });
+                    
+                    // Then send the email with the token
+                    sendEmail.mutate({
+                      patientEmail: emailForm.patientEmail,
+                      patientName: emailForm.patientName,
+                      sessionToken: result.sessionToken,
+                      template: emailForm.template,
+                      appointmentDate: emailForm.appointmentDate || undefined,
+                    });
+                  }}
+                  disabled={!emailForm.patientName || !emailForm.patientEmail || sendEmail.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  {sendEmail.isPending ? "Sending..." : "Send Email"}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
