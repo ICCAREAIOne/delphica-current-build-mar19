@@ -451,4 +451,19 @@
 - [x] Define patient selection criteria (metabolically unhealthy benefit most, healthy individuals show minimal benefit)
 - [x] Document surrogate marker limitations (LDL-C as inappropriate surrogate)
 - [x] Insert into knowledge base database
+- [x] Push changes to GitHub (commit 780de49)
+
+## AI Avatar Intake Agent
+- [x] Design database schema for patient intake sessions
+- [x] Create intakeSessions table (patient info, session status, collected data)
+- [x] Create intakeMessages table (conversation history)
+- [x] Build conversational AI service for intake agent
+- [x] Implement smart follow-up question logic (LLM-powered with structured JSON output)
+- [x] Create patient-facing intake interface with chat UI
+- [x] Add avatar visual component (animated bot icon with online status)
+- [x] Build intake session management (start, resume, complete)
+- [x] Add tRPC procedures for intake operations (startSession, getSession, sendMessage)
+- [x] Add database functions for intake sessions and messages
+- [x] Integrate collected data with DAO Protocol encounter form (auto-fills chief complaint, symptoms, duration, severity)
+- [x] Test intake agent workflow (all 11 tests passing, TypeScript compilation successful)
 - [ ] Push changes to GitHub

@@ -490,3 +490,48 @@ export type KnowledgeBaseReference = typeof knowledgeBaseReferences.$inferSelect
 export type InsertKnowledgeBaseReference = typeof knowledgeBaseReferences.$inferInsert;
 export type KnowledgeBaseUsage = typeof knowledgeBaseUsage.$inferSelect;
 export type InsertKnowledgeBaseUsage = typeof knowledgeBaseUsage.$inferInsert;
+
+/**
+ * Patient Intake Sessions - AI avatar intake conversations
+ */
+export const intakeSessions = mysqlTable("intake_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patient_id").references(() => patients.id),
+  sessionToken: varchar("session_token", { length: 128 }).notNull().unique(),
+  status: mysqlEnum("status", ["in_progress", "completed", "abandoned"]).default("in_progress").notNull(),
+  collectedData: json("collected_data").$type<{
+    chiefComplaint?: string;
+    symptoms?: string[];
+    duration?: string;
+    severity?: string;
+    medicalHistory?: string[];
+    currentMedications?: string[];
+    allergies?: string[];
+    socialHistory?: {
+      smoking?: string;
+      alcohol?: string;
+      exercise?: string;
+    };
+    reviewOfSystems?: Record<string, string[]>;
+  }>(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type IntakeSession = typeof intakeSessions.$inferSelect;
+export type InsertIntakeSession = typeof intakeSessions.$inferInsert;
+
+/**
+ * Intake Messages - conversation history for intake sessions
+ */
+export const intakeMessages = mysqlTable("intake_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("session_id").notNull().references(() => intakeSessions.id),
+  role: mysqlEnum("role", ["assistant", "user"]).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type IntakeMessage = typeof intakeMessages.$inferSelect;
+export type InsertIntakeMessage = typeof intakeMessages.$inferInsert;

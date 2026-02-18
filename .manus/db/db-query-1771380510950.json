@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS intake_sessions (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  patient_id INT,\n  session_token VARCHAR(128) NOT NULL UNIQUE,\n  status ENUM('in_progress', 'completed', 'abandoned') DEFAULT 'in_progress' NOT NULL,\n  collected_data JSON,\n  completed_at TIMESTAMP NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,\n  FOREIGN KEY (patient_id) REFERENCES patients(id)\n);\n\nCREATE TABLE IF NOT EXISTS intake_messages (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  session_id INT NOT NULL,\n  role ENUM('assistant', 'user') NOT NULL,\n  content TEXT NOT NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES intake_sessions(id)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34DkbYAaF6MBWwK.96fd8e3f3a28 --database 6XDPcfqtDX3GCRKvFSNyjg --execute CREATE TABLE IF NOT EXISTS intake_sessions (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  patient_id INT,\n  session_token VARCHAR(128) NOT NULL UNIQUE,\n  status ENUM('in_progress', 'completed', 'abandoned') DEFAULT 'in_progress' NOT NULL,\n  collected_data JSON,\n  completed_at TIMESTAMP NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,\n  FOREIGN KEY (patient_id) REFERENCES patients(id)\n);\n\nCREATE TABLE IF NOT EXISTS intake_messages (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  session_id INT NOT NULL,\n  role ENUM('assistant', 'user') NOT NULL,\n  content TEXT NOT NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES intake_sessions(id)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2127
+}

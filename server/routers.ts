@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -924,6 +925,70 @@ export const appRouter = router({
           physicianId: ctx.user.id,
         });
         return { id, success: true };
+      }),
+  }),
+
+  // ============ Patient Intake Agent ============
+  intake: router({    
+    startSession: publicProcedure
+      .input(z.object({
+        patientId: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const sessionToken = `intake_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const sessionId = await db.createIntakeSession({
+          patientId: input.patientId,
+          sessionToken,
+        });
+        return { sessionId, sessionToken };
+      }),
+
+    getSession: publicProcedure
+      .input(z.object({
+        sessionToken: z.string(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getIntakeSession(input.sessionToken);
+      }),
+
+    sendMessage: publicProcedure
+      .input(z.object({
+        sessionToken: z.string(),
+        message: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const session = await db.getIntakeSession(input.sessionToken);
+        if (!session) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' });
+        }
+
+        // Save user message
+        await db.addIntakeMessage(session.id, 'user', input.message);
+
+        // Process message with AI
+        const { processIntakeMessage } = await import('./intakeAgent');
+        const response = await processIntakeMessage(input.message, {
+          collectedData: session.collectedData || {},
+          conversationHistory: session.messages || [],
+        });
+
+        // Save assistant response
+        await db.addIntakeMessage(session.id, 'assistant', response.message);
+
+        // Update collected data
+        if (response.extractedData) {
+          await db.updateIntakeSessionData(session.id, response.extractedData);
+        }
+
+        // Mark as complete if done
+        if (response.isComplete) {
+          await db.completeIntakeSession(session.id);
+        }
+
+        return {
+          response: response.message,
+          isComplete: response.isComplete,
+        };
       }),
   }),
 });

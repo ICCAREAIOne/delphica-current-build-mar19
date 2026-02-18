@@ -22,6 +22,7 @@ import NewEncounterWithProtocol from "./pages/NewEncounterWithProtocol";
 import ProtocolAnalytics from "./pages/ProtocolAnalytics";
 import ProtocolComparison from "./pages/ProtocolComparison";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import PatientIntake from "./pages/PatientIntake";
 
 function Router() {
   return (
@@ -44,6 +45,7 @@ function Router() {
       <Route path={"/protocols/analytics"} component={ProtocolAnalytics} />
       <Route path={"/protocols/comparison"} component={ProtocolComparison} />
       <Route path={"/knowledge-base"} component={KnowledgeBase} />
+      <Route path={"/intake"} component={PatientIntake} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

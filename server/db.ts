@@ -26,7 +26,11 @@ import {
   knowledgeBaseReferences,
   InsertKnowledgeBaseReference,
   knowledgeBaseUsage,
-  InsertKnowledgeBaseUsage
+  InsertKnowledgeBaseUsage,
+  intakeSessions,
+  InsertIntakeSession,
+  intakeMessages,
+  InsertIntakeMessage
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -941,4 +945,91 @@ export async function recordKnowledgeBaseUsage(data: {
   
   const [result] = await db.insert(knowledgeBaseUsage).values(data);
   return result.insertId;
+}
+
+// ============ Patient Intake Functions ============
+
+export async function createIntakeSession(data: { patientId?: number; sessionToken: string }) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+
+  const [result] = await database.insert(intakeSessions).values({
+    patientId: data.patientId,
+    sessionToken: data.sessionToken,
+    status: "in_progress",
+    collectedData: {},
+  });
+  return result.insertId;
+}
+
+export async function getIntakeSession(sessionToken: string) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const [session] = await database
+    .select()
+    .from(intakeSessions)
+    .where(eq(intakeSessions.sessionToken, sessionToken))
+    .limit(1);
+  
+  if (!session) return null;
+
+  // Get messages for this session
+  const messages = await database
+    .select()
+    .from(intakeMessages)
+    .where(eq(intakeMessages.sessionId, session.id))
+    .orderBy(intakeMessages.createdAt);
+
+  return {
+    ...session,
+    messages: messages.map(m => ({ role: m.role, content: m.content })),
+  };
+}
+
+export async function addIntakeMessage(sessionId: number, role: "assistant" | "user", content: string) {
+  const database = await getDb();
+  if (!database) return;
+
+  await database.insert(intakeMessages).values({
+    sessionId,
+    role,
+    content,
+  });
+}
+
+export async function updateIntakeSessionData(sessionId: number, newData: any) {
+  const database = await getDb();
+  if (!database) return;
+
+  const [session] = await database
+    .select()
+    .from(intakeSessions)
+    .where(eq(intakeSessions.id, sessionId))
+    .limit(1);
+
+  if (!session) return;
+
+  const updatedData = {
+    ...session.collectedData,
+    ...newData,
+  };
+
+  await database
+    .update(intakeSessions)
+    .set({ collectedData: updatedData })
+    .where(eq(intakeSessions.id, sessionId));
+}
+
+export async function completeIntakeSession(sessionId: number) {
+  const database = await getDb();
+  if (!database) return;
+
+  await database
+    .update(intakeSessions)
+    .set({
+      status: "completed",
+      completedAt: new Date(),
+    })
+    .where(eq(intakeSessions.id, sessionId));
 }

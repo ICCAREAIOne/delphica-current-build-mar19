@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,18 @@ export default function NewEncounter() {
   const params = useParams();
   const patientId = params.patientId ? parseInt(params.patientId) : undefined;
 
+  // Check for intake session token in URL
+  const searchParams = new URLSearchParams(window.location.search);
+  const intakeToken = searchParams.get("intakeSession");
+
   const { data: patient } = trpc.patients.getById.useQuery(
     { id: patientId! },
     { enabled: !!patientId }
+  );
+
+  const { data: intakeSession } = trpc.intake.getSession.useQuery(
+    { sessionToken: intakeToken! },
+    { enabled: !!intakeToken }
   );
 
   // SOAP Note fields
@@ -39,6 +48,27 @@ export default function NewEncounter() {
   const [differentialInput, setDifferentialInput] = useState("");
   const [differentialDiagnosis, setDifferentialDiagnosis] = useState<string[]>([]);
   const [treatmentPlan, setTreatmentPlan] = useState("");
+
+  // Pre-fill form with intake data
+  useEffect(() => {
+    if (intakeSession?.collectedData) {
+      const data = intakeSession.collectedData;
+      if (data.chiefComplaint) setChiefComplaint(data.chiefComplaint);
+      if (data.symptoms) setSymptoms(data.symptoms);
+      if (data.duration) {
+        // Add duration to physical exam findings
+        setPhysicalExamFindings(prev => 
+          prev ? `${prev}\n\nDuration: ${data.duration}` : `Duration: ${data.duration}`
+        );
+      }
+      if (data.severity) {
+        // Add severity to physical exam findings
+        setPhysicalExamFindings(prev => 
+          prev ? `${prev}\nSeverity: ${data.severity}` : `Severity: ${data.severity}`
+        );
+      }
+    }
+  }, [intakeSession]);
 
   const createEncounter = trpc.dao.create.useMutation({
     onSuccess: (data) => {
