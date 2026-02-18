@@ -17,8 +17,18 @@ export default function PatientIntake() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [showLanguageSelector, setShowLanguageSelector] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  const languages = [
+    { code: "en", name: "English", flag: "🇺🇸" },
+    { code: "es", name: "Español", flag: "🇪🇸" },
+    { code: "zh", name: "中文", flag: "🇨🇳" },
+    { code: "fr", name: "Français", flag: "🇫🇷" },
+    { code: "ht", name: "Kreyòl Ayisyen", flag: "🇭🇹" },
+  ];
 
   const { data: session } = trpc.intake.getSession.useQuery(
     { sessionToken: sessionToken || "" },
@@ -62,14 +72,23 @@ export default function PatientIntake() {
   useEffect(() => {
     if (session?.messages) {
       setMessages(session.messages);
-    } else if (session && messages.length === 0) {
-      // Show initial greeting
+      setSelectedLanguage(session.language || 'en');
+      setShowLanguageSelector(false);
+    } else if (session && messages.length === 0 && !showLanguageSelector) {
+      // Show initial greeting in selected language
+      const greetings: Record<string, string> = {
+        en: "Hello! I'm here to help gather some information before your consultation. This will help your physician provide you with the best possible care. To start, could you please tell me what brings you in today?",
+        es: "¡Hola! Estoy aquí para ayudar a recopilar información antes de su consulta. Esto ayudará a su médico a brindarle la mejor atención posible. Para comenzar, ¿podría decirme qué lo trae hoy?",
+        zh: "您好！我在这里帮助您在会诊前收集一些信息。这将帮助您的医生为您提供最好的护理。首先，您能告诉我今天是什么原因来就诊吗？",
+        fr: "Bonjour! Je suis ici pour vous aider à recueillir des informations avant votre consultation. Cela aidera votre médecin à vous fournir les meilleurs soins possibles. Pour commencer, pourriez-vous me dire ce qui vous amène aujourd'hui?",
+        ht: "Bonjou! Mwen la pou ede w rasanble kèk enfòmasyon anvan konsiltasyon w. Sa ap ede doktè w bay ou pi bon swen posib. Pou koumanse, eske w ka di m sa ki mennen w jodi a?",
+      };
       setMessages([{
         role: "assistant",
-        content: "Hello! I'm here to help gather some information before your consultation. This will help your physician provide you with the best possible care. To start, could you please tell me what brings you in today?"
+        content: greetings[selectedLanguage] || greetings.en
       }]);
     }
-  }, [session]);
+  }, [session, showLanguageSelector, selectedLanguage]);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -186,6 +205,43 @@ export default function PatientIntake() {
           </div>
         </div>
       </div>
+
+      {/* Language Selector */}
+      {showLanguageSelector && messages.length === 0 && (
+        <div className="container max-w-4xl py-8">
+          <Card className="p-8 text-center">
+            <h2 className="text-2xl font-bold mb-2">Select Your Language</h2>
+            <p className="text-muted-foreground mb-6">Choose your preferred language for this conversation</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
+              {languages.map((lang) => (
+                <Button
+                  key={lang.code}
+                  variant={selectedLanguage === lang.code ? "default" : "outline"}
+                  className="h-16 text-lg"
+                  onClick={() => {
+                    setSelectedLanguage(lang.code);
+                    setShowLanguageSelector(false);
+                    // Update speech recognition language
+                    if (recognitionRef.current) {
+                      const langMap: Record<string, string> = {
+                        en: "en-US",
+                        es: "es-ES",
+                        zh: "zh-CN",
+                        fr: "fr-FR",
+                        ht: "ht-HT",
+                      };
+                      recognitionRef.current.lang = langMap[lang.code];
+                    }
+                  }}
+                >
+                  <span className="mr-2 text-2xl">{lang.flag}</span>
+                  {lang.name}
+                </Button>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto">

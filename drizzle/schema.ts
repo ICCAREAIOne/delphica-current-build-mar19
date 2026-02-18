@@ -499,6 +499,7 @@ export const intakeSessions = mysqlTable("intake_sessions", {
   patientId: int("patient_id").references(() => patients.id),
   patientName: varchar("patient_name", { length: 255 }),
   patientEmail: varchar("patient_email", { length: 320 }),
+  language: varchar("language", { length: 10 }).notNull().default("en"),
   sessionToken: varchar("session_token", { length: 128 }).notNull().unique(),
   status: mysqlEnum("status", ["in_progress", "completed", "abandoned"]).default("in_progress").notNull(),
   collectedData: json("collected_data").$type<{

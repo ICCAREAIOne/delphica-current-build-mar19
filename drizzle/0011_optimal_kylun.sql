@@ -1,0 +1,1 @@
+ALTER TABLE `intake_sessions` ADD `language` varchar(10) DEFAULT 'en' NOT NULL;

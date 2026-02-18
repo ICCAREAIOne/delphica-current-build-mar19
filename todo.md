@@ -503,4 +503,36 @@
 - [x] Add appointment date field for email customization
 - [x] Integrate with generateLink and sendIntakeEmail mutations
 - [x] Test email sending functionality (all 11 tests passing, TypeScript compilation successful)
+- [x] Push changes to GitHub (commit 2129ad4)
+
+## Future Enhancements (To Be Added Later)
+
+### Email Delivery Tracking
+- [ ] Implement email status monitoring (sent/delivered/failed/bounced)
+- [ ] Store delivery status in database with timestamps
+- [ ] Add delivery status column to intake dashboard session list
+- [ ] Implement automatic retry logic for failed deliveries
+- [ ] Create email delivery receipts and read confirmations
+- [ ] Add email delivery analytics (open rates, click rates)
+- [ ] Build email delivery logs viewer for troubleshooting
+
+### Bulk Intake Invitations
+- [ ] Create CSV upload interface for patient contact lists
+- [ ] Implement CSV parser with validation (name, email, appointment date)
+- [ ] Build batch email sending with progress tracking
+- [ ] Add bulk operation status dashboard
+- [ ] Implement rate limiting to prevent SMTP throttling
+- [ ] Create bulk operation history and audit trail
+- [ ] Add template customization for bulk emails (merge fields)
+- [ ] Implement email preview before bulk send
+- [ ] Add error handling and partial success reporting
+
+## Multilingual Intake Avatar
+- [x] Add language field to intake_sessions table
+- [x] Create language selection UI on intake page (English, Spanish, Chinese, French, Haitian Creole)
+- [x] Update AI intake agent to detect and respond in selected language
+- [x] Add language-specific system prompts for each supported language (en, es, zh, fr, ht)
+- [x] Update voice recognition to support language-specific speech-to-text
+- [ ] Add language preference to email templates
+- [x] Test multilingual conversations for all supported languages (all 11 tests passing, TypeScript compilation successful)
 - [ ] Push changes to GitHub

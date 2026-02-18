@@ -1017,7 +1017,7 @@ export const appRouter = router({
         const response = await processIntakeMessage(input.message, {
           collectedData: session.collectedData || {},
           conversationHistory: session.messages || [],
-        });
+        }, session.language || 'en');
 
         // Save assistant response
         await db.addIntakeMessage(session.id, 'assistant', response.message);
