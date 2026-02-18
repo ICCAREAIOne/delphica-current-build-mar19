@@ -442,4 +442,13 @@
 - [x] Define dosing guidelines (180 mg once daily)
 - [x] Identify contraindications (severe renal impairment, ESRD, pregnancy) and interactions (statins, anticoagulants, fibrates)
 - [x] Insert into knowledge base database
+- [x] Push changes to GitHub (commit b3411ab)
+
+## Statin Pleiotropic Effects Knowledge Base Entry
+- [x] Format statin pleiotropic effects content into knowledge base structure
+- [x] Extract mechanisms (4 mechanisms: HMG-CoA reductase inhibition, anti-inflammatory, vascular function, antithrombotic)
+- [x] Extract clinical evidence (6 findings including meta-analyses showing weak LDL-C correlation, patient selection insights)
+- [x] Define patient selection criteria (metabolically unhealthy benefit most, healthy individuals show minimal benefit)
+- [x] Document surrogate marker limitations (LDL-C as inappropriate surrogate)
+- [x] Insert into knowledge base database
 - [ ] Push changes to GitHub
