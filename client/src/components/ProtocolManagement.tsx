@@ -3,8 +3,9 @@ import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Send, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { FileText, Send, CheckCircle2, XCircle, Clock, AlertCircle, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ProtocolCustomizationDialog } from './ProtocolCustomizationDialog';
 
 interface ProtocolManagementProps {
   userId: number;
@@ -14,9 +15,13 @@ interface ProtocolManagementProps {
 export function ProtocolManagement({ userId, userName }: ProtocolManagementProps) {
   const { toast } = useToast();
   const [sendingProtocolId, setSendingProtocolId] = useState<number | null>(null);
+  const [customizingPlan, setCustomizingPlan] = useState<any | null>(null);
 
   // Get patient's care plans
   const { data: carePlans, isLoading: carePlansLoading } = trpc.patientPortal.getPatientCarePlans.useQuery({ patientId: userId });
+
+  // Get patient data for allergies
+  const { data: patientData } = trpc.patientPortal.getPatientById.useQuery({ patientId: userId });
 
   // Get protocol delivery history
   const { data: deliveries, refetch: refetchDeliveries } = trpc.protocol.getDeliveries.useQuery({ userId });
@@ -38,6 +43,7 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
         });
       }
       setSendingProtocolId(null);
+      setCustomizingPlan(null);
     },
     onError: (error) => {
       toast({
@@ -46,12 +52,28 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
         variant: 'destructive',
       });
       setSendingProtocolId(null);
+      setCustomizingPlan(null);
     },
   });
 
   const handleSendProtocol = (carePlanId: number) => {
     setSendingProtocolId(carePlanId);
     sendProtocol.mutate({ userId, carePlanId });
+  };
+
+  const handleCustomizeProtocol = (plan: any) => {
+    setCustomizingPlan(plan);
+  };
+
+  const handleSendCustomizedProtocol = (customProtocol: any) => {
+    if (customizingPlan) {
+      setSendingProtocolId(customizingPlan.id);
+      sendProtocol.mutate({
+        userId,
+        carePlanId: customizingPlan.id,
+        customProtocol,
+      });
+    }
   };
 
   if (carePlansLoading) {
@@ -105,23 +127,34 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
                         </p>
                       )}
                     </div>
-                    <Button
-                      onClick={() => handleSendProtocol(plan.id)}
-                      disabled={isSending}
-                      size="sm"
-                    >
-                      {isSending ? (
-                        <>
-                          <Clock className="mr-2 h-4 w-4 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="mr-2 h-4 w-4" />
-                          Send Protocol
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleCustomizeProtocol(plan)}
+                        disabled={isSending}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Customize
+                      </Button>
+                      <Button
+                        onClick={() => handleSendProtocol(plan.id)}
+                        disabled={isSending}
+                        size="sm"
+                      >
+                        {isSending ? (
+                          <>
+                            <Clock className="mr-2 h-4 w-4 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="mr-2 h-4 w-4" />
+                            Send As-Is
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -186,6 +219,18 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Customization Dialog */}
+      {customizingPlan && (
+        <ProtocolCustomizationDialog
+          open={!!customizingPlan}
+          onClose={() => setCustomizingPlan(null)}
+          carePlan={customizingPlan}
+          patientAllergies={patientData?.allergies || []}
+          onSend={handleSendCustomizedProtocol}
+          isSending={sendingProtocolId === customizingPlan.id}
+        />
       )}
     </div>
   );

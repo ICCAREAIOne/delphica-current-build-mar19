@@ -728,3 +728,18 @@
 - [x] Add tRPC endpoints for manual protocol generation and resending
 - [x] Build physician UI for protocol management and delivery tracking
 - [x] Test complete enrollment-to-protocol-delivery workflow
+
+
+## MVP Phase 1 - Protocol Customization UI
+- [x] Create ProtocolCustomizationDialog component with form fields
+- [x] Add treatment goals editing (add/remove/modify)
+- [x] Add interventions customization by category
+- [x] Add medications editing (dosage, frequency, instructions)
+- [x] Add lifestyle recommendations editing
+- [x] Add follow-up care customization
+- [x] Implement allergen detection and warnings
+- [x] Add contraindication checking for medications
+- [x] Create backend endpoint for saving customized protocols
+- [x] Integrate customization dialog with protocol sending workflow
+- [x] Add preview functionality before sending
+- [x] Test complete customization and sending workflow

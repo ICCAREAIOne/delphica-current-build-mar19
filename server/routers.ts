@@ -1197,6 +1197,12 @@ export const appRouter = router({
         return await db.getPatientCarePlans(input.patientId);
       }),
 
+    getPatientById: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getPatientById(input.patientId);
+      }),
+
     getActiveCarePlan: protectedProcedure
       .input(z.object({ patientId: z.number() }))
       .query(async ({ input }) => {
@@ -1554,6 +1560,28 @@ export const appRouter = router({
       .input(z.object({
         userId: z.number(),
         carePlanId: z.number(),
+        customProtocol: z.object({
+          title: z.string(),
+          diagnosis: z.string(),
+          duration: z.string(),
+          goals: z.array(z.string()),
+          interventions: z.array(z.object({
+            category: z.string(),
+            items: z.array(z.string()),
+          })),
+          medications: z.array(z.object({
+            name: z.string(),
+            dosage: z.string(),
+            frequency: z.string(),
+            instructions: z.string().optional(),
+          })).optional(),
+          lifestyle: z.array(z.string()).optional(),
+          followUp: z.object({
+            frequency: z.string(),
+            metrics: z.array(z.string()),
+          }).optional(),
+          warnings: z.array(z.string()).optional(),
+        }).optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
@@ -1574,12 +1602,33 @@ export const appRouter = router({
             throw new TRPCError({ code: 'NOT_FOUND', message: 'Care plan not found' });
           }
           
-          // Generate PDF
-          const pdfBuffer = await generateProtocolFromCarePlan(
-            carePlan,
-            user,
-            ctx.user
-          );
+          // Generate PDF with custom protocol data if provided
+          let pdfBuffer: Buffer;
+          if (input.customProtocol) {
+            const { generateProtocolPDF } = await import('./pdfService');
+            pdfBuffer = await generateProtocolPDF({
+              patientName: user.name || 'Patient',
+              patientEmail: user.email || '',
+              protocolName: input.customProtocol.title,
+              diagnosis: input.customProtocol.diagnosis,
+              startDate: carePlan.createdAt || new Date(),
+              duration: input.customProtocol.duration,
+              goals: input.customProtocol.goals,
+              interventions: input.customProtocol.interventions,
+              medications: input.customProtocol.medications,
+              lifestyle: input.customProtocol.lifestyle,
+              followUp: input.customProtocol.followUp,
+              warnings: input.customProtocol.warnings,
+              physicianName: ctx.user.name || 'Dr. Physician',
+              physicianContact: ctx.user.email || undefined,
+            });
+          } else {
+            pdfBuffer = await generateProtocolFromCarePlan(
+              carePlan,
+              user,
+              ctx.user
+            );
+          }
           
           // Send email
           const portalLink = `${process.env.VITE_FRONTEND_FORGE_API_URL || 'https://physician-portal.manus.space'}/patient-portal`;
