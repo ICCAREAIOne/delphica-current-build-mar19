@@ -1,0 +1,8 @@
+{
+  "query": "ALTER TABLE patient_lab_results ADD COLUMN physician_notes TEXT;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34DkbYAaF6MBWwK.96fd8e3f3a28 --database 6XDPcfqtDX3GCRKvFSNyjg --execute ALTER TABLE patient_lab_results ADD COLUMN physician_notes TEXT;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1060 (42S21) at line 1: Duplicate column name 'physician_notes'"
+  ]
+}

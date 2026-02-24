@@ -1419,6 +1419,45 @@ export const appRouter = router({
         return await db.getPatientProgressMetrics(input.patientId, input.carePlanId);
       }),
   }),
+
+  // ============ Physician Review Dashboard ============
+  physicianReview: router({
+    getPendingReviews: protectedProcedure
+      .input(z.object({
+        physicianId: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getPendingLabReviews(input.physicianId);
+      }),
+
+    getReviewedLabs: protectedProcedure
+      .input(z.object({
+        physicianId: z.number().optional(),
+        limit: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getReviewedLabResults(input.physicianId, input.limit);
+      }),
+
+    getLabDetail: protectedProcedure
+      .input(z.object({
+        labId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getLabResultById(input.labId);
+      }),
+
+    reviewLab: protectedProcedure
+      .input(z.object({
+        labId: z.number(),
+        notes: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        await db.updateLabResultReview(input.labId, ctx.user.id, input.notes);
+        return { success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

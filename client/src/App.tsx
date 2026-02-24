@@ -26,6 +26,7 @@ import PatientIntake from "./pages/PatientIntake";
 import IntakeDashboard from "./pages/IntakeDashboard";
 import PatientPortalDemo from "./pages/PatientPortalDemo";
 import PatientPortal from "./pages/PatientPortal";
+import PhysicianReviewDashboard from "./pages/PhysicianReviewDashboard";
 
 function Router() {
   return (
@@ -51,7 +52,8 @@ function Router() {
       <Route path={"/intake"} component={PatientIntake} />
       <Route path={"/intake-dashboard"} component={IntakeDashboard} />
       <Route path={"/patient-portal-demo"} component={PatientPortalDemo} />
-      <Route path={"/patient-portal"} component={PatientPortal} />
+       <Route path={"patient-portal"} component={PatientPortal} />
+      <Route path={"physician-review"} component={PhysicianReviewDashboard} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

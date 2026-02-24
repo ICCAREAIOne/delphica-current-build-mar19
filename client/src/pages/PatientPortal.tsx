@@ -24,6 +24,8 @@ import {
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Streamdown } from "streamdown";
 import UnstructuredLabUpload from "@/components/UnstructuredLabUpload";
+import BatchLabUpload from "@/components/BatchLabUpload";
+import LabTrendChart from "@/components/LabTrendChart";
 
 export default function PatientPortal() {
   const { user } = useAuth();
@@ -31,7 +33,7 @@ export default function PatientPortal() {
   const [activeTab, setActiveTab] = useState("overview");
   const [checkInMessage, setCheckInMessage] = useState("");
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
-  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [uploadMode, setUploadMode] = useState<'single' | 'batch'>('single');
 
   // Fetch active care plan
   const { data: carePlan, isLoading: carePlanLoading } = trpc.patientPortal.getActiveCarePlan.useQuery(
@@ -429,14 +431,40 @@ export default function PatientPortal() {
 
         {/* Lab Results Tab */}
         <TabsContent value="labs" className="space-y-6">
-          {/* New Multi-Format Lab Upload */}
-          <UnstructuredLabUpload
-            patientId={user?.id || 0}
-            onSuccess={() => {
-              refetchLabs();
-              toast({ title: "Success", description: "Lab results uploaded and parsed successfully!" });
-            }}
-          />
+          {/* Upload Mode Toggle */}
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant={uploadMode === 'single' ? 'default' : 'outline'}
+              onClick={() => setUploadMode('single')}
+            >
+              Single Upload
+            </Button>
+            <Button
+              variant={uploadMode === 'batch' ? 'default' : 'outline'}
+              onClick={() => setUploadMode('batch')}
+            >
+              Batch Upload
+            </Button>
+          </div>
+
+          {/* Upload Component */}
+          {uploadMode === 'single' ? (
+            <UnstructuredLabUpload
+              patientId={user?.id || 0}
+              onSuccess={() => {
+                refetchLabs();
+                toast({ title: "Success", description: "Lab results uploaded and parsed successfully!" });
+              }}
+            />
+          ) : (
+            <BatchLabUpload
+              patientId={user?.id || 0}
+              onSuccess={() => {
+                refetchLabs();
+                toast({ title: "Success", description: "All lab results uploaded and parsed successfully!" });
+              }}
+            />
+          )}
 
           {/* Recent Lab Results */}
           <Card>
@@ -557,6 +585,26 @@ export default function PatientPortal() {
               )}
             </CardContent>
           </Card>
+
+          {/* Lab Trends Section */}
+          {labResults && labResults.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Lab Result Trends</h3>
+              {/* Get unique test names */}
+              {Array.from(new Set(
+                labResults.flatMap((lab: any) => 
+                  (Array.isArray(lab.testResults) ? lab.testResults : JSON.parse(lab.testResults as any))
+                    .map((test: any) => test.testName)
+                )
+              )).slice(0, 5).map((testName: string) => (
+                <LabTrendChart
+                  key={testName}
+                  labResults={labResults}
+                  testName={testName}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

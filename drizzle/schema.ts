@@ -567,7 +567,7 @@ export const patientLabResults = mysqlTable("patient_lab_results", {
   reviewedByPhysician: boolean("reviewed_by_physician").default(false).notNull(),
   reviewedAt: timestamp("reviewed_at"),
   reviewedById: int("reviewed_by_id").references(() => users.id),
-  physicianNotes: text("physician_notes"),
+  physicianNotes: text("physician_notes"), // Physician annotations and comments
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),

@@ -1124,6 +1124,76 @@ export async function updateLabResultReview(labId: number, physicianId: number, 
     .where(eq(patientLabResults.id, labId));
 }
 
+export async function getPendingLabReviews(physicianId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const baseQuery = db.select({
+    labResult: patientLabResults,
+    patient: patients
+  })
+  .from(patientLabResults)
+  .leftJoin(patients, eq(patientLabResults.patientId, patients.id));
+  
+  if (physicianId) {
+    return baseQuery
+      .where(and(
+        eq(patientLabResults.reviewedByPhysician, false),
+        eq(patients.assignedPhysicianId, physicianId)
+      ))
+      .orderBy(desc(patientLabResults.createdAt));
+  }
+  
+  return baseQuery
+    .where(eq(patientLabResults.reviewedByPhysician, false))
+    .orderBy(desc(patientLabResults.createdAt));
+}
+
+export async function getReviewedLabResults(physicianId?: number, limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const baseQuery = db.select({
+    labResult: patientLabResults,
+    patient: patients,
+    reviewer: users
+  })
+  .from(patientLabResults)
+  .leftJoin(patients, eq(patientLabResults.patientId, patients.id))
+  .leftJoin(users, eq(patientLabResults.reviewedById, users.id));
+  
+  if (physicianId) {
+    return baseQuery
+      .where(and(
+        eq(patientLabResults.reviewedByPhysician, true),
+        eq(patientLabResults.reviewedById, physicianId)
+      ))
+      .orderBy(desc(patientLabResults.reviewedAt))
+      .limit(limit);
+  }
+  
+  return baseQuery
+    .where(eq(patientLabResults.reviewedByPhysician, true))
+    .orderBy(desc(patientLabResults.reviewedAt))
+    .limit(limit);
+}
+
+export async function getLabResultById(labId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const results = await db.select({
+    labResult: patientLabResults,
+    patient: patients
+  })
+  .from(patientLabResults)
+  .leftJoin(patients, eq(patientLabResults.patientId, patients.id))
+  .where(eq(patientLabResults.id, labId))
+  .limit(1);
+  
+  return results[0] || null;
+}
+
 // ============ Patient Portal - Care Plans ============
 
 export async function createPatientCarePlan(data: any) {
