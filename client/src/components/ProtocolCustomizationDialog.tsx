@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProtocolTemplateLibrary } from './ProtocolTemplateLibrary';
-import { AlertCircle, Plus, X, Save, Send, Eye, ShieldAlert } from 'lucide-react';
+import { AlertCircle, Plus, X, Save, Send, Eye, ShieldAlert, Star } from 'lucide-react';
+import { SavePresetDialog } from './TemplatePresetManager';
 import { useToast } from '@/hooks/use-toast';
 import { trpc } from '@/lib/trpc';
 
@@ -81,6 +82,7 @@ export function ProtocolCustomizationDialog({
   const [showPreview, setShowPreview] = useState(false);
   const [drugSafetyResults, setDrugSafetyResults] = useState<any>(null);
   const [checkingDrugSafety, setCheckingDrugSafety] = useState(false);
+  const [showSavePreset, setShowSavePreset] = useState(false);
 
   // Drug safety check mutation
   const checkDrugSafety = trpc.drugSafety.checkInteractions.useMutation();
@@ -416,6 +418,7 @@ export function ProtocolCustomizationDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -847,19 +850,48 @@ export function ProtocolCustomizationDialog({
         </Tabs>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="secondary" onClick={() => setShowPreview(true)}>
-            <Eye className="mr-2 h-4 w-4" />
-            Preview
-          </Button>
-          <Button onClick={handleSend} disabled={isSending || allergenConflicts.length > 0}>
-            <Send className="mr-2 h-4 w-4" />
-            {isSending ? 'Sending...' : 'Send Protocol'}
-          </Button>
+          <div className="flex items-center justify-between w-full">
+            <Button variant="ghost" onClick={() => setShowSavePreset(true)}>
+              <Star className="mr-2 h-4 w-4" />
+              Save as Preset
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button variant="secondary" onClick={() => setShowPreview(true)}>
+                <Eye className="mr-2 h-4 w-4" />
+                Preview
+              </Button>
+              <Button onClick={handleSend} disabled={isSending || allergenConflicts.length > 0}>
+                <Send className="mr-2 h-4 w-4" />
+                {isSending ? 'Sending...' : 'Send Protocol'}
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Save Preset Dialog */}
+    {!showPreview && (
+      <SavePresetDialog
+      isOpen={showSavePreset}
+      onClose={() => setShowSavePreset(false)}
+      templateData={{
+        diagnosis: protocol.diagnosis,
+        duration: protocol.duration,
+        goals: protocol.goals,
+        interventions: protocol.interventions,
+        medications: protocol.medications,
+        lifestyle: protocol.lifestyle,
+        followUp: protocol.followUp,
+        warnings: protocol.warnings,
+      }}
+      baseTemplateId={carePlan?.templateId}
+      category={protocol.diagnosis.split(' ')[0] || 'General'}
+    />
+    )}
+  </>
   );
 }

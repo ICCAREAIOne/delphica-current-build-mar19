@@ -6,7 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, FileText, TrendingUp, Clock, Check } from 'lucide-react';
+import { Search, FileText, TrendingUp, Clock, Check, History, BarChart3 } from 'lucide-react';
+import { TemplateVersionHistory } from './TemplateVersionHistory';
+import { TemplatePresetManager } from './TemplatePresetManager';
+import { TemplateAnalyticsDashboard } from './TemplateAnalyticsDashboard';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProtocolTemplateLibraryProps {
@@ -61,13 +64,21 @@ export function ProtocolTemplateLibrary({ onApplyTemplate }: ProtocolTemplateLib
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Protocol Template Library
-          </CardTitle>
-          <CardDescription>
-            Quick-start templates for common conditions
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Protocol Template Library
+              </CardTitle>
+              <CardDescription>
+                Quick-start templates for common conditions
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <TemplatePresetManager onSelectPreset={onApplyTemplate} />
+              <TemplateAnalyticsDashboard />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Search */}
@@ -92,16 +103,27 @@ export function ProtocolTemplateLibrary({ onApplyTemplate }: ProtocolTemplateLib
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <CardTitle className="text-base">{template.name}</CardTitle>
-                      {template.isDefault && (
-                        <Badge variant="secondary" className="text-xs">
-                          Default
+                      <div className="flex-1">
+                        <CardTitle className="text-base">{template.name}</CardTitle>
+                        <Badge variant="outline" className="w-fit mt-1">
+                          {template.category}
                         </Badge>
-                      )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {template.isDefault && (
+                          <Badge variant="secondary" className="text-xs">
+                            Default
+                          </Badge>
+                        )}
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <TemplateVersionHistory
+                            templateId={template.id}
+                            templateName={template.name}
+                          />
+                          <TemplateAnalyticsDashboard templateId={template.id} />
+                        </div>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="w-fit">
-                      {template.category}
-                    </Badge>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {template.description && (
