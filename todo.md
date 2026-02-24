@@ -562,3 +562,25 @@
 - [x] Include technical stack and dependencies
 - [x] Add development roadmap and contributing guidelines
 - [x] Push updated README to GitHub (commit 5b6a455)
+
+## Patient Portal Development
+- [ ] Design patient portal database schema (labs, care plans, check-ins, progress metrics, alerts)
+- [ ] Implement lab upload functionality (direct entry and PDF parsing)
+- [ ] Create dynamic AI avatar conversation system with context memory
+- [ ] Build multilingual support for patient interactions (5 languages)
+- [ ] Implement care plan management (physician-created, patient-viewable)
+- [ ] Create progress tracking system with daily/weekly/biweekly check-ins
+- [ ] Build charting and visualization for patient progress metrics
+- [ ] Implement physician alert system for deteriorating patients
+- [ ] Create lab request form generation with patient diagnosis info
+- [ ] Build patient authentication and secure data access
+- [ ] Design patient dashboard with labs, care plans, and progress
+- [ ] Implement conversation history and context persistence
+- [ ] Create notification system for check-in reminders
+- [ ] Build physician review interface for patient progress
+- [ ] Add file upload for lab PDFs with text extraction
+- [ ] Implement dynamic question generation based on patient condition
+- [ ] Create trend analysis for early warning detection
+- [ ] Build secure messaging between patient and physician
+- [ ] Add medication tracking and adherence monitoring
+- [ ] Implement symptom severity scoring and tracking

@@ -538,3 +538,296 @@ export const intakeMessages = mysqlTable("intake_messages", {
 
 export type IntakeMessage = typeof intakeMessages.$inferSelect;
 export type InsertIntakeMessage = typeof intakeMessages.$inferInsert;
+
+/**
+ * Patient Lab Results - stores lab data uploaded by patients
+ */
+export const patientLabResults = mysqlTable("patient_lab_results", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patient_id").notNull().references(() => patients.id),
+  uploadedBy: mysqlEnum("uploaded_by", ["patient", "physician", "system"]).default("patient").notNull(),
+  uploadMethod: mysqlEnum("upload_method", ["manual_entry", "pdf_upload", "hl7_integration"]).notNull(),
+  
+  // Lab data
+  testDate: timestamp("test_date").notNull(),
+  labName: varchar("lab_name", { length: 255 }),
+  testResults: json("test_results").$type<Array<{
+    testName: string;
+    value: string;
+    unit: string;
+    normalRange: string;
+    flag?: "high" | "low" | "critical" | "normal";
+  }>>().notNull(),
+  
+  // PDF storage
+  pdfUrl: text("pdf_url"), // S3 URL if uploaded as PDF
+  pdfText: text("pdf_text"), // Extracted text from PDF
+  
+  // Review status
+  reviewedByPhysician: boolean("reviewed_by_physician").default(false).notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedById: int("reviewed_by_id").references(() => users.id),
+  physicianNotes: text("physician_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PatientLabResult = typeof patientLabResults.$inferSelect;
+export type InsertPatientLabResult = typeof patientLabResults.$inferInsert;
+
+/**
+ * Patient Care Plans - physician-created care plans viewable by patients
+ */
+export const patientCarePlans = mysqlTable("patient_care_plans", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patient_id").notNull().references(() => patients.id),
+  physicianId: int("physician_id").notNull().references(() => users.id),
+  precisionCarePlanId: int("precision_care_plan_id").references(() => precisionCarePlans.id),
+  
+  title: varchar("title", { length: 255 }).notNull(),
+  diagnosis: text("diagnosis").notNull(),
+  goals: json("goals").$type<string[]>().notNull(),
+  
+  // Treatment components
+  medications: json("medications").$type<Array<{
+    name: string;
+    dosage: string;
+    frequency: string;
+    instructions: string;
+    startDate: string;
+    endDate?: string;
+  }>>(),
+  lifestyle: json("lifestyle").$type<Array<{
+    category: string;
+    recommendation: string;
+    frequency?: string;
+  }>>(),
+  monitoring: json("monitoring").$type<Array<{
+    metric: string;
+    frequency: string;
+    target: string;
+    instructions: string;
+  }>>().notNull(),
+  
+  // Check-in schedule
+  checkInFrequency: mysqlEnum("check_in_frequency", ["daily", "every_other_day", "weekly", "biweekly", "monthly"]).notNull(),
+  nextCheckInDate: timestamp("next_check_in_date").notNull(),
+  
+  // Status
+  status: mysqlEnum("status", ["active", "completed", "paused", "cancelled"]).default("active").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  
+  // Patient visibility
+  sharedWithPatient: boolean("shared_with_patient").default(false).notNull(),
+  sharedAt: timestamp("shared_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PatientCarePlan = typeof patientCarePlans.$inferSelect;
+export type InsertPatientCarePlan = typeof patientCarePlans.$inferInsert;
+
+/**
+ * Patient Check-ins - daily/weekly/biweekly progress tracking
+ */
+export const patientCheckIns = mysqlTable("patient_check_ins", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patient_id").notNull().references(() => patients.id),
+  carePlanId: int("care_plan_id").notNull().references(() => patientCarePlans.id),
+  
+  // Check-in data
+  checkInDate: timestamp("check_in_date").notNull(),
+  overallFeeling: int("overall_feeling").notNull(), // 1-10 scale
+  symptoms: json("symptoms").$type<Array<{
+    symptom: string;
+    severity: number; // 1-10
+    notes?: string;
+  }>>(),
+  
+  // Tracked metrics
+  metrics: json("metrics").$type<Array<{
+    metric: string;
+    value: string;
+    unit?: string;
+  }>>(),
+  
+  // Medication adherence
+  medicationsTaken: json("medications_taken").$type<Array<{
+    medicationName: string;
+    taken: boolean;
+    missedReason?: string;
+  }>>(),
+  
+  // Lifestyle adherence
+  lifestyleAdherence: json("lifestyle_adherence").$type<Array<{
+    activity: string;
+    completed: boolean;
+    notes?: string;
+  }>>(),
+  
+  // AI conversation
+  conversationSummary: text("conversation_summary"),
+  aiConcerns: json("ai_concerns").$type<string[]>(), // AI-identified concerns
+  
+  // Alert status
+  alertGenerated: boolean("alert_generated").default(false).notNull(),
+  alertSeverity: mysqlEnum("alert_severity", ["low", "medium", "high", "critical"]),
+  alertReason: text("alert_reason"),
+  
+  // Physician review
+  reviewedByPhysician: boolean("reviewed_by_physician").default(false).notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+  physicianResponse: text("physician_response"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type PatientCheckIn = typeof patientCheckIns.$inferSelect;
+export type InsertPatientCheckIn = typeof patientCheckIns.$inferInsert;
+
+/**
+ * Patient Conversations - AI avatar conversation history
+ */
+export const patientConversations = mysqlTable("patient_conversations", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patient_id").notNull().references(() => patients.id),
+  carePlanId: int("care_plan_id").references(() => patientCarePlans.id),
+  checkInId: int("check_in_id").references(() => patientCheckIns.id),
+  
+  conversationType: mysqlEnum("conversation_type", ["check_in", "question", "symptom_report", "general"]).notNull(),
+  language: varchar("language", { length: 10 }).notNull().default("en"),
+  
+  messages: json("messages").$type<Array<{
+    role: "user" | "assistant";
+    content: string;
+    timestamp: number;
+  }>>().notNull(),
+  
+  // Context preservation
+  contextSummary: text("context_summary"), // AI-generated summary of conversation context
+  keyTopics: json("key_topics").$type<string[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PatientConversation = typeof patientConversations.$inferSelect;
+export type InsertPatientConversation = typeof patientConversations.$inferInsert;
+
+/**
+ * Physician Alerts - alerts for deteriorating patients
+ */
+export const physicianAlerts = mysqlTable("physician_alerts", {
+  id: int("id").autoincrement().primaryKey(),
+  physicianId: int("physician_id").notNull().references(() => users.id),
+  patientId: int("patient_id").notNull().references(() => patients.id),
+  carePlanId: int("care_plan_id").references(() => patientCarePlans.id),
+  checkInId: int("check_in_id").references(() => patientCheckIns.id),
+  
+  alertType: mysqlEnum("alert_type", [
+    "worsening_symptoms",
+    "missed_medications",
+    "abnormal_vitals",
+    "patient_concern",
+    "no_improvement",
+    "adverse_reaction"
+  ]).notNull(),
+  
+  severity: mysqlEnum("severity", ["low", "medium", "high", "critical"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  
+  // AI analysis
+  aiAnalysis: text("ai_analysis"),
+  suggestedActions: json("suggested_actions").$type<string[]>(),
+  
+  // Status
+  status: mysqlEnum("status", ["pending", "acknowledged", "in_progress", "resolved", "dismissed"]).default("pending").notNull(),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+  resolution: text("resolution"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PhysicianAlert = typeof physicianAlerts.$inferSelect;
+export type InsertPhysicianAlert = typeof physicianAlerts.$inferInsert;
+
+/**
+ * Lab Request Forms - generated lab requisitions
+ */
+export const labRequestForms = mysqlTable("lab_request_forms", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patient_id").notNull().references(() => patients.id),
+  physicianId: int("physician_id").notNull().references(() => users.id),
+  carePlanId: int("care_plan_id").references(() => patientCarePlans.id),
+  
+  // Form data
+  requestDate: timestamp("request_date").notNull(),
+  diagnosis: text("diagnosis").notNull(),
+  icd10Codes: json("icd10_codes").$type<string[]>().notNull(),
+  
+  testsRequested: json("tests_requested").$type<Array<{
+    testName: string;
+    testCode: string;
+    priority: "routine" | "urgent" | "stat";
+    clinicalIndication: string;
+  }>>().notNull(),
+  
+  // Clinical information
+  clinicalHistory: text("clinical_history"),
+  currentMedications: json("current_medications").$type<string[]>(),
+  relevantFindings: text("relevant_findings"),
+  
+  // Form generation
+  formPdfUrl: text("form_pdf_url"), // Generated PDF form URL
+  generatedAt: timestamp("generated_at"),
+  
+  // Status tracking
+  status: mysqlEnum("status", ["draft", "generated", "sent_to_patient", "completed"]).default("draft").notNull(),
+  sentToPatientAt: timestamp("sent_to_patient_at"),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type LabRequestForm = typeof labRequestForms.$inferSelect;
+export type InsertLabRequestForm = typeof labRequestForms.$inferInsert;
+
+/**
+ * Patient Progress Metrics - aggregated progress data for visualization
+ */
+export const patientProgressMetrics = mysqlTable("patient_progress_metrics", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patient_id").notNull().references(() => patients.id),
+  carePlanId: int("care_plan_id").notNull().references(() => patientCarePlans.id),
+  
+  // Time period
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Aggregated metrics
+  avgOverallFeeling: int("avg_overall_feeling"), // 1-10
+  avgSymptomSeverity: int("avg_symptom_severity"), // 1-10
+  medicationAdherence: int("medication_adherence"), // 0-100%
+  lifestyleAdherence: int("lifestyle_adherence"), // 0-100%
+  checkInCompletionRate: int("check_in_completion_rate"), // 0-100%
+  
+  // Trend analysis
+  overallTrend: mysqlEnum("overall_trend", ["improving", "stable", "declining", "fluctuating"]).notNull(),
+  symptomTrend: mysqlEnum("symptom_trend", ["improving", "stable", "worsening"]),
+  
+  // Alerts
+  alertsGenerated: int("alerts_generated").default(0).notNull(),
+  criticalAlertsGenerated: int("critical_alerts_generated").default(0).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type PatientProgressMetric = typeof patientProgressMetrics.$inferSelect;
+export type InsertPatientProgressMetric = typeof patientProgressMetrics.$inferInsert;

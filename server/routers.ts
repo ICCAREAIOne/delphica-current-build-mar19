@@ -8,6 +8,9 @@ import * as db from "./db";
 import * as aiService from "./aiService";
 import * as semanticProcessor from "./semanticProcessor";
 import * as qaAnalytics from "./qaAnalytics";
+import { patientAvatarService } from "./patientAvatarService";
+import { labParsingService } from "./labParsingService";
+import { storagePut } from "./storage";
 
 export const appRouter = router({
   system: systemRouter,
@@ -1036,6 +1039,341 @@ export const appRouter = router({
           response: response.message,
           isComplete: response.isComplete,
         };
+      }),
+  }),
+
+  // ============ Patient Portal ============
+  patientPortal: router({
+    // Lab Results Management
+    uploadLabResults: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        testDate: z.string(),
+        labName: z.string().optional(),
+        pdfUrl: z.string().optional(),
+        pdfText: z.string().optional(),
+        manualResults: z.array(z.object({
+          testName: z.string(),
+          value: z.string(),
+          unit: z.string().optional(),
+          referenceRange: z.string().optional(),
+          flag: z.enum(['normal', 'high', 'low', 'critical']).optional(),
+        })).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        let testResults = input.manualResults || [];
+        
+        // Parse PDF if provided
+        if (input.pdfText) {
+          const parsed = await labParsingService.parseLabReport(input.pdfText);
+          testResults = parsed.results;
+        }
+        
+        const labResult = await db.createPatientLabResult({
+          patientId: input.patientId,
+          uploadedBy: 'patient',
+          uploadMethod: input.pdfText ? 'pdf_upload' : 'manual_entry',
+          testDate: new Date(input.testDate),
+          labName: input.labName,
+          testResults: JSON.stringify(testResults),
+          pdfUrl: input.pdfUrl,
+          pdfText: input.pdfText,
+          reviewedByPhysician: false,
+        });
+        
+        return labResult;
+      }),
+
+    getPatientLabResults: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getPatientLabResults(input.patientId);
+      }),
+
+    reviewLabResult: protectedProcedure
+      .input(z.object({
+        labId: z.number(),
+        notes: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        await db.updateLabResultReview(input.labId, ctx.user.id, input.notes);
+        return { success: true };
+      }),
+
+    // Care Plan Management
+    createCarePlan: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        precisionCarePlanId: z.number().optional(),
+        title: z.string(),
+        diagnosis: z.string(),
+        goals: z.array(z.string()),
+        medications: z.array(z.any()).optional(),
+        lifestyle: z.array(z.any()).optional(),
+        monitoring: z.array(z.any()),
+        checkInFrequency: z.enum(['daily', 'every_other_day', 'weekly', 'biweekly', 'monthly']),
+        startDate: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const nextCheckIn = new Date(input.startDate);
+        const frequencyDays = {
+          'daily': 1,
+          'every_other_day': 2,
+          'weekly': 7,
+          'biweekly': 14,
+          'monthly': 30,
+        };
+        nextCheckIn.setDate(nextCheckIn.getDate() + frequencyDays[input.checkInFrequency]);
+        
+        const carePlan = await db.createPatientCarePlan({
+          patientId: input.patientId,
+          physicianId: ctx.user.id,
+          precisionCarePlanId: input.precisionCarePlanId,
+          title: input.title,
+          diagnosis: input.diagnosis,
+          goals: JSON.stringify(input.goals),
+          medications: input.medications ? JSON.stringify(input.medications) : null,
+          lifestyle: input.lifestyle ? JSON.stringify(input.lifestyle) : null,
+          monitoring: JSON.stringify(input.monitoring),
+          checkInFrequency: input.checkInFrequency,
+          nextCheckInDate: nextCheckIn,
+          status: 'active',
+          startDate: new Date(input.startDate),
+          sharedWithPatient: false,
+        });
+        
+        return carePlan;
+      }),
+
+    getPatientCarePlans: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getPatientCarePlans(input.patientId);
+      }),
+
+    getActiveCarePlan: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getActivePatientCarePlan(input.patientId);
+      }),
+
+    shareCarePlan: protectedProcedure
+      .input(z.object({ carePlanId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.shareCarePlanWithPatient(input.carePlanId);
+        return { success: true };
+      }),
+
+    // AI Avatar Check-ins
+    startCheckIn: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .mutation(async ({ input }) => {
+        const carePlan = await db.getActivePatientCarePlan(input.patientId);
+        if (!carePlan) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No active care plan found' });
+        }
+        
+        const patient = await db.getPatientById(input.patientId);
+        if (!patient) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+        }
+        
+        const previousCheckIns = await db.getCarePlanCheckIns(carePlan.id);
+        
+        const greeting = await patientAvatarService.startCheckIn(
+          patient.name,
+          {
+            ...carePlan,
+            goals: JSON.parse(carePlan.goals as string),
+            medications: carePlan.medications ? JSON.parse(carePlan.medications as string) : [],
+            lifestyle: carePlan.lifestyle ? JSON.parse(carePlan.lifestyle as string) : [],
+            monitoring: JSON.parse(carePlan.monitoring as string),
+          },
+          previousCheckIns
+        );
+        
+        // Create conversation
+        const conversation = await db.createPatientConversation({
+          patientId: input.patientId,
+          carePlanId: carePlan.id,
+          conversationType: 'check_in',
+          language: 'en',
+          messages: JSON.stringify([{ role: 'assistant', content: greeting }]),
+        });
+        
+        return {
+          conversationId: conversation.insertId,
+          message: greeting,
+        };
+      }),
+
+    continueCheckIn: protectedProcedure
+      .input(z.object({
+        conversationId: z.number(),
+        userMessage: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const conversations = await db.getPatientConversations(0, 1);
+        // In production, fetch by conversationId
+        
+        const conversation = conversations[0];
+        if (!conversation) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Conversation not found' });
+        }
+        
+        const carePlan = await db.getActivePatientCarePlan(conversation.patientId);
+        if (!carePlan) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Care plan not found' });
+        }
+        
+        const messages = JSON.parse(conversation.messages as string);
+        messages.push({ role: 'user', content: input.userMessage });
+        
+        const response = await patientAvatarService.continueCheckIn(
+          messages,
+          {
+            ...carePlan,
+            goals: JSON.parse(carePlan.goals as string),
+            medications: carePlan.medications ? JSON.parse(carePlan.medications as string) : [],
+            lifestyle: carePlan.lifestyle ? JSON.parse(carePlan.lifestyle as string) : [],
+            monitoring: JSON.parse(carePlan.monitoring as string),
+          }
+        );
+        
+        messages.push({ role: 'assistant', content: response });
+        await db.updatePatientConversation(input.conversationId, messages);
+        
+        return { message: response };
+      }),
+
+    completeCheckIn: protectedProcedure
+      .input(z.object({ conversationId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const conversations = await db.getPatientConversations(0, 1);
+        const conversation = conversations[0];
+        
+        if (!conversation) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Conversation not found' });
+        }
+        
+        const carePlan = await db.getActivePatientCarePlan(conversation.patientId);
+        if (!carePlan) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Care plan not found' });
+        }
+        
+        const messages = JSON.parse(conversation.messages as string);
+        
+        // Extract structured data
+        const checkInData = await patientAvatarService.extractCheckInData(
+          messages,
+          {
+            ...carePlan,
+            goals: JSON.parse(carePlan.goals as string),
+            medications: carePlan.medications ? JSON.parse(carePlan.medications as string) : [],
+            lifestyle: carePlan.lifestyle ? JSON.parse(carePlan.lifestyle as string) : [],
+            monitoring: JSON.parse(carePlan.monitoring as string),
+          }
+        );
+        
+        // Analyze for concerns
+        const analysis = await patientAvatarService.analyzeCheckIn(
+          messages,
+          {
+            ...carePlan,
+            goals: JSON.parse(carePlan.goals as string),
+            medications: carePlan.medications ? JSON.parse(carePlan.medications as string) : [],
+            lifestyle: carePlan.lifestyle ? JSON.parse(carePlan.lifestyle as string) : [],
+            monitoring: JSON.parse(carePlan.monitoring as string),
+          }
+        );
+        
+        // Generate summary
+        const summary = await patientAvatarService.generateSummary(messages);
+        
+        // Save check-in
+        const checkIn = await db.createPatientCheckIn({
+          patientId: conversation.patientId,
+          carePlanId: carePlan.id,
+          checkInDate: new Date(),
+          overallFeeling: checkInData.overallFeeling,
+          symptoms: JSON.stringify(checkInData.symptoms),
+          metrics: JSON.stringify(checkInData.metrics),
+          medicationsTaken: JSON.stringify(checkInData.medicationsTaken),
+          lifestyleAdherence: JSON.stringify(checkInData.lifestyleAdherence),
+          conversationSummary: summary,
+          aiConcerns: JSON.stringify(analysis.concerns),
+          alertGenerated: analysis.alertLevel !== 'none',
+          alertSeverity: analysis.alertLevel !== 'none' ? analysis.alertLevel : null,
+          alertReason: analysis.alertReason,
+          reviewedByPhysician: false,
+        });
+        
+        // Create physician alert if needed
+        if (analysis.alertLevel !== 'none' && carePlan.physicianId) {
+          await db.createPhysicianAlert({
+            physicianId: carePlan.physicianId,
+            patientId: conversation.patientId,
+            carePlanId: carePlan.id,
+            checkInId: checkIn.insertId,
+            alertType: 'worsening_symptoms',
+            severity: analysis.alertLevel,
+            title: `Patient Check-in Alert: ${analysis.alertLevel.toUpperCase()}`,
+            description: analysis.alertReason || 'Concerns identified during check-in',
+            aiAnalysis: analysis.overallAssessment,
+            suggestedActions: JSON.stringify(analysis.suggestedActions),
+            status: 'pending',
+          });
+        }
+        
+        return {
+          checkInId: checkIn.insertId,
+          analysis,
+          summary,
+        };
+      }),
+
+    getPatientCheckIns: protectedProcedure
+      .input(z.object({ patientId: z.number(), limit: z.number().optional() }))
+      .query(async ({ input }) => {
+        return await db.getPatientCheckIns(input.patientId, input.limit);
+      }),
+
+    // Physician Alerts
+    getPhysicianAlerts: protectedProcedure
+      .input(z.object({ status: z.string().optional() }))
+      .query(async ({ ctx, input }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        return await db.getPhysicianAlerts(ctx.user.id, input.status);
+      }),
+
+    acknowledgeAlert: protectedProcedure
+      .input(z.object({ alertId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.updateAlertStatus(input.alertId, 'acknowledged');
+        return { success: true };
+      }),
+
+    resolveAlert: protectedProcedure
+      .input(z.object({
+        alertId: z.number(),
+        resolution: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateAlertStatus(input.alertId, 'resolved', input.resolution);
+        return { success: true };
+      }),
+
+    // Progress Metrics
+    getProgressMetrics: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        carePlanId: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getPatientProgressMetrics(input.patientId, input.carePlanId);
       }),
   }),
 });

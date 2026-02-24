@@ -30,7 +30,14 @@ import {
   intakeSessions,
   InsertIntakeSession,
   intakeMessages,
-  InsertIntakeMessage
+  InsertIntakeMessage,
+  patientLabResults,
+  patientCarePlans,
+  patientCheckIns,
+  patientConversations,
+  physicianAlerts,
+  labRequestForms,
+  patientProgressMetrics
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1082,4 +1089,273 @@ export async function createIntakeSessionWithDetails(data: {
   });
 
   return Number(result.insertId);
+}
+
+// ============ Patient Portal - Lab Results ============
+
+export async function createPatientLabResult(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(patientLabResults).values(data);
+  return result;
+}
+
+export async function getPatientLabResults(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(patientLabResults)
+    .where(eq(patientLabResults.patientId, patientId))
+    .orderBy(desc(patientLabResults.testDate));
+}
+
+export async function updateLabResultReview(labId: number, physicianId: number, notes: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(patientLabResults)
+    .set({
+      reviewedByPhysician: true,
+      reviewedAt: new Date(),
+      reviewedById: physicianId,
+      physicianNotes: notes
+    })
+    .where(eq(patientLabResults.id, labId));
+}
+
+// ============ Patient Portal - Care Plans ============
+
+export async function createPatientCarePlan(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(patientCarePlans).values(data);
+  return result;
+}
+
+export async function getPatientCarePlans(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(patientCarePlans)
+    .where(eq(patientCarePlans.patientId, patientId))
+    .orderBy(desc(patientCarePlans.createdAt));
+}
+
+export async function getActivePatientCarePlan(patientId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const plans = await db.select().from(patientCarePlans)
+    .where(and(
+      eq(patientCarePlans.patientId, patientId),
+      eq(patientCarePlans.status, "active")
+    ))
+    .orderBy(desc(patientCarePlans.createdAt))
+    .limit(1);
+    
+  return plans[0] || null;
+}
+
+export async function updateCarePlanStatus(planId: number, status: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(patientCarePlans)
+    .set({ status: status as any })
+    .where(eq(patientCarePlans.id, planId));
+}
+
+export async function shareCarePlanWithPatient(planId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(patientCarePlans)
+    .set({
+      sharedWithPatient: true,
+      sharedAt: new Date()
+    })
+    .where(eq(patientCarePlans.id, planId));
+}
+
+// ============ Patient Portal - Check-ins ============
+
+export async function createPatientCheckIn(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(patientCheckIns).values(data);
+  return result;
+}
+
+export async function getPatientCheckIns(patientId: number, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(patientCheckIns)
+    .where(eq(patientCheckIns.patientId, patientId))
+    .orderBy(desc(patientCheckIns.checkInDate))
+    .limit(limit);
+}
+
+export async function getCarePlanCheckIns(carePlanId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(patientCheckIns)
+    .where(eq(patientCheckIns.carePlanId, carePlanId))
+    .orderBy(desc(patientCheckIns.checkInDate));
+}
+
+export async function markCheckInReviewed(checkInId: number, response: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(patientCheckIns)
+    .set({
+      reviewedByPhysician: true,
+      reviewedAt: new Date(),
+      physicianResponse: response
+    })
+    .where(eq(patientCheckIns.id, checkInId));
+}
+
+// ============ Patient Portal - Conversations ============
+
+export async function createPatientConversation(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(patientConversations).values(data);
+  return result;
+}
+
+export async function updatePatientConversation(conversationId: number, messages: any[], summary?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const updateData: any = { messages };
+  if (summary) updateData.contextSummary = summary;
+  
+  await db.update(patientConversations)
+    .set(updateData)
+    .where(eq(patientConversations.id, conversationId));
+}
+
+export async function getPatientConversations(patientId: number, limit = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(patientConversations)
+    .where(eq(patientConversations.patientId, patientId))
+    .orderBy(desc(patientConversations.createdAt))
+    .limit(limit);
+}
+
+// ============ Patient Portal - Physician Alerts ============
+
+export async function createPhysicianAlert(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(physicianAlerts).values(data);
+  return result;
+}
+
+export async function getPhysicianAlerts(physicianId: number, status?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const conditions = [eq(physicianAlerts.physicianId, physicianId)];
+  if (status) {
+    conditions.push(eq(physicianAlerts.status, status as any));
+  }
+  
+  return db.select().from(physicianAlerts)
+    .where(and(...conditions))
+    .orderBy(desc(physicianAlerts.createdAt));
+}
+
+export async function updateAlertStatus(alertId: number, status: string, resolution?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const updateData: any = { status: status as any };
+  
+  if (status === "acknowledged") {
+    updateData.acknowledgedAt = new Date();
+  } else if (status === "resolved") {
+    updateData.resolvedAt = new Date();
+    if (resolution) updateData.resolution = resolution;
+  }
+  
+  await db.update(physicianAlerts)
+    .set(updateData)
+    .where(eq(physicianAlerts.id, alertId));
+}
+
+// ============ Patient Portal - Lab Request Forms ============
+
+export async function createLabRequestForm(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(labRequestForms).values(data);
+  return result;
+}
+
+export async function getPatientLabRequests(patientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(labRequestForms)
+    .where(eq(labRequestForms.patientId, patientId))
+    .orderBy(desc(labRequestForms.createdAt));
+}
+
+export async function updateLabRequestStatus(requestId: number, status: string, pdfUrl?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const updateData: any = { status: status as any };
+  
+  if (pdfUrl) {
+    updateData.formPdfUrl = pdfUrl;
+    updateData.generatedAt = new Date();
+  }
+  
+  if (status === "sent_to_patient") {
+    updateData.sentToPatientAt = new Date();
+  } else if (status === "completed") {
+    updateData.completedAt = new Date();
+  }
+  
+  await db.update(labRequestForms)
+    .set(updateData)
+    .where(eq(labRequestForms.id, requestId));
+}
+
+// ============ Patient Portal - Progress Metrics ============
+
+export async function createProgressMetrics(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(patientProgressMetrics).values(data);
+  return result;
+}
+
+export async function getPatientProgressMetrics(patientId: number, carePlanId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const conditions = [eq(patientProgressMetrics.patientId, patientId)];
+  if (carePlanId) {
+    conditions.push(eq(patientProgressMetrics.carePlanId, carePlanId));
+  }
+  
+  return db.select().from(patientProgressMetrics)
+    .where(and(...conditions))
+    .orderBy(desc(patientProgressMetrics.periodStart));
 }
