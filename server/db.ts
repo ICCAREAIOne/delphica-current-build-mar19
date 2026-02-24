@@ -1429,3 +1429,33 @@ export async function getPatientProgressMetrics(patientId: number, carePlanId?: 
     .where(and(...conditions))
     .orderBy(desc(patientProgressMetrics.periodStart));
 }
+
+// ============ Subscription Management ============
+
+export async function updateUserSubscription(
+  userId: number,
+  data: {
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    subscriptionStatus?: "active" | "canceled" | "past_due" | "trialing" | "inactive";
+    subscriptionEndDate?: Date;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(users)
+    .set(data as any)
+    .where(eq(users.id, userId));
+}
+
+export async function getUserBySubscriptionId(subscriptionId: string) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [user] = await db.select().from(users)
+    .where(eq(users.stripeSubscriptionId, subscriptionId))
+    .limit(1);
+  
+  return user || null;
+}

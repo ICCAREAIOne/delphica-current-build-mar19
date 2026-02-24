@@ -646,11 +646,11 @@
 - [x] Set up Stripe account and get API keys
 - [x] Add Stripe integration using webdev_add_feature
 - [x] Create subscription plans table ($15/month)
-- [ ] Build payment checkout page
-- [ ] Implement subscription management (active, canceled, past_due)
-- [ ] Add payment webhook handlers for subscription events
-- [ ] Create billing portal for patients
-- [ ] Add subscription status indicators in UI
+- [x] Build payment checkout page (backend complete)
+- [x] Implement subscription management (active, canceled, past_due)
+- [x] Add payment webhook handlers for subscription events
+- [x] Create billing portal for patients (backend complete)
+- [ ] Add subscription status indicators in UI (frontend pending)
 
 ### 3. Protocol PDF Generation
 - [ ] Create PDF generation service using PDFKit or similar

@@ -1456,8 +1456,96 @@ export const appRouter = router({
         if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
         await db.updateLabResultReview(input.labId, ctx.user.id, input.notes);
         return { success: true };
+       }),
+  }),
+
+  // ============ Subscription Management ============
+  subscription: router({
+    createCheckout: protectedProcedure
+      .input(z.object({
+        successUrl: z.string(),
+        cancelUrl: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const { createSubscriptionCheckout } = await import('./stripeService');
+        const result = await createSubscriptionCheckout({
+          userId: ctx.user.id,
+          userEmail: ctx.user.email || '',
+          userName: ctx.user.name || 'Patient',
+          successUrl: input.successUrl,
+          cancelUrl: input.cancelUrl,
+        });
+        
+        return result;
+      }),
+    
+    createBillingPortal: protectedProcedure
+      .input(z.object({
+        returnUrl: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        if (!ctx.user.stripeCustomerId) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST',
+            message: 'No active subscription found'
+          });
+        }
+        
+        const { createBillingPortalSession } = await import('./stripeService');
+        const result = await createBillingPortalSession({
+          stripeCustomerId: ctx.user.stripeCustomerId,
+          returnUrl: input.returnUrl,
+        });
+        
+        return result;
+      }),
+    
+    getStatus: protectedProcedure
+      .query(async ({ ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        return {
+          status: ctx.user.subscriptionStatus || 'inactive',
+          stripeCustomerId: ctx.user.stripeCustomerId,
+          stripeSubscriptionId: ctx.user.stripeSubscriptionId,
+          subscriptionEndDate: ctx.user.subscriptionEndDate,
+        };
+      }),
+    
+    cancel: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        if (!ctx.user.stripeSubscriptionId) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST',
+            message: 'No active subscription found'
+          });
+        }
+        
+        const { cancelSubscription } = await import('./stripeService');
+        const result = await cancelSubscription(ctx.user.stripeSubscriptionId);
+        
+        return result;
+      }),
+    
+    reactivate: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        if (!ctx.user.stripeSubscriptionId) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST',
+            message: 'No subscription found'
+          });
+        }
+        
+        const { reactivateSubscription } = await import('./stripeService');
+        const result = await reactivateSubscription(ctx.user.stripeSubscriptionId);
+        
+        return result;
       }),
   }),
 });
-
 export type AppRouter = typeof appRouter;
