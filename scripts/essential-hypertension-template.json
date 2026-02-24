@@ -1,0 +1,110 @@
+{
+  "name": "Essential Hypertension Management Protocol",
+  "description": "A comprehensive, evidence-based protocol for the management of essential hypertension (ICD-10: I10) in primary care settings, adhering to the 2017 ACC/AHA Hypertension Guidelines.",
+  "category": "Cardiology",
+  "tags": [
+    "Hypertension",
+    "Primary Care",
+    "ACC/AHA Guidelines",
+    "Cardiovascular Health",
+    "Blood Pressure Management"
+  ],
+  "templateData": {
+    "diagnosis": "Essential (Primary) Hypertension (ICD-10: I10)",
+    "duration": "Initial treatment phase: 3-6 months for blood pressure control. Ongoing: Lifelong management.",
+    "goals": [
+      "Achieve and maintain a blood pressure target of <130/80 mmHg for most adults.",
+      "Reduce cardiovascular morbidity and mortality.",
+      "Prevent target organ damage (e.g., kidney disease, stroke, heart failure).",
+      "Improve patient adherence to lifestyle modifications and pharmacotherapy.",
+      "Minimize adverse effects of antihypertensive medications."
+    ],
+    "interventions": [
+      {
+        "category": "Pharmacological Management",
+        "items": [
+          "Initiate pharmacotherapy for Stage 1 Hypertension (BP ≥130/80 mmHg) if ASCVD risk ≥10% or existing CVD/diabetes/CKD.",
+          "Initiate pharmacotherapy for Stage 2 Hypertension (BP ≥140/90 mmHg) for all patients.",
+          "Consider combination therapy (two first-line agents from different classes) for Stage 2 Hypertension or if BP is >20/10 mmHg above target.",
+          "Titrate medications every 2-4 weeks until target BP is achieved or maximum tolerated dose is reached."
+        ]
+      },
+      {
+        "category": "Patient Education",
+        "items": [
+          "Educate on the importance of adherence to medication and lifestyle changes.",
+          "Provide guidance on home blood pressure monitoring techniques and log keeping.",
+          "Discuss potential side effects of medications and when to seek medical attention.",
+          "Explain the risks associated with uncontrolled hypertension."
+        ]
+      },
+      {
+        "category": "Monitoring and Assessment",
+        "items": [
+          "Regularly assess blood pressure in office and encourage home monitoring.",
+          "Monitor for signs and symptoms of target organ damage (e.g., kidney function, retinopathy, left ventricular hypertrophy).",
+          "Assess for medication adherence and potential barriers.",
+          "Screen for secondary causes of hypertension if indicated."
+        ]
+      }
+    ],
+    "medications": [
+      {
+        "name": "Thiazide-type Diuretic (e.g., Chlorthalidone, Hydrochlorothiazide)",
+        "dosage": "Chlorthalidone 12.5-25 mg; Hydrochlorothiazide 12.5-25 mg",
+        "frequency": "Once daily",
+        "instructions": "First-line for most patients. Take in the morning. Monitor electrolytes (potassium, sodium) and renal function."
+      },
+      {
+        "name": "ACE Inhibitor (e.g., Lisinopril, Ramipril)",
+        "dosage": "Lisinopril 10-40 mg; Ramipril 2.5-10 mg",
+        "frequency": "Once daily",
+        "instructions": "First-line, especially in patients with diabetes, CKD, or heart failure with reduced ejection fraction. Monitor renal function and potassium. May cause cough or angioedema."
+      },
+      {
+        "name": "Angiotensin Receptor Blocker (ARB) (e.g., Losartan, Valsartan)",
+        "dosage": "Losartan 50-100 mg; Valsartan 80-320 mg",
+        "frequency": "Once daily",
+        "instructions": "First-line, particularly if ACE inhibitor is not tolerated due to cough. Monitor renal function and potassium. Contraindicated in pregnancy."
+      },
+      {
+        "name": "Calcium Channel Blocker (CCB) (e.g., Amlodipine, Diltiazem ER)",
+        "dosage": "Amlodipine 2.5-10 mg; Diltiazem ER 180-360 mg",
+        "frequency": "Once daily",
+        "instructions": "First-line, especially for African Americans or if ACEI/ARB is contraindicated. Dihydropyridine CCBs (e.g., amlodipine) are preferred. May cause peripheral edema."
+      }
+    ],
+    "lifestyle": [
+      "Sodium Reduction: Limit dietary sodium intake to <1500 mg/day (or at least a 1000 mg/day reduction).",
+      "DASH Diet: Adopt a Dietary Approaches to Stop Hypertension (DASH) eating plan.",
+      "Weight Management: Achieve and maintain a healthy body weight (BMI 18.5-24.9 kg/m2).",
+      "Physical Activity: Engage in at least 90-150 minutes/week of aerobic exercise and dynamic resistance exercise 3 times/week.",
+      "Alcohol Moderation: Limit alcohol intake to no more than 2 drinks/day for men and 1 drink/day for women.",
+      "Smoking Cessation: Advise and assist all smokers to quit.",
+      "Stress Management: Implement stress-reducing techniques (e.g., meditation, yoga).",
+      "Potassium Supplementation: Encourage increased dietary potassium intake unless contraindicated by kidney disease or medication."
+    ],
+    "followUp": {
+      "frequency": "Initial follow-up 2-4 weeks after initiating or changing therapy. Monthly until BP is controlled. Then every 3-6 months for stable patients.",
+      "metrics": [
+        "Blood Pressure (office and home readings)",
+        "Serum Electrolytes (Na, K)",
+        "Renal Function (BUN, Creatinine, eGFR)",
+        "Lipid Panel (baseline and periodically)",
+        "Urinalysis (for proteinuria)",
+        "Electrocardiogram (ECG) (baseline and as indicated)",
+        "Fundoscopic exam (for hypertensive retinopathy, as indicated)"
+      ]
+    },
+    "warnings": [
+      "Avoid ACE inhibitors and ARBs in pregnant women or those planning pregnancy due to teratogenicity.",
+      "Monitor for orthostatic hypotension, especially in elderly patients or those on multiple antihypertensives.",
+      "Avoid non-steroidal anti-inflammatory drugs (NSAIDs) with ACE inhibitors/ARBs/diuretics due to risk of acute kidney injury.",
+      "Beta-blockers are not first-line for uncomplicated hypertension unless there is a compelling indication (e.g., post-MI, heart failure).",
+      "Caution with potassium-sparing diuretics or potassium supplements in patients on ACE inhibitors/ARBs due to hyperkalemia risk.",
+      "Be aware of potential drug interactions with over-the-counter medications (e.g., decongestants, NSAIDs).",
+      "Patients with secondary hypertension require specific management beyond this protocol.",
+      "Rapid reduction of blood pressure can be dangerous; aim for gradual control unless in a hypertensive emergency."
+    ]
+  }
+}

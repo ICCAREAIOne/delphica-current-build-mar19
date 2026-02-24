@@ -1,0 +1,120 @@
+{
+  "name": "Hyperlipidemia Management Protocol (ACC/AHA 2018 Guidelines)",
+  "description": "This protocol outlines an evidence-based approach to the diagnosis, treatment, and ongoing management of hyperlipidemia in primary care, adhering to the ACC/AHA 2018 Cholesterol Guidelines. It focuses on reducing atherosclerotic cardiovascular disease (ASCVD) risk through lifestyle modifications and pharmacotherapy.",
+  "category": "Cardiovascular",
+  "tags": [
+    "Hyperlipidemia",
+    "Dyslipidemia",
+    "Cholesterol",
+    "ASCVD Prevention",
+    "Statins",
+    "ACC/AHA Guidelines",
+    "Primary Care"
+  ],
+  "templateData": {
+    "diagnosis": "Hyperlipidemia (ICD-10: E78.5)",
+    "duration": "Initial phase: 3-6 months for lifestyle and medication titration. Ongoing: Lifelong management.",
+    "goals": [
+      "Achieve a ≥50% reduction in LDL-C for patients with clinical ASCVD or primary LDL-C ≥190 mg/dL.",
+      "Achieve a 30-49% reduction in LDL-C for patients with severe primary hypercholesterolemia (LDL-C ≥190 mg/dL) who cannot tolerate high-intensity statins.",
+      "Achieve a 30-49% reduction in LDL-C for patients aged 40-75 with diabetes and LDL-C 70-189 mg/dL.",
+      "Achieve a 30-49% reduction in LDL-C for patients aged 40-75 with LDL-C 70-189 mg/dL and a 10-year ASCVD risk of 7.5% to 19.9%.",
+      "Maintain non-HDL-C levels below target thresholds based on individual risk assessment.",
+      "Improve overall cardiovascular health and reduce the risk of future ASCVD events."
+    ],
+    "interventions": [
+      {
+        "category": "Risk Assessment & Education",
+        "items": [
+          "Perform 10-year ASCVD risk assessment using the Pooled Cohort Equations for patients aged 40-75 without ASCVD or diabetes.",
+          "Educate patient on the importance of hyperlipidemia management and its role in ASCVD prevention.",
+          "Discuss shared decision-making regarding statin therapy initiation, considering patient preferences and potential side effects.",
+          "Provide materials on heart-healthy diet and physical activity."
+        ]
+      },
+      {
+        "category": "Pharmacotherapy Initiation & Titration",
+        "items": [
+          "Initiate appropriate intensity statin therapy based on patient's ASCVD risk category and LDL-C levels.",
+          "Titrate statin dose as needed to achieve target LDL-C reduction, monitoring for side effects.",
+          "Consider adding non-statin therapies (e.g., ezetimibe, PCSK9 inhibitors) for very high-risk patients who do not achieve sufficient LDL-C reduction on maximally tolerated statin therapy."
+        ]
+      },
+      {
+        "category": "Monitoring & Adherence",
+        "items": [
+          "Monitor lipid panel (LDL-C, HDL-C, Triglycerides, Non-HDL-C) 4-12 weeks after statin initiation or dose change, then annually or as clinically indicated.",
+          "Monitor liver function tests (ALT) and creatine kinase (CK) before statin initiation and as clinically indicated for symptoms.",
+          "Assess patient adherence to medication and lifestyle recommendations at each visit.",
+          "Address any barriers to adherence, including cost, side effects, and understanding of treatment plan."
+        ]
+      },
+      {
+        "category": "Special Populations",
+        "items": [
+          "Evaluate for secondary causes of hyperlipidemia (e.g., hypothyroidism, nephrotic syndrome, obstructive liver disease, certain medications).",
+          "Consider specific guidelines for patients with familial hypercholesterolemia.",
+          "Manage hypertriglyceridemia, especially severe cases (>500 mg/dL), to prevent pancreatitis."
+        ]
+      }
+    ],
+    "medications": [
+      {
+        "name": "Atorvastatin (Lipitor)",
+        "dosage": "10-80 mg",
+        "frequency": "Once daily",
+        "instructions": "High-intensity (40-80 mg) for patients requiring ≥50% LDL-C reduction. Moderate-intensity (10-20 mg) for patients requiring 30-49% LDL-C reduction or unable to tolerate high-intensity."
+      },
+      {
+        "name": "Rosuvastatin (Crestor)",
+        "dosage": "5-40 mg",
+        "frequency": "Once daily",
+        "instructions": "High-intensity (20-40 mg) for patients requiring ≥50% LDL-C reduction. Moderate-intensity (5-10 mg) for patients requiring 30-49% LDL-C reduction or unable to tolerate high-intensity."
+      },
+      {
+        "name": "Simvastatin (Zocor)",
+        "dosage": "10-40 mg",
+        "frequency": "Once daily (evening)",
+        "instructions": "Moderate-intensity (20-40 mg). Note: 80 mg dose is not recommended due to increased risk of myopathy, especially with certain drug interactions."
+      },
+      {
+        "name": "Ezetimibe (Zetia)",
+        "dosage": "10 mg",
+        "frequency": "Once daily",
+        "instructions": "Add-on therapy for patients who do not achieve sufficient LDL-C reduction on maximally tolerated statin therapy, especially in very high-risk individuals."
+      }
+    ],
+    "lifestyle": [
+      "Adopt a heart-healthy diet (e.g., Mediterranean, DASH diet) emphasizing vegetables, fruits, whole grains, lean proteins, and healthy fats, while limiting saturated fats, trans fats, dietary cholesterol, and refined carbohydrates.",
+      "Engage in at least 150 minutes per week of moderate-intensity aerobic physical activity or 75 minutes per week of vigorous-intensity aerobic physical activity.",
+      "Maintain a healthy body weight (BMI 18.5-24.9 kg/m²) and reduce waist circumference.",
+      "Avoid tobacco products; for current smokers, provide counseling and resources for smoking cessation.",
+      "Limit alcohol consumption to no more than 1 drink per day for women and 2 drinks per day for men.",
+      "Manage stress through relaxation techniques, mindfulness, or other coping strategies.",
+      "Ensure adequate sleep (7-9 hours per night) for overall cardiovascular health."
+    ],
+    "followUp": {
+      "frequency": "Initially 4-12 weeks after statin initiation or dose change, then every 6-12 months for stable patients.",
+      "metrics": [
+        "Lipid panel (LDL-C, HDL-C, Triglycerides, Non-HDL-C)",
+        "Liver function tests (ALT) if clinically indicated or at baseline",
+        "Creatine Kinase (CK) if muscle symptoms develop or at baseline if high risk",
+        "Blood Pressure",
+        "Weight/BMI",
+        "Assessment of medication adherence and side effects",
+        "Review of lifestyle modifications and progress",
+        "ASCVD risk reassessment (if applicable)"
+      ]
+    },
+    "warnings": [
+      "Statins are contraindicated in active liver disease or unexplained persistent elevations of serum transaminases.",
+      "Statins are contraindicated in pregnancy and breastfeeding due to potential fetal harm.",
+      "Risk of myopathy and rhabdomyolysis increases with higher statin doses and certain drug interactions (e.g., strong CYP3A4 inhibitors with simvastatin/lovastatin).",
+      "Monitor for new-onset diabetes, especially in patients with pre-existing risk factors, though the cardiovascular benefits of statins generally outweigh this small risk.",
+      "Patients experiencing muscle pain, tenderness, or weakness should have CK levels checked.",
+      "Concomitant use of statins with fibrates (especially gemfibrozil) or niacin can increase the risk of myopathy.",
+      "Patients with severe primary hypercholesterolemia (LDL-C ≥190 mg/dL) require high-intensity statin therapy regardless of ASCVD risk calculation.",
+      "Avoid grapefruit juice with simvastatin, lovastatin, and atorvastatin as it can increase statin levels and risk of side effects."
+    ]
+  }
+}

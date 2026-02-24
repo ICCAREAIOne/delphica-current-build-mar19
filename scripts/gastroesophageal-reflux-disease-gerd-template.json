@@ -1,0 +1,117 @@
+{
+  "name": "Gastroesophageal Reflux Disease (GERD) Management Protocol",
+  "description": "A comprehensive, evidence-based protocol for the diagnosis and management of Gastroesophageal Reflux Disease (GERD) in primary care settings, adhering to the 2022 ACG Clinical Guidelines for the Diagnosis and Management of GERD.",
+  "category": "Gastroenterology",
+  "tags": [
+    "GERD",
+    "Reflux",
+    "Heartburn",
+    "Esophagitis",
+    "Primary Care",
+    "ACG Guidelines"
+  ],
+  "templateData": {
+    "diagnosis": "Gastroesophageal Reflux Disease (GERD) - K21.9",
+    "duration": "Initial treatment phase: 8 weeks. Ongoing management: As needed, based on symptom control and clinical assessment.",
+    "goals": [
+      "Achieve complete or significant resolution of typical GERD symptoms (e.g., heartburn, regurgitation) within 8 weeks.",
+      "Prevent complications of GERD such as erosive esophagitis, stricture, or Barrett's esophagus.",
+      "Improve patient's quality of life related to GERD symptoms.",
+      "Minimize reliance on pharmacotherapy through lifestyle modifications.",
+      "Identify and address atypical GERD symptoms or alarm features requiring further investigation."
+    ],
+    "interventions": [
+      {
+        "category": "Diagnostic Workup",
+        "items": [
+          "Clinical symptom assessment (heartburn, regurgitation, dysphagia).",
+          "Trial of empiric PPI therapy for typical GERD symptoms.",
+          "Consider upper endoscopy for alarm symptoms (dysphagia, odynophagia, GI bleeding, weight loss, iron deficiency anemia) or failure of empiric PPI therapy.",
+          "Consider ambulatory reflux monitoring (pH or impedance-pH) for refractory symptoms despite PPIs or atypical symptoms."
+        ]
+      },
+      {
+        "category": "Pharmacological Management (First-line)",
+        "items": [
+          "Initiate Proton Pump Inhibitor (PPI) therapy once daily, 30-60 minutes before the first meal.",
+          "If symptoms persist, consider increasing PPI to twice daily.",
+          "Consider H2 Receptor Antagonists (H2RAs) for on-demand symptom relief or as an adjunct to PPIs, particularly for nocturnal symptoms.",
+          "Evaluate need for step-down therapy after 8 weeks of successful PPI treatment."
+        ]
+      },
+      {
+        "category": "Patient Education and Counseling",
+        "items": [
+          "Educate on the chronic nature of GERD and the importance of adherence to lifestyle and medication regimens.",
+          "Discuss potential side effects of medications and strategies for mitigation.",
+          "Provide guidance on dietary triggers and portion control.",
+          "Counsel on when to seek immediate medical attention (e.g., severe chest pain, choking, persistent dysphagia)."
+        ]
+      },
+      {
+        "category": "Advanced/Refractory Cases",
+        "items": [
+          "Referral to gastroenterologist for endoscopy, advanced diagnostics (e.g., manometry, impedance-pH monitoring), or consideration of surgical options (e.g., fundoplication) for refractory GERD.",
+          "Consider adding alginates or antacids for breakthrough symptoms."
+        ]
+      }
+    ],
+    "medications": [
+      {
+        "name": "Omeprazole",
+        "dosage": "20 mg",
+        "frequency": "Once daily",
+        "instructions": "Take 30-60 minutes before the first meal for 4-8 weeks. May increase to twice daily if symptoms persist."
+      },
+      {
+        "name": "Pantoprazole",
+        "dosage": "40 mg",
+        "frequency": "Once daily",
+        "instructions": "Take 30-60 minutes before the first meal for 4-8 weeks. May increase to twice daily if symptoms persist."
+      },
+      {
+        "name": "Esomeprazole",
+        "dosage": "20 mg or 40 mg",
+        "frequency": "Once daily",
+        "instructions": "Take 30-60 minutes before the first meal for 4-8 weeks. May increase to twice daily if symptoms persist."
+      },
+      {
+        "name": "Famotidine (H2RA)",
+        "dosage": "20 mg",
+        "frequency": "Once or twice daily, or as needed",
+        "instructions": "For on-demand symptom relief, particularly nocturnal symptoms, or as an adjunct to PPIs. Take before meals or at bedtime."
+      }
+    ],
+    "lifestyle": [
+      "Elevate the head of the bed by 6-8 inches using blocks or a wedge pillow (not extra pillows).",
+      "Avoid lying down within 2-3 hours after eating.",
+      "Identify and avoid individual trigger foods (e.g., fatty foods, spicy foods, chocolate, caffeine, alcohol, peppermint, citrus).",
+      "Eat smaller, more frequent meals instead of large ones.",
+      "Achieve and maintain a healthy weight (if overweight or obese).",
+      "Quit smoking.",
+      "Avoid tight-fitting clothing around the abdomen.",
+      "Limit consumption of carbonated beverages."
+    ],
+    "followUp": {
+      "frequency": "Initial follow-up in 4-8 weeks after starting therapy. Subsequent follow-up every 6-12 months for chronic management or as needed for symptom changes.",
+      "metrics": [
+        "Symptom frequency and severity (e.g., heartburn, regurgitation, dysphagia).",
+        "Adherence to medication and lifestyle modifications.",
+        "Presence of new or worsening alarm symptoms.",
+        "Assessment of medication side effects.",
+        "Quality of life assessment.",
+        "Weight changes."
+      ]
+    },
+    "warnings": [
+      "Alarm symptoms (dysphagia, odynophagia, GI bleeding, weight loss, iron deficiency anemia) warrant prompt endoscopy, not just empiric therapy.",
+      "Long-term PPI use has been associated with potential risks including C. difficile infection, pneumonia, bone fractures, and kidney disease; use the lowest effective dose for the shortest duration necessary.",
+      "PPIs should be taken 30-60 minutes before the first meal for optimal efficacy.",
+      "Do not abruptly discontinue PPIs after prolonged use due to potential rebound acid hypersecretion.",
+      "GERD symptoms can mimic cardiac chest pain; rule out cardiac causes in patients presenting with chest pain.",
+      "Patients with Barrett's esophagus require endoscopic surveillance.",
+      "Consider drug interactions with PPIs (e.g., clopidogrel, methotrexate).",
+      "Referral to a specialist is indicated for refractory symptoms, alarm features, or complicated GERD."
+    ]
+  }
+}

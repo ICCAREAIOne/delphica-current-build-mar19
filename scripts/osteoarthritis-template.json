@@ -1,0 +1,120 @@
+{
+  "name": "Osteoarthritis Management Protocol",
+  "description": "A comprehensive, evidence-based protocol for the management of Osteoarthritis (OA) in primary care, aligning with the American College of Rheumatology (ACR) 2019 Guidelines for the Management of Osteoarthritis.",
+  "category": "Rheumatology",
+  "tags": [
+    "Osteoarthritis",
+    "OA",
+    "ACR Guidelines",
+    "Chronic Pain",
+    "Musculoskeletal",
+    "Primary Care"
+  ],
+  "templateData": {
+    "diagnosis": "Osteoarthritis, unspecified (ICD-10: M19.90)",
+    "duration": "Initial phase: 12 weeks. Ongoing management: Lifelong.",
+    "goals": [
+      "Reduce pain by at least 30% on a Visual Analog Scale (VAS) within 12 weeks.",
+      "Improve physical function (e.g., walking distance, ability to perform daily activities) by 20% within 12 weeks.",
+      "Increase joint range of motion (ROM) by 10 degrees in affected joint within 6 months.",
+      "Minimize disease progression and prevent joint deformity through sustained management.",
+      "Improve patient's quality of life as measured by validated questionnaires (e.g., WOMAC, KOOS)."
+    ],
+    "interventions": [
+      {
+        "category": "Non-Pharmacological Core Interventions",
+        "items": [
+          "Patient education on OA, self-management strategies, and prognosis.",
+          "Weight management for overweight/obese patients (target 5-10% body weight reduction).",
+          "Structured exercise program (aerobic, strengthening, balance, flexibility) tailored to affected joint(s).",
+          "Physical therapy referral for individualized exercise prescription, manual therapy, and assistive device training.",
+          "Occupational therapy referral for joint protection techniques and activity modification."
+        ]
+      },
+      {
+        "category": "Pharmacological Interventions (First-Line)",
+        "items": [
+          "Topical NSAIDs (e.g., diclofenac gel) for localized pain.",
+          "Oral NSAIDs (e.g., naproxen, ibuprofen) for moderate to severe pain, used cautiously.",
+          "Acetaminophen for mild to moderate pain (consider limited efficacy).",
+          "Intra-articular corticosteroid injections for acute flares or moderate-to-severe pain not responsive to oral/topical agents."
+        ]
+      },
+      {
+        "category": "Adjunctive Therapies",
+        "items": [
+          "Assistive devices (e.g., cane, walker) for ambulation support.",
+          "Bracing/taping for joint stability and pain relief.",
+          "Heat/cold therapy for symptomatic relief.",
+          "Cognitive Behavioral Therapy (CBT) for chronic pain management and mood disorders."
+        ]
+      },
+      {
+        "category": "Referral Considerations",
+        "items": [
+          "Referral to Orthopedic Surgery for patients with severe symptoms, functional limitation, and failure of conservative management (e.g., consideration for total joint arthroplasty).",
+          "Referral to Rheumatology for atypical presentations, inflammatory features, or diagnostic uncertainty.",
+          "Referral to Pain Management for complex chronic pain not adequately controlled."
+        ]
+      }
+    ],
+    "medications": [
+      {
+        "name": "Topical Diclofenac Gel 1%",
+        "dosage": "2-4 grams per application",
+        "frequency": "4 times daily",
+        "instructions": "Apply to affected joint area. Wash hands thoroughly after application. Avoid contact with eyes and mucous membranes."
+      },
+      {
+        "name": "Naproxen",
+        "dosage": "250-500 mg",
+        "frequency": "Twice daily",
+        "instructions": "Take with food or milk to minimize gastrointestinal upset. Use lowest effective dose for shortest duration. Consider concomitant proton pump inhibitor (PPI) if GI risk factors present."
+      },
+      {
+        "name": "Acetaminophen",
+        "dosage": "325-650 mg",
+        "frequency": "Every 4-6 hours as needed (max 3000 mg/day)",
+        "instructions": "Do not exceed maximum daily dose. Be aware of acetaminophen content in combination products. Use cautiously in patients with liver impairment."
+      },
+      {
+        "name": "Triamcinolone Acetonide (Intra-articular)",
+        "dosage": "10-40 mg (joint dependent)",
+        "frequency": "Not more than every 3 months",
+        "instructions": "Administered by a qualified healthcare professional into the joint space. Aseptic technique is crucial. Monitor for post-injection flare or infection."
+      }
+    ],
+    "lifestyle": [
+      "Engage in regular low-impact exercise (e.g., swimming, cycling, walking) for at least 150 minutes per week.",
+      "Maintain a healthy body weight through balanced diet and regular physical activity.",
+      "Incorporate strength training exercises for muscles surrounding affected joints.",
+      "Practice joint protection techniques (e.g., using larger joints for tasks, avoiding prolonged static positions).",
+      "Ensure adequate rest and sleep to aid in pain management and recovery.",
+      "Utilize assistive devices (e.g., cane, walker) as needed for support and stability.",
+      "Apply heat or cold packs to affected joints for temporary pain relief.",
+      "Avoid activities that exacerbate joint pain or cause excessive stress on affected joints."
+    ],
+    "followUp": {
+      "frequency": "Every 4-6 weeks initially, then every 3-6 months once stable.",
+      "metrics": [
+        "Pain intensity (e.g., VAS, Numeric Rating Scale)",
+        "Physical function (e.g., WOMAC, KOOS, 6-minute walk test)",
+        "Joint range of motion and stability",
+        "Medication adherence and side effects",
+        "Weight and BMI",
+        "Patient satisfaction and quality of life",
+        "Presence of new symptoms or disease progression"
+      ]
+    },
+    "warnings": [
+      "Avoid chronic use of oral NSAIDs in patients with high cardiovascular risk, renal insufficiency, or gastrointestinal bleeding history.",
+      "Acetaminophen should be used cautiously in patients with liver disease; do not exceed 3000 mg/day.",
+      "Intra-articular corticosteroid injections should be limited to 3-4 per joint per year due to potential cartilage damage.",
+      "Opioids are generally NOT recommended for routine OA management due to lack of efficacy evidence and significant risks.",
+      "Glucosamine and chondroitin are NOT recommended due to lack of consistent efficacy.",
+      "Duloxetine should be considered only for patients with chronic widespread pain or significant contraindications to NSAIDs.",
+      "Exercise programs should be initiated gradually and tailored to individual tolerance to avoid exacerbating pain.",
+      "Patients should be educated on signs of infection post-injection (e.g., increased pain, redness, swelling, fever) and to seek immediate medical attention."
+    ]
+  }
+}

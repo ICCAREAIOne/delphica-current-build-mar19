@@ -1,0 +1,593 @@
+[
+  {
+    "name": "Essential Hypertension Management Protocol",
+    "description": "A comprehensive, evidence-based protocol for the management of essential hypertension (ICD-10: I10) in primary care settings, adhering to the 2017 ACC/AHA Hypertension Guidelines.",
+    "category": "Cardiology",
+    "tags": [
+      "Hypertension",
+      "Primary Care",
+      "ACC/AHA Guidelines",
+      "Cardiovascular Health",
+      "Blood Pressure Management"
+    ],
+    "templateData": {
+      "diagnosis": "Essential (Primary) Hypertension (ICD-10: I10)",
+      "duration": "Initial treatment phase: 3-6 months for blood pressure control. Ongoing: Lifelong management.",
+      "goals": [
+        "Achieve and maintain a blood pressure target of <130/80 mmHg for most adults.",
+        "Reduce cardiovascular morbidity and mortality.",
+        "Prevent target organ damage (e.g., kidney disease, stroke, heart failure).",
+        "Improve patient adherence to lifestyle modifications and pharmacotherapy.",
+        "Minimize adverse effects of antihypertensive medications."
+      ],
+      "interventions": [
+        {
+          "category": "Pharmacological Management",
+          "items": [
+            "Initiate pharmacotherapy for Stage 1 Hypertension (BP ≥130/80 mmHg) if ASCVD risk ≥10% or existing CVD/diabetes/CKD.",
+            "Initiate pharmacotherapy for Stage 2 Hypertension (BP ≥140/90 mmHg) for all patients.",
+            "Consider combination therapy (two first-line agents from different classes) for Stage 2 Hypertension or if BP is >20/10 mmHg above target.",
+            "Titrate medications every 2-4 weeks until target BP is achieved or maximum tolerated dose is reached."
+          ]
+        },
+        {
+          "category": "Patient Education",
+          "items": [
+            "Educate on the importance of adherence to medication and lifestyle changes.",
+            "Provide guidance on home blood pressure monitoring techniques and log keeping.",
+            "Discuss potential side effects of medications and when to seek medical attention.",
+            "Explain the risks associated with uncontrolled hypertension."
+          ]
+        },
+        {
+          "category": "Monitoring and Assessment",
+          "items": [
+            "Regularly assess blood pressure in office and encourage home monitoring.",
+            "Monitor for signs and symptoms of target organ damage (e.g., kidney function, retinopathy, left ventricular hypertrophy).",
+            "Assess for medication adherence and potential barriers.",
+            "Screen for secondary causes of hypertension if indicated."
+          ]
+        }
+      ],
+      "medications": [
+        {
+          "name": "Thiazide-type Diuretic (e.g., Chlorthalidone, Hydrochlorothiazide)",
+          "dosage": "Chlorthalidone 12.5-25 mg; Hydrochlorothiazide 12.5-25 mg",
+          "frequency": "Once daily",
+          "instructions": "First-line for most patients. Take in the morning. Monitor electrolytes (potassium, sodium) and renal function."
+        },
+        {
+          "name": "ACE Inhibitor (e.g., Lisinopril, Ramipril)",
+          "dosage": "Lisinopril 10-40 mg; Ramipril 2.5-10 mg",
+          "frequency": "Once daily",
+          "instructions": "First-line, especially in patients with diabetes, CKD, or heart failure with reduced ejection fraction. Monitor renal function and potassium. May cause cough or angioedema."
+        },
+        {
+          "name": "Angiotensin Receptor Blocker (ARB) (e.g., Losartan, Valsartan)",
+          "dosage": "Losartan 50-100 mg; Valsartan 80-320 mg",
+          "frequency": "Once daily",
+          "instructions": "First-line, particularly if ACE inhibitor is not tolerated due to cough. Monitor renal function and potassium. Contraindicated in pregnancy."
+        },
+        {
+          "name": "Calcium Channel Blocker (CCB) (e.g., Amlodipine, Diltiazem ER)",
+          "dosage": "Amlodipine 2.5-10 mg; Diltiazem ER 180-360 mg",
+          "frequency": "Once daily",
+          "instructions": "First-line, especially for African Americans or if ACEI/ARB is contraindicated. Dihydropyridine CCBs (e.g., amlodipine) are preferred. May cause peripheral edema."
+        }
+      ],
+      "lifestyle": [
+        "Sodium Reduction: Limit dietary sodium intake to <1500 mg/day (or at least a 1000 mg/day reduction).",
+        "DASH Diet: Adopt a Dietary Approaches to Stop Hypertension (DASH) eating plan.",
+        "Weight Management: Achieve and maintain a healthy body weight (BMI 18.5-24.9 kg/m2).",
+        "Physical Activity: Engage in at least 90-150 minutes/week of aerobic exercise and dynamic resistance exercise 3 times/week.",
+        "Alcohol Moderation: Limit alcohol intake to no more than 2 drinks/day for men and 1 drink/day for women.",
+        "Smoking Cessation: Advise and assist all smokers to quit.",
+        "Stress Management: Implement stress-reducing techniques (e.g., meditation, yoga).",
+        "Potassium Supplementation: Encourage increased dietary potassium intake unless contraindicated by kidney disease or medication."
+      ],
+      "followUp": {
+        "frequency": "Initial follow-up 2-4 weeks after initiating or changing therapy. Monthly until BP is controlled. Then every 3-6 months for stable patients.",
+        "metrics": [
+          "Blood Pressure (office and home readings)",
+          "Serum Electrolytes (Na, K)",
+          "Renal Function (BUN, Creatinine, eGFR)",
+          "Lipid Panel (baseline and periodically)",
+          "Urinalysis (for proteinuria)",
+          "Electrocardiogram (ECG) (baseline and as indicated)",
+          "Fundoscopic exam (for hypertensive retinopathy, as indicated)"
+        ]
+      },
+      "warnings": [
+        "Avoid ACE inhibitors and ARBs in pregnant women or those planning pregnancy due to teratogenicity.",
+        "Monitor for orthostatic hypotension, especially in elderly patients or those on multiple antihypertensives.",
+        "Avoid non-steroidal anti-inflammatory drugs (NSAIDs) with ACE inhibitors/ARBs/diuretics due to risk of acute kidney injury.",
+        "Beta-blockers are not first-line for uncomplicated hypertension unless there is a compelling indication (e.g., post-MI, heart failure).",
+        "Caution with potassium-sparing diuretics or potassium supplements in patients on ACE inhibitors/ARBs due to hyperkalemia risk.",
+        "Be aware of potential drug interactions with over-the-counter medications (e.g., decongestants, NSAIDs).",
+        "Patients with secondary hypertension require specific management beyond this protocol.",
+        "Rapid reduction of blood pressure can be dangerous; aim for gradual control unless in a hypertensive emergency."
+      ]
+    }
+  },
+  {
+    "name": "Type 2 Diabetes Mellitus Management Protocol",
+    "description": "An evidence-based clinical protocol for the comprehensive management of Type 2 Diabetes Mellitus (T2DM) in primary care, adhering to the ADA 2024 Standards of Care in Diabetes.",
+    "category": "Endocrinology",
+    "tags": [
+      "Diabetes",
+      "Type 2 Diabetes",
+      "T2DM",
+      "Endocrine",
+      "Primary Care",
+      "ADA Guidelines"
+    ],
+    "templateData": {
+      "diagnosis": "Type 2 Diabetes Mellitus (ICD-10: E11.9)",
+      "duration": "Initial phase: 3-6 months for glycemic stabilization and lifestyle modification. Ongoing: Lifelong management.",
+      "goals": [
+        "Achieve and maintain individualized HbA1c target (e.g., <7.0% for most adults, <6.5% for select individuals, <8.0% for those with comorbidities/hypoglycemia risk).",
+        "Achieve and maintain blood pressure <130/80 mmHg (for most adults with T2DM and hypertension).",
+        "Achieve and maintain LDL-C <1.8 mmol/L (<70 mg/dL) for patients 40-75 years with ASCVD or multiple risk factors.",
+        "Achieve and maintain body weight reduction of ≥5% for overweight/obese individuals.",
+        "Prevent or delay the progression of diabetes-related complications (e.g., nephropathy, retinopathy, neuropathy).",
+        "Minimize hypoglycemia risk and improve quality of life."
+      ],
+      "interventions": [
+        {
+          "category": "Lifestyle and Behavioral Counseling",
+          "items": [
+            "Referral to Medical Nutrition Therapy (MNT) with a Registered Dietitian Nutritionist (RDN).",
+            "Structured physical activity program (e.g., 150 minutes/week of moderate-intensity aerobic activity, 2-3 sessions/week of resistance training).",
+            "Smoking cessation counseling and support.",
+            "Stress management techniques and mental health screening.",
+            "Regular self-monitoring of blood glucose (SMBG) or continuous glucose monitoring (CGM) as indicated."
+          ]
+        },
+        {
+          "category": "Pharmacological Management (First-Line)",
+          "items": [
+            "Metformin initiation (if eGFR >30 mL/min/1.73m²).",
+            "Consider GLP-1 Receptor Agonist (GLP-1 RA) or SGLT2 Inhibitor (SGLT2i) early, especially in patients with established ASCVD, heart failure, or chronic kidney disease.",
+            "Individualize medication selection based on comorbidities, glucose-lowering efficacy, hypoglycemia risk, impact on body weight, and cost."
+          ]
+        },
+        {
+          "category": "Cardiovascular and Renal Risk Reduction",
+          "items": [
+            "Initiate ACE inhibitor or ARB for hypertension with albuminuria.",
+            "Statin therapy for dyslipidemia (moderate-intensity for adults 40-75 years without ASCVD, high-intensity for those with ASCVD).",
+            "Aspirin therapy (75-162 mg/day) for secondary prevention in patients with established ASCVD; consider for primary prevention in select high-risk patients."
+          ]
+        },
+        {
+          "category": "Screening and Prevention of Complications",
+          "items": [
+            "Annual comprehensive dilated eye examination.",
+            "Annual foot examination (monofilament test, vibratory sensation, pulses).",
+            "Annual urine albumin-to-creatinine ratio (UACR) and estimated glomerular filtration rate (eGFR).",
+            "Referral to diabetes self-management education and support (DSMES) program."
+          ]
+        }
+      ],
+      "medications": [
+        {
+          "name": "Metformin",
+          "dosage": "500 mg once or twice daily, titrate up to 2000 mg daily (max 2550 mg daily) as tolerated.",
+          "frequency": "Daily (with meals).",
+          "instructions": "Start low and titrate slowly to minimize gastrointestinal side effects. Discontinue if eGFR <30 mL/min/1.73m². Hold prior to iodinated contrast procedures for patients with eGFR 30-60 mL/min/1.73m²."
+        },
+        {
+          "name": "Semaglutide (GLP-1 RA)",
+          "dosage": "0.25 mg once weekly, titrate to 0.5 mg, then 1 mg, then 2 mg once weekly as tolerated.",
+          "frequency": "Once weekly (subcutaneous injection).",
+          "instructions": "Administer on the same day each week, any time of day, with or without meals. May cause nausea, vomiting, or diarrhea. Contraindicated in patients with a personal or family history of medullary thyroid carcinoma (MTC) or Multiple Endocrine Neoplasia syndrome type 2 (MEN 2)."
+        },
+        {
+          "name": "Empagliflozin (SGLT2i)",
+          "dosage": "10 mg once daily, may increase to 25 mg once daily.",
+          "frequency": "Once daily (in the morning).",
+          "instructions": "Take in the morning with or without food. Ensure adequate hydration. Monitor for genitourinary infections, euglycemic DKA, and volume depletion. Not recommended for eGFR <30 mL/min/1.73m² for glycemic control."
+        },
+        {
+          "name": "Lisinopril (ACE Inhibitor)",
+          "dosage": "10 mg once daily, titrate to target blood pressure.",
+          "frequency": "Once daily.",
+          "instructions": "Monitor blood pressure, renal function, and serum potassium closely. May cause cough or angioedema. Contraindicated in pregnancy."
+        }
+      ],
+      "lifestyle": [
+        "Adopt a balanced eating pattern (e.g., Mediterranean, DASH, plant-based) focusing on whole foods, lean protein, and healthy fats.",
+        "Limit intake of refined carbohydrates, added sugars, and saturated/trans fats.",
+        "Engage in at least 150 minutes per week of moderate-intensity aerobic physical activity (e.g., brisk walking, swimming).",
+        "Incorporate 2-3 sessions per week of resistance training (e.g., lifting weights, bodyweight exercises).",
+        "Achieve and maintain a healthy body weight; aim for a 5-10% weight loss if overweight or obese.",
+        "Prioritize 7-9 hours of quality sleep per night.",
+        "Manage stress through techniques such as mindfulness, meditation, or yoga.",
+        "Avoid smoking and limit alcohol consumption."
+      ],
+      "followUp": {
+        "frequency": "Every 3-6 months initially, then every 6-12 months once stable and at goal, or more frequently if glycemic targets are not met or complications arise.",
+        "metrics": [
+          "HbA1c (every 3-6 months)",
+          "Fasting Plasma Glucose (FPG) and Postprandial Glucose (PPG)",
+          "Blood Pressure (at every visit)",
+          "Lipid Panel (annually or more frequently if not at goal)",
+          "Urine Albumin-to-Creatinine Ratio (UACR) (annually)",
+          "Estimated Glomerular Filtration Rate (eGFR) (annually or more frequently based on medication/CKD stage)",
+          "Body Weight and BMI",
+          "Foot Exam (annually)",
+          "Comprehensive Dilated Eye Exam (annually)",
+          "Medication adherence and side effects",
+          "Hypoglycemia frequency and severity"
+        ]
+      },
+      "warnings": [
+        "Metformin: Risk of lactic acidosis (rare but serious); contraindicated in severe renal impairment (eGFR <30 mL/min/1.73m²).",
+        "SGLT2 Inhibitors: Risk of genitourinary infections, volume depletion, euglycemic diabetic ketoacidosis (DKA), and rare Fournier's gangrene.",
+        "GLP-1 Receptor Agonists: Risk of pancreatitis, thyroid C-cell tumors (in rodents), and gastrointestinal side effects. Contraindicated in personal/family history of MTC or MEN 2.",
+        "Insulin/Sulfonylureas: High risk of hypoglycemia; educate patients on symptoms and management.",
+        "Blood Pressure Medications (ACEi/ARBs): Monitor for hyperkalemia and acute kidney injury, especially with concomitant use of SGLT2i or diuretics.",
+        "Polypharmacy: Review all medications regularly to avoid drug-drug interactions and simplify regimens.",
+        "Hypoglycemia Awareness: Patients with long-standing diabetes or frequent hypoglycemia may lose warning symptoms (hypoglycemia unawareness); educate on proactive monitoring.",
+        "Sick Day Management: Educate patients on managing diabetes during illness, including medication adjustments and monitoring for dehydration/ketosis."
+      ]
+    }
+  },
+  {
+    "name": "Hyperlipidemia Management Protocol (ACC/AHA 2018 Guidelines)",
+    "description": "This protocol outlines an evidence-based approach to the diagnosis, treatment, and ongoing management of hyperlipidemia in primary care, adhering to the ACC/AHA 2018 Cholesterol Guidelines. It focuses on reducing atherosclerotic cardiovascular disease (ASCVD) risk through lifestyle modifications and pharmacotherapy.",
+    "category": "Cardiovascular",
+    "tags": [
+      "Hyperlipidemia",
+      "Dyslipidemia",
+      "Cholesterol",
+      "ASCVD Prevention",
+      "Statins",
+      "ACC/AHA Guidelines",
+      "Primary Care"
+    ],
+    "templateData": {
+      "diagnosis": "Hyperlipidemia (ICD-10: E78.5)",
+      "duration": "Initial phase: 3-6 months for lifestyle and medication titration. Ongoing: Lifelong management.",
+      "goals": [
+        "Achieve a ≥50% reduction in LDL-C for patients with clinical ASCVD or primary LDL-C ≥190 mg/dL.",
+        "Achieve a 30-49% reduction in LDL-C for patients with severe primary hypercholesterolemia (LDL-C ≥190 mg/dL) who cannot tolerate high-intensity statins.",
+        "Achieve a 30-49% reduction in LDL-C for patients aged 40-75 with diabetes and LDL-C 70-189 mg/dL.",
+        "Achieve a 30-49% reduction in LDL-C for patients aged 40-75 with LDL-C 70-189 mg/dL and a 10-year ASCVD risk of 7.5% to 19.9%.",
+        "Maintain non-HDL-C levels below target thresholds based on individual risk assessment.",
+        "Improve overall cardiovascular health and reduce the risk of future ASCVD events."
+      ],
+      "interventions": [
+        {
+          "category": "Risk Assessment & Education",
+          "items": [
+            "Perform 10-year ASCVD risk assessment using the Pooled Cohort Equations for patients aged 40-75 without ASCVD or diabetes.",
+            "Educate patient on the importance of hyperlipidemia management and its role in ASCVD prevention.",
+            "Discuss shared decision-making regarding statin therapy initiation, considering patient preferences and potential side effects.",
+            "Provide materials on heart-healthy diet and physical activity."
+          ]
+        },
+        {
+          "category": "Pharmacotherapy Initiation & Titration",
+          "items": [
+            "Initiate appropriate intensity statin therapy based on patient's ASCVD risk category and LDL-C levels.",
+            "Titrate statin dose as needed to achieve target LDL-C reduction, monitoring for side effects.",
+            "Consider adding non-statin therapies (e.g., ezetimibe, PCSK9 inhibitors) for very high-risk patients who do not achieve sufficient LDL-C reduction on maximally tolerated statin therapy."
+          ]
+        },
+        {
+          "category": "Monitoring & Adherence",
+          "items": [
+            "Monitor lipid panel (LDL-C, HDL-C, Triglycerides, Non-HDL-C) 4-12 weeks after statin initiation or dose change, then annually or as clinically indicated.",
+            "Monitor liver function tests (ALT) and creatine kinase (CK) before statin initiation and as clinically indicated for symptoms.",
+            "Assess patient adherence to medication and lifestyle recommendations at each visit.",
+            "Address any barriers to adherence, including cost, side effects, and understanding of treatment plan."
+          ]
+        },
+        {
+          "category": "Special Populations",
+          "items": [
+            "Evaluate for secondary causes of hyperlipidemia (e.g., hypothyroidism, nephrotic syndrome, obstructive liver disease, certain medications).",
+            "Consider specific guidelines for patients with familial hypercholesterolemia.",
+            "Manage hypertriglyceridemia, especially severe cases (>500 mg/dL), to prevent pancreatitis."
+          ]
+        }
+      ],
+      "medications": [
+        {
+          "name": "Atorvastatin (Lipitor)",
+          "dosage": "10-80 mg",
+          "frequency": "Once daily",
+          "instructions": "High-intensity (40-80 mg) for patients requiring ≥50% LDL-C reduction. Moderate-intensity (10-20 mg) for patients requiring 30-49% LDL-C reduction or unable to tolerate high-intensity."
+        },
+        {
+          "name": "Rosuvastatin (Crestor)",
+          "dosage": "5-40 mg",
+          "frequency": "Once daily",
+          "instructions": "High-intensity (20-40 mg) for patients requiring ≥50% LDL-C reduction. Moderate-intensity (5-10 mg) for patients requiring 30-49% LDL-C reduction or unable to tolerate high-intensity."
+        },
+        {
+          "name": "Simvastatin (Zocor)",
+          "dosage": "10-40 mg",
+          "frequency": "Once daily (evening)",
+          "instructions": "Moderate-intensity (20-40 mg). Note: 80 mg dose is not recommended due to increased risk of myopathy, especially with certain drug interactions."
+        },
+        {
+          "name": "Ezetimibe (Zetia)",
+          "dosage": "10 mg",
+          "frequency": "Once daily",
+          "instructions": "Add-on therapy for patients who do not achieve sufficient LDL-C reduction on maximally tolerated statin therapy, especially in very high-risk individuals."
+        }
+      ],
+      "lifestyle": [
+        "Adopt a heart-healthy diet (e.g., Mediterranean, DASH diet) emphasizing vegetables, fruits, whole grains, lean proteins, and healthy fats, while limiting saturated fats, trans fats, dietary cholesterol, and refined carbohydrates.",
+        "Engage in at least 150 minutes per week of moderate-intensity aerobic physical activity or 75 minutes per week of vigorous-intensity aerobic physical activity.",
+        "Maintain a healthy body weight (BMI 18.5-24.9 kg/m²) and reduce waist circumference.",
+        "Avoid tobacco products; for current smokers, provide counseling and resources for smoking cessation.",
+        "Limit alcohol consumption to no more than 1 drink per day for women and 2 drinks per day for men.",
+        "Manage stress through relaxation techniques, mindfulness, or other coping strategies.",
+        "Ensure adequate sleep (7-9 hours per night) for overall cardiovascular health."
+      ],
+      "followUp": {
+        "frequency": "Initially 4-12 weeks after statin initiation or dose change, then every 6-12 months for stable patients.",
+        "metrics": [
+          "Lipid panel (LDL-C, HDL-C, Triglycerides, Non-HDL-C)",
+          "Liver function tests (ALT) if clinically indicated or at baseline",
+          "Creatine Kinase (CK) if muscle symptoms develop or at baseline if high risk",
+          "Blood Pressure",
+          "Weight/BMI",
+          "Assessment of medication adherence and side effects",
+          "Review of lifestyle modifications and progress",
+          "ASCVD risk reassessment (if applicable)"
+        ]
+      },
+      "warnings": [
+        "Statins are contraindicated in active liver disease or unexplained persistent elevations of serum transaminases.",
+        "Statins are contraindicated in pregnancy and breastfeeding due to potential fetal harm.",
+        "Risk of myopathy and rhabdomyolysis increases with higher statin doses and certain drug interactions (e.g., strong CYP3A4 inhibitors with simvastatin/lovastatin).",
+        "Monitor for new-onset diabetes, especially in patients with pre-existing risk factors, though the cardiovascular benefits of statins generally outweigh this small risk.",
+        "Patients experiencing muscle pain, tenderness, or weakness should have CK levels checked.",
+        "Concomitant use of statins with fibrates (especially gemfibrozil) or niacin can increase the risk of myopathy.",
+        "Patients with severe primary hypercholesterolemia (LDL-C ≥190 mg/dL) require high-intensity statin therapy regardless of ASCVD risk calculation.",
+        "Avoid grapefruit juice with simvastatin, lovastatin, and atorvastatin as it can increase statin levels and risk of side effects."
+      ]
+    }
+  },
+  {
+    "name": "Gastroesophageal Reflux Disease (GERD) Management Protocol",
+    "description": "A comprehensive, evidence-based protocol for the diagnosis and management of Gastroesophageal Reflux Disease (GERD) in primary care settings, adhering to the 2022 ACG Clinical Guidelines for the Diagnosis and Management of GERD.",
+    "category": "Gastroenterology",
+    "tags": [
+      "GERD",
+      "Reflux",
+      "Heartburn",
+      "Esophagitis",
+      "Primary Care",
+      "ACG Guidelines"
+    ],
+    "templateData": {
+      "diagnosis": "Gastroesophageal Reflux Disease (GERD) - K21.9",
+      "duration": "Initial treatment phase: 8 weeks. Ongoing management: As needed, based on symptom control and clinical assessment.",
+      "goals": [
+        "Achieve complete or significant resolution of typical GERD symptoms (e.g., heartburn, regurgitation) within 8 weeks.",
+        "Prevent complications of GERD such as erosive esophagitis, stricture, or Barrett's esophagus.",
+        "Improve patient's quality of life related to GERD symptoms.",
+        "Minimize reliance on pharmacotherapy through lifestyle modifications.",
+        "Identify and address atypical GERD symptoms or alarm features requiring further investigation."
+      ],
+      "interventions": [
+        {
+          "category": "Diagnostic Workup",
+          "items": [
+            "Clinical symptom assessment (heartburn, regurgitation, dysphagia).",
+            "Trial of empiric PPI therapy for typical GERD symptoms.",
+            "Consider upper endoscopy for alarm symptoms (dysphagia, odynophagia, GI bleeding, weight loss, iron deficiency anemia) or failure of empiric PPI therapy.",
+            "Consider ambulatory reflux monitoring (pH or impedance-pH) for refractory symptoms despite PPIs or atypical symptoms."
+          ]
+        },
+        {
+          "category": "Pharmacological Management (First-line)",
+          "items": [
+            "Initiate Proton Pump Inhibitor (PPI) therapy once daily, 30-60 minutes before the first meal.",
+            "If symptoms persist, consider increasing PPI to twice daily.",
+            "Consider H2 Receptor Antagonists (H2RAs) for on-demand symptom relief or as an adjunct to PPIs, particularly for nocturnal symptoms.",
+            "Evaluate need for step-down therapy after 8 weeks of successful PPI treatment."
+          ]
+        },
+        {
+          "category": "Patient Education and Counseling",
+          "items": [
+            "Educate on the chronic nature of GERD and the importance of adherence to lifestyle and medication regimens.",
+            "Discuss potential side effects of medications and strategies for mitigation.",
+            "Provide guidance on dietary triggers and portion control.",
+            "Counsel on when to seek immediate medical attention (e.g., severe chest pain, choking, persistent dysphagia)."
+          ]
+        },
+        {
+          "category": "Advanced/Refractory Cases",
+          "items": [
+            "Referral to gastroenterologist for endoscopy, advanced diagnostics (e.g., manometry, impedance-pH monitoring), or consideration of surgical options (e.g., fundoplication) for refractory GERD.",
+            "Consider adding alginates or antacids for breakthrough symptoms."
+          ]
+        }
+      ],
+      "medications": [
+        {
+          "name": "Omeprazole",
+          "dosage": "20 mg",
+          "frequency": "Once daily",
+          "instructions": "Take 30-60 minutes before the first meal for 4-8 weeks. May increase to twice daily if symptoms persist."
+        },
+        {
+          "name": "Pantoprazole",
+          "dosage": "40 mg",
+          "frequency": "Once daily",
+          "instructions": "Take 30-60 minutes before the first meal for 4-8 weeks. May increase to twice daily if symptoms persist."
+        },
+        {
+          "name": "Esomeprazole",
+          "dosage": "20 mg or 40 mg",
+          "frequency": "Once daily",
+          "instructions": "Take 30-60 minutes before the first meal for 4-8 weeks. May increase to twice daily if symptoms persist."
+        },
+        {
+          "name": "Famotidine (H2RA)",
+          "dosage": "20 mg",
+          "frequency": "Once or twice daily, or as needed",
+          "instructions": "For on-demand symptom relief, particularly nocturnal symptoms, or as an adjunct to PPIs. Take before meals or at bedtime."
+        }
+      ],
+      "lifestyle": [
+        "Elevate the head of the bed by 6-8 inches using blocks or a wedge pillow (not extra pillows).",
+        "Avoid lying down within 2-3 hours after eating.",
+        "Identify and avoid individual trigger foods (e.g., fatty foods, spicy foods, chocolate, caffeine, alcohol, peppermint, citrus).",
+        "Eat smaller, more frequent meals instead of large ones.",
+        "Achieve and maintain a healthy weight (if overweight or obese).",
+        "Quit smoking.",
+        "Avoid tight-fitting clothing around the abdomen.",
+        "Limit consumption of carbonated beverages."
+      ],
+      "followUp": {
+        "frequency": "Initial follow-up in 4-8 weeks after starting therapy. Subsequent follow-up every 6-12 months for chronic management or as needed for symptom changes.",
+        "metrics": [
+          "Symptom frequency and severity (e.g., heartburn, regurgitation, dysphagia).",
+          "Adherence to medication and lifestyle modifications.",
+          "Presence of new or worsening alarm symptoms.",
+          "Assessment of medication side effects.",
+          "Quality of life assessment.",
+          "Weight changes."
+        ]
+      },
+      "warnings": [
+        "Alarm symptoms (dysphagia, odynophagia, GI bleeding, weight loss, iron deficiency anemia) warrant prompt endoscopy, not just empiric therapy.",
+        "Long-term PPI use has been associated with potential risks including C. difficile infection, pneumonia, bone fractures, and kidney disease; use the lowest effective dose for the shortest duration necessary.",
+        "PPIs should be taken 30-60 minutes before the first meal for optimal efficacy.",
+        "Do not abruptly discontinue PPIs after prolonged use due to potential rebound acid hypersecretion.",
+        "GERD symptoms can mimic cardiac chest pain; rule out cardiac causes in patients presenting with chest pain.",
+        "Patients with Barrett's esophagus require endoscopic surveillance.",
+        "Consider drug interactions with PPIs (e.g., clopidogrel, methotrexate).",
+        "Referral to a specialist is indicated for refractory symptoms, alarm features, or complicated GERD."
+      ]
+    }
+  },
+  {
+    "name": "Osteoarthritis Management Protocol",
+    "description": "A comprehensive, evidence-based protocol for the management of Osteoarthritis (OA) in primary care, aligning with the American College of Rheumatology (ACR) 2019 Guidelines for the Management of Osteoarthritis.",
+    "category": "Rheumatology",
+    "tags": [
+      "Osteoarthritis",
+      "OA",
+      "ACR Guidelines",
+      "Chronic Pain",
+      "Musculoskeletal",
+      "Primary Care"
+    ],
+    "templateData": {
+      "diagnosis": "Osteoarthritis, unspecified (ICD-10: M19.90)",
+      "duration": "Initial phase: 12 weeks. Ongoing management: Lifelong.",
+      "goals": [
+        "Reduce pain by at least 30% on a Visual Analog Scale (VAS) within 12 weeks.",
+        "Improve physical function (e.g., walking distance, ability to perform daily activities) by 20% within 12 weeks.",
+        "Increase joint range of motion (ROM) by 10 degrees in affected joint within 6 months.",
+        "Minimize disease progression and prevent joint deformity through sustained management.",
+        "Improve patient's quality of life as measured by validated questionnaires (e.g., WOMAC, KOOS)."
+      ],
+      "interventions": [
+        {
+          "category": "Non-Pharmacological Core Interventions",
+          "items": [
+            "Patient education on OA, self-management strategies, and prognosis.",
+            "Weight management for overweight/obese patients (target 5-10% body weight reduction).",
+            "Structured exercise program (aerobic, strengthening, balance, flexibility) tailored to affected joint(s).",
+            "Physical therapy referral for individualized exercise prescription, manual therapy, and assistive device training.",
+            "Occupational therapy referral for joint protection techniques and activity modification."
+          ]
+        },
+        {
+          "category": "Pharmacological Interventions (First-Line)",
+          "items": [
+            "Topical NSAIDs (e.g., diclofenac gel) for localized pain.",
+            "Oral NSAIDs (e.g., naproxen, ibuprofen) for moderate to severe pain, used cautiously.",
+            "Acetaminophen for mild to moderate pain (consider limited efficacy).",
+            "Intra-articular corticosteroid injections for acute flares or moderate-to-severe pain not responsive to oral/topical agents."
+          ]
+        },
+        {
+          "category": "Adjunctive Therapies",
+          "items": [
+            "Assistive devices (e.g., cane, walker) for ambulation support.",
+            "Bracing/taping for joint stability and pain relief.",
+            "Heat/cold therapy for symptomatic relief.",
+            "Cognitive Behavioral Therapy (CBT) for chronic pain management and mood disorders."
+          ]
+        },
+        {
+          "category": "Referral Considerations",
+          "items": [
+            "Referral to Orthopedic Surgery for patients with severe symptoms, functional limitation, and failure of conservative management (e.g., consideration for total joint arthroplasty).",
+            "Referral to Rheumatology for atypical presentations, inflammatory features, or diagnostic uncertainty.",
+            "Referral to Pain Management for complex chronic pain not adequately controlled."
+          ]
+        }
+      ],
+      "medications": [
+        {
+          "name": "Topical Diclofenac Gel 1%",
+          "dosage": "2-4 grams per application",
+          "frequency": "4 times daily",
+          "instructions": "Apply to affected joint area. Wash hands thoroughly after application. Avoid contact with eyes and mucous membranes."
+        },
+        {
+          "name": "Naproxen",
+          "dosage": "250-500 mg",
+          "frequency": "Twice daily",
+          "instructions": "Take with food or milk to minimize gastrointestinal upset. Use lowest effective dose for shortest duration. Consider concomitant proton pump inhibitor (PPI) if GI risk factors present."
+        },
+        {
+          "name": "Acetaminophen",
+          "dosage": "325-650 mg",
+          "frequency": "Every 4-6 hours as needed (max 3000 mg/day)",
+          "instructions": "Do not exceed maximum daily dose. Be aware of acetaminophen content in combination products. Use cautiously in patients with liver impairment."
+        },
+        {
+          "name": "Triamcinolone Acetonide (Intra-articular)",
+          "dosage": "10-40 mg (joint dependent)",
+          "frequency": "Not more than every 3 months",
+          "instructions": "Administered by a qualified healthcare professional into the joint space. Aseptic technique is crucial. Monitor for post-injection flare or infection."
+        }
+      ],
+      "lifestyle": [
+        "Engage in regular low-impact exercise (e.g., swimming, cycling, walking) for at least 150 minutes per week.",
+        "Maintain a healthy body weight through balanced diet and regular physical activity.",
+        "Incorporate strength training exercises for muscles surrounding affected joints.",
+        "Practice joint protection techniques (e.g., using larger joints for tasks, avoiding prolonged static positions).",
+        "Ensure adequate rest and sleep to aid in pain management and recovery.",
+        "Utilize assistive devices (e.g., cane, walker) as needed for support and stability.",
+        "Apply heat or cold packs to affected joints for temporary pain relief.",
+        "Avoid activities that exacerbate joint pain or cause excessive stress on affected joints."
+      ],
+      "followUp": {
+        "frequency": "Every 4-6 weeks initially, then every 3-6 months once stable.",
+        "metrics": [
+          "Pain intensity (e.g., VAS, Numeric Rating Scale)",
+          "Physical function (e.g., WOMAC, KOOS, 6-minute walk test)",
+          "Joint range of motion and stability",
+          "Medication adherence and side effects",
+          "Weight and BMI",
+          "Patient satisfaction and quality of life",
+          "Presence of new symptoms or disease progression"
+        ]
+      },
+      "warnings": [
+        "Avoid chronic use of oral NSAIDs in patients with high cardiovascular risk, renal insufficiency, or gastrointestinal bleeding history.",
+        "Acetaminophen should be used cautiously in patients with liver disease; do not exceed 3000 mg/day.",
+        "Intra-articular corticosteroid injections should be limited to 3-4 per joint per year due to potential cartilage damage.",
+        "Opioids are generally NOT recommended for routine OA management due to lack of efficacy evidence and significant risks.",
+        "Glucosamine and chondroitin are NOT recommended due to lack of consistent efficacy.",
+        "Duloxetine should be considered only for patients with chronic widespread pain or significant contraindications to NSAIDs.",
+        "Exercise programs should be initiated gradually and tailored to individual tolerance to avoid exacerbating pain.",
+        "Patients should be educated on signs of infection post-injection (e.g., increased pain, redness, swelling, fever) and to seek immediate medical attention."
+      ]
+    }
+  }
+]

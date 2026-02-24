@@ -1,0 +1,124 @@
+{
+  "name": "Type 2 Diabetes Mellitus Management Protocol",
+  "description": "An evidence-based clinical protocol for the comprehensive management of Type 2 Diabetes Mellitus (T2DM) in primary care, adhering to the ADA 2024 Standards of Care in Diabetes.",
+  "category": "Endocrinology",
+  "tags": [
+    "Diabetes",
+    "Type 2 Diabetes",
+    "T2DM",
+    "Endocrine",
+    "Primary Care",
+    "ADA Guidelines"
+  ],
+  "templateData": {
+    "diagnosis": "Type 2 Diabetes Mellitus (ICD-10: E11.9)",
+    "duration": "Initial phase: 3-6 months for glycemic stabilization and lifestyle modification. Ongoing: Lifelong management.",
+    "goals": [
+      "Achieve and maintain individualized HbA1c target (e.g., <7.0% for most adults, <6.5% for select individuals, <8.0% for those with comorbidities/hypoglycemia risk).",
+      "Achieve and maintain blood pressure <130/80 mmHg (for most adults with T2DM and hypertension).",
+      "Achieve and maintain LDL-C <1.8 mmol/L (<70 mg/dL) for patients 40-75 years with ASCVD or multiple risk factors.",
+      "Achieve and maintain body weight reduction of ≥5% for overweight/obese individuals.",
+      "Prevent or delay the progression of diabetes-related complications (e.g., nephropathy, retinopathy, neuropathy).",
+      "Minimize hypoglycemia risk and improve quality of life."
+    ],
+    "interventions": [
+      {
+        "category": "Lifestyle and Behavioral Counseling",
+        "items": [
+          "Referral to Medical Nutrition Therapy (MNT) with a Registered Dietitian Nutritionist (RDN).",
+          "Structured physical activity program (e.g., 150 minutes/week of moderate-intensity aerobic activity, 2-3 sessions/week of resistance training).",
+          "Smoking cessation counseling and support.",
+          "Stress management techniques and mental health screening.",
+          "Regular self-monitoring of blood glucose (SMBG) or continuous glucose monitoring (CGM) as indicated."
+        ]
+      },
+      {
+        "category": "Pharmacological Management (First-Line)",
+        "items": [
+          "Metformin initiation (if eGFR >30 mL/min/1.73m²).",
+          "Consider GLP-1 Receptor Agonist (GLP-1 RA) or SGLT2 Inhibitor (SGLT2i) early, especially in patients with established ASCVD, heart failure, or chronic kidney disease.",
+          "Individualize medication selection based on comorbidities, glucose-lowering efficacy, hypoglycemia risk, impact on body weight, and cost."
+        ]
+      },
+      {
+        "category": "Cardiovascular and Renal Risk Reduction",
+        "items": [
+          "Initiate ACE inhibitor or ARB for hypertension with albuminuria.",
+          "Statin therapy for dyslipidemia (moderate-intensity for adults 40-75 years without ASCVD, high-intensity for those with ASCVD).",
+          "Aspirin therapy (75-162 mg/day) for secondary prevention in patients with established ASCVD; consider for primary prevention in select high-risk patients."
+        ]
+      },
+      {
+        "category": "Screening and Prevention of Complications",
+        "items": [
+          "Annual comprehensive dilated eye examination.",
+          "Annual foot examination (monofilament test, vibratory sensation, pulses).",
+          "Annual urine albumin-to-creatinine ratio (UACR) and estimated glomerular filtration rate (eGFR).",
+          "Referral to diabetes self-management education and support (DSMES) program."
+        ]
+      }
+    ],
+    "medications": [
+      {
+        "name": "Metformin",
+        "dosage": "500 mg once or twice daily, titrate up to 2000 mg daily (max 2550 mg daily) as tolerated.",
+        "frequency": "Daily (with meals).",
+        "instructions": "Start low and titrate slowly to minimize gastrointestinal side effects. Discontinue if eGFR <30 mL/min/1.73m². Hold prior to iodinated contrast procedures for patients with eGFR 30-60 mL/min/1.73m²."
+      },
+      {
+        "name": "Semaglutide (GLP-1 RA)",
+        "dosage": "0.25 mg once weekly, titrate to 0.5 mg, then 1 mg, then 2 mg once weekly as tolerated.",
+        "frequency": "Once weekly (subcutaneous injection).",
+        "instructions": "Administer on the same day each week, any time of day, with or without meals. May cause nausea, vomiting, or diarrhea. Contraindicated in patients with a personal or family history of medullary thyroid carcinoma (MTC) or Multiple Endocrine Neoplasia syndrome type 2 (MEN 2)."
+      },
+      {
+        "name": "Empagliflozin (SGLT2i)",
+        "dosage": "10 mg once daily, may increase to 25 mg once daily.",
+        "frequency": "Once daily (in the morning).",
+        "instructions": "Take in the morning with or without food. Ensure adequate hydration. Monitor for genitourinary infections, euglycemic DKA, and volume depletion. Not recommended for eGFR <30 mL/min/1.73m² for glycemic control."
+      },
+      {
+        "name": "Lisinopril (ACE Inhibitor)",
+        "dosage": "10 mg once daily, titrate to target blood pressure.",
+        "frequency": "Once daily.",
+        "instructions": "Monitor blood pressure, renal function, and serum potassium closely. May cause cough or angioedema. Contraindicated in pregnancy."
+      }
+    ],
+    "lifestyle": [
+      "Adopt a balanced eating pattern (e.g., Mediterranean, DASH, plant-based) focusing on whole foods, lean protein, and healthy fats.",
+      "Limit intake of refined carbohydrates, added sugars, and saturated/trans fats.",
+      "Engage in at least 150 minutes per week of moderate-intensity aerobic physical activity (e.g., brisk walking, swimming).",
+      "Incorporate 2-3 sessions per week of resistance training (e.g., lifting weights, bodyweight exercises).",
+      "Achieve and maintain a healthy body weight; aim for a 5-10% weight loss if overweight or obese.",
+      "Prioritize 7-9 hours of quality sleep per night.",
+      "Manage stress through techniques such as mindfulness, meditation, or yoga.",
+      "Avoid smoking and limit alcohol consumption."
+    ],
+    "followUp": {
+      "frequency": "Every 3-6 months initially, then every 6-12 months once stable and at goal, or more frequently if glycemic targets are not met or complications arise.",
+      "metrics": [
+        "HbA1c (every 3-6 months)",
+        "Fasting Plasma Glucose (FPG) and Postprandial Glucose (PPG)",
+        "Blood Pressure (at every visit)",
+        "Lipid Panel (annually or more frequently if not at goal)",
+        "Urine Albumin-to-Creatinine Ratio (UACR) (annually)",
+        "Estimated Glomerular Filtration Rate (eGFR) (annually or more frequently based on medication/CKD stage)",
+        "Body Weight and BMI",
+        "Foot Exam (annually)",
+        "Comprehensive Dilated Eye Exam (annually)",
+        "Medication adherence and side effects",
+        "Hypoglycemia frequency and severity"
+      ]
+    },
+    "warnings": [
+      "Metformin: Risk of lactic acidosis (rare but serious); contraindicated in severe renal impairment (eGFR <30 mL/min/1.73m²).",
+      "SGLT2 Inhibitors: Risk of genitourinary infections, volume depletion, euglycemic diabetic ketoacidosis (DKA), and rare Fournier's gangrene.",
+      "GLP-1 Receptor Agonists: Risk of pancreatitis, thyroid C-cell tumors (in rodents), and gastrointestinal side effects. Contraindicated in personal/family history of MTC or MEN 2.",
+      "Insulin/Sulfonylureas: High risk of hypoglycemia; educate patients on symptoms and management.",
+      "Blood Pressure Medications (ACEi/ARBs): Monitor for hyperkalemia and acute kidney injury, especially with concomitant use of SGLT2i or diuretics.",
+      "Polypharmacy: Review all medications regularly to avoid drug-drug interactions and simplify regimens.",
+      "Hypoglycemia Awareness: Patients with long-standing diabetes or frequent hypoglycemia may lose warning symptoms (hypoglycemia unawareness); educate on proactive monitoring.",
+      "Sick Day Management: Educate patients on managing diabetes during illness, including medication adjustments and monitoring for dehydration/ketosis."
+    ]
+  }
+}

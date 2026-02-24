@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, name, category, created_at FROM protocol_templates ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34DkbYAaF6MBWwK.96fd8e3f3a28 --database 6XDPcfqtDX3GCRKvFSNyjg --execute SELECT id, name, category, created_at FROM protocol_templates ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "30005",
+      "name": "Osteoarthritis Management Protocol",
+      "category": "Rheumatology",
+      "created_at": "2026-02-24 13:21:20"
+    },
+    {
+      "id": "30004",
+      "name": "Gastroesophageal Reflux Disease (GERD) Management Protocol",
+      "category": "Gastroenterology",
+      "created_at": "2026-02-24 13:21:20"
+    },
+    {
+      "id": "30003",
+      "name": "Hyperlipidemia Management Protocol (ACC/AHA 2018 Guidelines)",
+      "category": "Cardiovascular",
+      "created_at": "2026-02-24 13:21:19"
+    },
+    {
+      "id": "30002",
+      "name": "Type 2 Diabetes Mellitus Management Protocol",
+      "category": "Endocrinology",
+      "created_at": "2026-02-24 13:21:19"
+    },
+    {
+      "id": "30001",
+      "name": "Essential Hypertension Management Protocol",
+      "category": "Cardiology",
+      "created_at": "2026-02-24 13:21:19"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcategory\tcreated_at\n30005\tOsteoarthritis Management Protocol\tRheumatology\t2026-02-24 13:21:20\n30004\tGastroesophageal Reflux Disease (GERD) Management Protocol\tGastroenterology\t2026-02-24 13:21:20\n30003\tHyperlipidemia Management Protocol (ACC/AHA 2018 Guidelines)\tCardiovascular\t2026-02-24 13:21:19\n30002\tType 2 Diabetes Mellitus Management Protocol\tEndocrinology\t2026-02-24 13:21:19\n30001\tEssential Hypertension Management Protocol\tCardiology\t2026-02-24 13:21:19\n",
+  "stderr": "",
+  "execution_time_ms": 471
+}
