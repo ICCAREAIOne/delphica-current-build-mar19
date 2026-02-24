@@ -631,3 +631,73 @@
 - [x] Implement trend analysis summary
 - [ ] Add predictive trend indicators
 - [ ] Create trend visualization tests
+
+## MVP Phase 1 - High Priority Features
+
+### 1. Patient Enrollment System
+- [ ] Create patient invitation table in database
+- [ ] Build physician invitation interface (send invite to patient email)
+- [ ] Create patient registration page with invitation token validation
+- [ ] Implement invitation email template
+- [ ] Add invitation status tracking (pending, accepted, expired)
+- [ ] Build patient enrollment workflow UI
+
+### 2. Stripe Payment Integration
+- [x] Set up Stripe account and get API keys
+- [x] Add Stripe integration using webdev_add_feature
+- [x] Create subscription plans table ($15/month)
+- [ ] Build payment checkout page
+- [ ] Implement subscription management (active, canceled, past_due)
+- [ ] Add payment webhook handlers for subscription events
+- [ ] Create billing portal for patients
+- [ ] Add subscription status indicators in UI
+
+### 3. Protocol PDF Generation
+- [ ] Create PDF generation service using PDFKit or similar
+- [ ] Design professional protocol PDF template
+- [ ] Add protocol export endpoint (tRPC)
+- [ ] Implement download button in protocol UI
+- [ ] Add print-friendly CSS for protocols
+- [ ] Include patient info, diagnosis, treatment plan in PDF
+
+### 4. Protocol Customization
+- [ ] Create protocol customization interface
+- [ ] Add dosing adjustment fields
+- [ ] Implement allergen removal functionality
+- [ ] Build medication substitution system
+- [ ] Add customization history tracking
+- [ ] Create "Save as Template" functionality
+
+### 5. Email Integration
+- [ ] Set up email service (SendGrid, AWS SES, or similar)
+- [ ] Create email templates (invitation, protocol delivery, reminders)
+- [ ] Build email sending service
+- [ ] Add "Email to Patient" button in protocol UI
+- [ ] Implement email delivery tracking
+- [ ] Add email notification preferences
+
+### 6. Outcome Survey System
+- [ ] Create outcome surveys table in database
+- [ ] Design final outcome survey form
+- [ ] Build survey completion UI for patients
+- [ ] Implement survey scheduling (trigger after 30 days)
+- [ ] Add survey response collection and storage
+- [ ] Create survey analytics dashboard
+
+### 7. Enhanced Physician Dashboard
+- [ ] Expand dashboard to show all patient check-ins (not just labs)
+- [ ] Add patient progress overview cards
+- [ ] Implement filtering by patient, date range, status
+- [ ] Create alert summary section
+- [ ] Add quick actions (view details, send message, schedule follow-up)
+- [ ] Build patient timeline view with all activities
+- [ ] Add export functionality for patient data
+
+### Testing & Integration
+- [ ] Test complete patient enrollment flow
+- [ ] Test payment subscription lifecycle
+- [ ] Test protocol customization and delivery
+- [ ] Test outcome survey completion
+- [ ] Test physician dashboard with multiple patients
+- [ ] Verify email delivery for all scenarios
+- [ ] Test subscription payment failures and retries

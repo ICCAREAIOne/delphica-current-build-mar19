@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE users \nADD COLUMN stripe_customer_id VARCHAR(255),\nADD COLUMN stripe_subscription_id VARCHAR(255),\nADD COLUMN subscription_status ENUM('active', 'canceled', 'past_due', 'trialing', 'inactive') DEFAULT 'inactive',\nADD COLUMN subscription_end_date TIMESTAMP NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34DkbYAaF6MBWwK.96fd8e3f3a28 --database 6XDPcfqtDX3GCRKvFSNyjg --execute ALTER TABLE users \nADD COLUMN stripe_customer_id VARCHAR(255),\nADD COLUMN stripe_subscription_id VARCHAR(255),\nADD COLUMN subscription_status ENUM('active', 'canceled', 'past_due', 'trialing', 'inactive') DEFAULT 'inactive',\nADD COLUMN subscription_end_date TIMESTAMP NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1644
+}
