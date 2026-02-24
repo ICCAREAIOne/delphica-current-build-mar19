@@ -18,29 +18,115 @@ interface ParsedLabReport {
   };
   results: LabResult[];
   summary?: string;
+  sourceFormat?: string;
+  confidence?: number;
 }
 
+export type SupportedFileFormat = "pdf" | "image" | "text" | "unknown";
+
 /**
- * Service for parsing lab reports from PDFs and extracting structured data
+ * Service for parsing lab reports from various formats (PDF, images, text)
+ * with AI-powered data extraction
  */
 export class LabParsingService {
   
   /**
-   * Parse lab report from PDF text
+   * Detect file format from MIME type or extension
    */
-  async parseLabReport(pdfText: string): Promise<ParsedLabReport> {
+  detectFileFormat(mimeType: string, filename?: string): SupportedFileFormat {
+    // PDF formats
+    if (mimeType === "application/pdf" || filename?.toLowerCase().endsWith(".pdf")) {
+      return "pdf";
+    }
+    
+    // Image formats
+    if (
+      mimeType.startsWith("image/") ||
+      /\.(jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(filename || "")
+    ) {
+      return "image";
+    }
+    
+    // Text formats
+    if (
+      mimeType.startsWith("text/") ||
+      /\.(txt|csv|tsv)$/i.test(filename || "")
+    ) {
+      return "text";
+    }
+    
+    return "unknown";
+  }
+
+  /**
+   * Parse lab report from any supported format
+   * Handles PDF, images (including handwritten), and text files
+   */
+  async parseUnstructuredLabReport(
+    fileContent: string | Buffer,
+    mimeType: string,
+    filename?: string
+  ): Promise<ParsedLabReport> {
+    const format = this.detectFileFormat(mimeType, filename);
+    
+    switch (format) {
+      case "pdf":
+        return this.parsePDFLabReport(fileContent as string);
+      
+      case "image":
+        return this.parseImageLabReport(fileContent, mimeType);
+      
+      case "text":
+        return this.parseTextLabReport(fileContent as string);
+      
+      default:
+        throw new Error(`Unsupported file format: ${mimeType}`);
+    }
+  }
+
+  /**
+   * Parse lab report from PDF text (existing functionality)
+   */
+  async parsePDFLabReport(pdfText: string): Promise<ParsedLabReport> {
+    return this.parseLabReport(pdfText, "PDF");
+  }
+
+  /**
+   * Parse lab report from image (JPG, PNG, etc.)
+   * Supports typed/printed and handwritten lab reports
+   */
+  async parseImageLabReport(
+    imageContent: string | Buffer,
+    mimeType: string
+  ): Promise<ParsedLabReport> {
+    // Convert buffer to base64 if needed
+    const base64Image = Buffer.isBuffer(imageContent)
+      ? imageContent.toString("base64")
+      : imageContent;
+    
+    // Construct data URL for the image
+    const imageUrl = `data:${mimeType};base64,${base64Image}`;
+    
     const messages = [
       {
         role: "system" as const,
-        content: `You are a medical AI specialized in parsing laboratory reports. Extract all test results, values, units, and reference ranges from the provided lab report text.`
+        content: `You are a medical AI specialized in parsing laboratory reports from images. You can read both typed/printed and handwritten lab reports. Extract all visible test results, values, units, and reference ranges.`
       },
       {
         role: "user" as const,
-        content: `Parse this laboratory report and extract structured data:
-
-${pdfText}
-
-Provide a JSON response with: labName (string), testDate (string in ISO format), patientInfo (object with name, dob, mrn), results (array of objects with testName, value, unit, referenceRange, flag), summary (brief overview string).`
+        content: [
+          {
+            type: "text" as const,
+            text: `Parse this laboratory report image and extract all structured data. This may be a typed/printed report or handwritten. Extract: labName, testDate (ISO format), patientInfo (name, dob, mrn if visible), results (array with testName, value, unit, referenceRange, flag), and summary.`
+          },
+          {
+            type: "image_url" as const,
+            image_url: {
+              url: imageUrl,
+              detail: "high" as const
+            }
+          }
+        ]
       }
     ];
 
@@ -84,7 +170,8 @@ Provide a JSON response with: labName (string), testDate (string in ISO format),
                   additionalProperties: false
                 }
               },
-              summary: { type: "string" }
+              summary: { type: "string" },
+              confidence: { type: "number" }
             },
             required: ["results"],
             additionalProperties: false
@@ -95,7 +182,98 @@ Provide a JSON response with: labName (string), testDate (string in ISO format),
 
     const content = response.choices[0].message.content;
     const jsonString = typeof content === 'string' ? content : "{}";
-    return JSON.parse(jsonString);
+    const parsed = JSON.parse(jsonString);
+    
+    return {
+      ...parsed,
+      sourceFormat: "image"
+    };
+  }
+
+  /**
+   * Parse lab report from plain text file
+   */
+  async parseTextLabReport(textContent: string): Promise<ParsedLabReport> {
+    return this.parseLabReport(textContent, "text");
+  }
+
+  /**
+   * Generic lab report parser (used by PDF and text parsers)
+   */
+  private async parseLabReport(content: string, sourceFormat: string): Promise<ParsedLabReport> {
+    const messages = [
+      {
+        role: "system" as const,
+        content: `You are a medical AI specialized in parsing laboratory reports. Extract all test results, values, units, and reference ranges from the provided lab report text.`
+      },
+      {
+        role: "user" as const,
+        content: `Parse this laboratory report and extract structured data:
+
+${content}
+
+Provide a JSON response with: labName (string), testDate (string in ISO format), patientInfo (object with name, dob, mrn), results (array of objects with testName, value, unit, referenceRange, flag), summary (brief overview string), confidence (number 0-1 indicating parsing confidence).`
+      }
+    ];
+
+    const response = await invokeLLM({
+      messages,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "lab_report_parse",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              labName: { type: "string" },
+              testDate: { type: "string" },
+              patientInfo: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  dob: { type: "string" },
+                  mrn: { type: "string" }
+                },
+                required: [],
+                additionalProperties: false
+              },
+              results: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    testName: { type: "string" },
+                    value: { type: "string" },
+                    unit: { type: "string" },
+                    referenceRange: { type: "string" },
+                    flag: {
+                      type: "string",
+                      enum: ["normal", "high", "low", "critical"]
+                    }
+                  },
+                  required: ["testName", "value"],
+                  additionalProperties: false
+                }
+              },
+              summary: { type: "string" },
+              confidence: { type: "number" }
+            },
+            required: ["results"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+
+    const content_response = response.choices[0].message.content;
+    const jsonString = typeof content_response === 'string' ? content_response : "{}";
+    const parsed = JSON.parse(jsonString);
+    
+    return {
+      ...parsed,
+      sourceFormat
+    };
   }
 
   /**

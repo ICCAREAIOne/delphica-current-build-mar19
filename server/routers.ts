@@ -1065,7 +1065,7 @@ export const appRouter = router({
         
         // Parse PDF if provided
         if (input.pdfText) {
-          const parsed = await labParsingService.parseLabReport(input.pdfText);
+          const parsed = await labParsingService.parsePDFLabReport(input.pdfText);
           testResults = parsed.results;
         }
         
@@ -1082,6 +1082,49 @@ export const appRouter = router({
         });
         
         return labResult;
+      }),
+
+    // New endpoint for unstructured lab upload (supports PDF, images, text)
+    uploadUnstructuredLab: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        fileContent: z.string(), // Base64 encoded file content
+        mimeType: z.string(),
+        filename: z.string(),
+        fileUrl: z.string().optional(), // S3 URL after upload
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Parse the unstructured lab report
+        const parsed = await labParsingService.parseUnstructuredLabReport(
+          input.fileContent,
+          input.mimeType,
+          input.filename
+        );
+        
+        // Create lab result with parsed data
+        const uploadMethod = labParsingService.detectFileFormat(input.mimeType, input.filename) === 'pdf' 
+          ? 'pdf_upload' 
+          : labParsingService.detectFileFormat(input.mimeType, input.filename) === 'image'
+          ? 'pdf_upload' // Using pdf_upload for images too (could add image_upload to enum)
+          : 'manual_entry';
+        
+        const labResult = await db.createPatientLabResult({
+          patientId: input.patientId,
+          uploadedBy: 'patient',
+          uploadMethod,
+          testDate: parsed.testDate ? new Date(parsed.testDate) : new Date(),
+          labName: parsed.labName || 'Uploaded Lab Report',
+          testResults: JSON.stringify(parsed.results),
+          pdfUrl: input.fileUrl,
+          pdfText: `Parsed from ${parsed.sourceFormat} with ${Math.round((parsed.confidence || 0.9) * 100)}% confidence`,
+          reviewedByPhysician: false,
+        });
+        
+        return {
+          labResult,
+          parsed,
+          confidence: parsed.confidence || 0.9,
+        };
       }),
 
     getPatientLabResults: protectedProcedure

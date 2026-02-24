@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Streamdown } from "streamdown";
+import UnstructuredLabUpload from "@/components/UnstructuredLabUpload";
 
 export default function PatientPortal() {
   const { user } = useAuth();
@@ -30,8 +31,7 @@ export default function PatientPortal() {
   const [activeTab, setActiveTab] = useState("overview");
   const [checkInMessage, setCheckInMessage] = useState("");
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
-  const [labFile, setLabFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
 
   // Fetch active care plan
   const { data: carePlan, isLoading: carePlanLoading } = trpc.patientPortal.getActiveCarePlan.useQuery(
@@ -94,18 +94,7 @@ export default function PatientPortal() {
     }
   });
 
-  const uploadLabPDF = trpc.patientPortal.uploadLabResults.useMutation({
-    onSuccess: () => {
-      setLabFile(null);
-      setUploading(false);
-      refetchLabs();
-      toast({ title: "Lab results uploaded", description: "Results have been extracted and analyzed" });
-    },
-    onError: (error) => {
-      setUploading(false);
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    }
-  });
+  // Lab upload mutation now handled by UnstructuredLabUpload component
 
   const handleStartCheckIn = () => {
     if (!user) return;
@@ -126,25 +115,7 @@ export default function PatientPortal() {
     completeCheckIn.mutate({ conversationId: activeConversationId });
   };
 
-  const handleLabFileUpload = async () => {
-    if (!labFile) return;
-    
-    setUploading(true);
-    
-    // Convert file to base64
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64 = e.target?.result as string;
-      if (!user) return;
-      uploadLabPDF.mutate({
-        patientId: user.id,
-        testDate: new Date().toISOString(),
-        labName: labFile.name,
-        pdfText: base64
-      });
-    };
-    reader.readAsDataURL(labFile);
-  };
+  // Lab upload now handled by UnstructuredLabUpload component
 
   if (!user) {
     return (
@@ -458,53 +429,23 @@ export default function PatientPortal() {
 
         {/* Lab Results Tab */}
         <TabsContent value="labs" className="space-y-6">
+          {/* New Multi-Format Lab Upload */}
+          <UnstructuredLabUpload
+            patientId={user?.id || 0}
+            onSuccess={() => {
+              refetchLabs();
+              toast({ title: "Success", description: "Lab results uploaded and parsed successfully!" });
+            }}
+          />
+
+          {/* Recent Lab Results */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-purple-500" />
-                Upload Lab Results
-              </CardTitle>
-              <CardDescription>
-                Upload PDF or enter results manually
-              </CardDescription>
+              <CardTitle>Recent Lab Results</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="border-2 border-dashed rounded-lg p-6">
-                <div className="flex flex-col items-center gap-4">
-                  <Upload className="h-12 w-12 text-muted-foreground" />
-                  <div className="text-center">
-                    <Label htmlFor="lab-file" className="cursor-pointer">
-                      <span className="text-sm font-medium">
-                        {labFile ? labFile.name : "Choose a PDF file or drag and drop"}
-                      </span>
-                    </Label>
-                    <Input
-                      id="lab-file"
-                      type="file"
-                      accept=".pdf"
-                      className="hidden"
-                      onChange={(e) => setLabFile(e.target.files?.[0] || null)}
-                    />
-                  </div>
-                  {labFile && (
-                    <Button
-                      onClick={handleLabFileUpload}
-                      disabled={uploading}
-                    >
-                      {uploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Upload className="h-4 w-4 mr-2" />
-                      )}
-                      Upload and Analyze
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {labResults && labResults.length > 0 && (
+            <CardContent>
+              {labResults && labResults.length > 0 ? (
                 <div className="space-y-3">
-                  <h4 className="font-medium">Recent Results</h4>
                   {labResults.map((lab: any) => (
                     <div key={lab.id} className="border rounded-lg p-4">
                       <div className="flex items-start justify-between">
@@ -542,6 +483,8 @@ export default function PatientPortal() {
                     </div>
                   ))}
                 </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No lab results yet. Upload your first lab report above.</p>
               )}
             </CardContent>
           </Card>
