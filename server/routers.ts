@@ -1547,5 +1547,85 @@ export const appRouter = router({
         return result;
       }),
   }),
+
+  // ============ Protocol Management ============
+  protocol: router({
+    generateAndSend: protectedProcedure
+      .input(z.object({
+        userId: z.number(),
+        carePlanId: z.number(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const { generateProtocolFromCarePlan } = await import('./pdfService');
+        const { sendProtocolEmail } = await import('./emailService');
+        
+        try {
+          // Get user and care plan
+          const user = await db.getUserById(input.userId);
+          if (!user) {
+            throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+          }
+          
+          const carePlans = await db.getPatientCarePlans(input.userId);
+          const carePlan = carePlans.find(p => p.id === input.carePlanId);
+          if (!carePlan) {
+            throw new TRPCError({ code: 'NOT_FOUND', message: 'Care plan not found' });
+          }
+          
+          // Generate PDF
+          const pdfBuffer = await generateProtocolFromCarePlan(
+            carePlan,
+            user,
+            ctx.user
+          );
+          
+          // Send email
+          const portalLink = `${process.env.VITE_FRONTEND_FORGE_API_URL || 'https://physician-portal.manus.space'}/patient-portal`;
+          const emailResult = await sendProtocolEmail({
+            to: user.email || '',
+            patientName: user.name || 'Patient',
+            physicianName: ctx.user.name || 'Dr. Physician',
+            protocolName: carePlan.title || 'Care Protocol',
+            portalLink,
+            pdfBuffer,
+            template: 'protocolDelivery',
+          });
+          
+          // Track delivery
+          await db.createProtocolDelivery({
+            userId: input.userId,
+            carePlanId: input.carePlanId,
+            protocolName: carePlan.title || 'Care Protocol',
+            deliveryType: 'manual',
+            emailSent: emailResult.success,
+            emailMessageId: emailResult.messageId,
+            pdfGenerated: true,
+            errorMessage: emailResult.error,
+            sentAt: emailResult.success ? new Date() : null,
+          });
+          
+          return {
+            success: emailResult.success,
+            error: emailResult.error,
+          };
+        } catch (error: any) {
+          console.error('[Protocol] Failed to generate and send:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: error.message || 'Failed to generate and send protocol',
+          });
+        }
+      }),
+    
+    getDeliveries: protectedProcedure
+      .input(z.object({
+        userId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getProtocolDeliveriesByUser(input.userId);
+      }),
+  }),
 });
 export type AppRouter = typeof appRouter;

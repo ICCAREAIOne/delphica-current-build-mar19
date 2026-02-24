@@ -856,3 +856,23 @@ export const patientInvitations = mysqlTable("patient_invitations", {
 
 export type PatientInvitation = typeof patientInvitations.$inferSelect;
 export type InsertPatientInvitation = typeof patientInvitations.$inferInsert;
+
+/**
+ * Protocol PDF deliveries tracking
+ */
+export const protocolDeliveries = mysqlTable("protocol_deliveries", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().references(() => users.id),
+  carePlanId: int("care_plan_id").references(() => patientCarePlans.id),
+  protocolName: varchar("protocol_name", { length: 256 }).notNull(),
+  deliveryType: mysqlEnum("delivery_type", ["enrollment", "manual", "update"]).notNull(),
+  emailSent: boolean("email_sent").default(false).notNull(),
+  emailMessageId: varchar("email_message_id", { length: 256 }),
+  pdfGenerated: boolean("pdf_generated").default(false).notNull(),
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ProtocolDelivery = typeof protocolDeliveries.$inferSelect;
+export type InsertProtocolDelivery = typeof protocolDeliveries.$inferInsert;

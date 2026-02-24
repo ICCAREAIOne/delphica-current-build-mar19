@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
 import { stripe } from "./stripeService";
 import * as db from "./db";
+import { generateProtocolFromCarePlan } from "./pdfService";
+import { sendProtocolEmail } from "./emailService";
 
 /**
  * Stripe Webhook Handler
@@ -51,6 +53,65 @@ export async function handleStripeWebhook(req: Request, res: Response) {
             subscriptionStatus: "active",
           });
           console.log(`[Webhook] Subscription created for user ${userId}`);
+
+          // Automatically generate and email protocol PDF upon successful enrollment
+          try {
+            const user = await db.getUserById(userId);
+            if (!user) {
+              console.error(`[Webhook] User ${userId} not found for protocol delivery`);
+              break;
+            }
+
+            // Get the user's active care plan
+            const carePlans = await db.getPatientCarePlans(userId);
+            const activePlan = carePlans.find(plan => plan.status === 'active');
+
+            if (!activePlan) {
+              console.log(`[Webhook] No active care plan found for user ${userId}, skipping protocol delivery`);
+              break;
+            }
+
+            // Get physician info (for now, use a default or the first admin)
+            const physicians = await db.getAllUsers();
+            const physician = physicians.find(u => u.role === 'admin') || { name: 'Dr. Physician', email: 'physician@example.com' };
+
+            // Generate PDF
+            const pdfBuffer = await generateProtocolFromCarePlan(
+              activePlan,
+              user,
+              physician
+            );
+
+            // Send email with PDF attachment
+            const portalLink = `${process.env.VITE_FRONTEND_FORGE_API_URL || 'https://physician-portal.manus.space'}/patient-portal`;
+            const emailResult = await sendProtocolEmail({
+              to: user.email || '',
+              patientName: user.name || 'Patient',
+              physicianName: physician.name || 'Dr. Physician',
+              protocolName: activePlan.title || 'Care Protocol',
+              portalLink,
+              pdfBuffer,
+              template: 'patientEnrollment',
+            });
+
+            // Track delivery in database
+            await db.createProtocolDelivery({
+              userId,
+              carePlanId: activePlan.id,
+              protocolName: activePlan.title || 'Care Protocol',
+              deliveryType: 'enrollment',
+              emailSent: emailResult.success,
+              emailMessageId: emailResult.messageId,
+              pdfGenerated: true,
+              errorMessage: emailResult.error,
+              sentAt: emailResult.success ? new Date() : null,
+            });
+
+            console.log(`[Webhook] Protocol delivered to user ${userId}: ${emailResult.success ? 'success' : 'failed'}`);
+          } catch (error) {
+            console.error(`[Webhook] Failed to deliver protocol to user ${userId}:`, error);
+            // Don't fail the webhook - subscription is still created
+          }
         }
         break;
       }

@@ -1459,3 +1459,60 @@ export async function getUserBySubscriptionId(subscriptionId: string) {
   
   return user || null;
 }
+
+// ============ Protocol Delivery Tracking ============
+
+export async function createProtocolDelivery(data: {
+  userId: number;
+  carePlanId?: number | null;
+  protocolName: string;
+  deliveryType: 'enrollment' | 'manual' | 'update';
+  emailSent: boolean;
+  emailMessageId?: string;
+  pdfGenerated: boolean;
+  errorMessage?: string;
+  sentAt?: Date | null;
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { protocolDeliveries } = await import("../drizzle/schema");
+
+  const [delivery] = await database.insert(protocolDeliveries).values({
+    userId: data.userId,
+    carePlanId: data.carePlanId,
+    protocolName: data.protocolName,
+    deliveryType: data.deliveryType,
+    emailSent: data.emailSent,
+    emailMessageId: data.emailMessageId,
+    pdfGenerated: data.pdfGenerated,
+    errorMessage: data.errorMessage,
+    sentAt: data.sentAt,
+  });
+
+  return delivery;
+}
+
+export async function getProtocolDeliveriesByUser(userId: number) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { protocolDeliveries } = await import("../drizzle/schema");
+
+  return database.select().from(protocolDeliveries).where(eq(protocolDeliveries.userId, userId));
+}
+
+export async function getAllUsers() {
+  const database = await getDb();
+  if (!database) return [];
+
+  return database.select().from(users);
+}
+
+export async function getUserById(userId: number) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const [user] = await database.select().from(users).where(eq(users.id, userId));
+  return user || null;
+}

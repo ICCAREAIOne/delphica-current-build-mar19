@@ -717,3 +717,14 @@
 - [ ] Integrate payment UI with enrollment workflow
 - [ ] Add invitation status tracking and management
 - [ ] Test complete enrollment workflow end-to-end
+
+
+## MVP Phase 1 - Protocol PDF Generation & Email Delivery
+- [x] Create PDF generation service for protocol documents
+- [x] Design protocol PDF template with patient info and care plan details
+- [x] Add protocol_deliveries database table to track sent protocols
+- [x] Enhance email service with protocol delivery email template
+- [x] Integrate PDF generation with Stripe webhook (on successful enrollment)
+- [x] Add tRPC endpoints for manual protocol generation and resending
+- [x] Build physician UI for protocol management and delivery tracking
+- [x] Test complete enrollment-to-protocol-delivery workflow
