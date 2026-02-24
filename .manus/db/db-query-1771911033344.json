@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS patient_invitations (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  physician_id INT NOT NULL,\n  patient_email VARCHAR(320) NOT NULL,\n  patient_name VARCHAR(256),\n  invitation_token VARCHAR(128) NOT NULL UNIQUE,\n  status ENUM('pending', 'accepted', 'expired') DEFAULT 'pending' NOT NULL,\n  expires_at TIMESTAMP NOT NULL,\n  accepted_at TIMESTAMP NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  FOREIGN KEY (physician_id) REFERENCES users(id)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34DkbYAaF6MBWwK.96fd8e3f3a28 --database 6XDPcfqtDX3GCRKvFSNyjg --execute CREATE TABLE IF NOT EXISTS patient_invitations (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  physician_id INT NOT NULL,\n  patient_email VARCHAR(320) NOT NULL,\n  patient_name VARCHAR(256),\n  invitation_token VARCHAR(128) NOT NULL UNIQUE,\n  status ENUM('pending', 'accepted', 'expired') DEFAULT 'pending' NOT NULL,\n  expires_at TIMESTAMP NOT NULL,\n  accepted_at TIMESTAMP NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  FOREIGN KEY (physician_id) REFERENCES users(id)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 666
+}

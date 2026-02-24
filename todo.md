@@ -701,3 +701,19 @@
 - [ ] Test physician dashboard with multiple patients
 - [ ] Verify email delivery for all scenarios
 - [ ] Test subscription payment failures and retries
+
+
+## MVP Phase 1 - Patient Enrollment & Payment System
+- [x] Add Stripe subscription fields to users table (stripe_customer_id, stripe_subscription_id, subscription_status, subscription_end_date)
+- [x] Create Stripe service with checkout session creation
+- [x] Implement Stripe webhook handler for subscription lifecycle events
+- [x] Add tRPC endpoints for payment (createCheckout, createBillingPortal, getStatus, cancel, reactivate)
+- [x] Create SubscriptionPayment UI component
+- [x] Add patient_invitations database table
+- [ ] Implement invitation creation backend with token generation
+- [ ] Add email service for sending patient invitations
+- [ ] Create physician invitation UI (send invites to patients)
+- [ ] Build patient enrollment flow (accept invitation, create account, payment)
+- [ ] Integrate payment UI with enrollment workflow
+- [ ] Add invitation status tracking and management
+- [ ] Test complete enrollment workflow end-to-end

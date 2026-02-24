@@ -27,6 +27,7 @@ import IntakeDashboard from "./pages/IntakeDashboard";
 import PatientPortalDemo from "./pages/PatientPortalDemo";
 import PatientPortal from "./pages/PatientPortal";
 import PhysicianReviewDashboard from "./pages/PhysicianReviewDashboard";
+import { SubscriptionManagement } from "./pages/SubscriptionManagement";
 
 function Router() {
   return (
@@ -53,8 +54,8 @@ function Router() {
       <Route path={"/intake-dashboard"} component={IntakeDashboard} />
       <Route path={"/patient-portal-demo"} component={PatientPortalDemo} />
        <Route path={"patient-portal"} component={PatientPortal} />
-      <Route path={"physician-review"} component={PhysicianReviewDashboard} />
-      <Route path={"/404"} component={NotFound} />
+      <Route path={"/physician-review"} component={PhysicianReviewDashboard} />
+      <Route path={"/subscription"} component={SubscriptionManagement} />      <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );

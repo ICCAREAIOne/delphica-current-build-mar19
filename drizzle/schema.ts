@@ -838,3 +838,21 @@ export const patientProgressMetrics = mysqlTable("patient_progress_metrics", {
 
 export type PatientProgressMetric = typeof patientProgressMetrics.$inferSelect;
 export type InsertPatientProgressMetric = typeof patientProgressMetrics.$inferInsert;
+
+/**
+ * Patient enrollment invitations
+ */
+export const patientInvitations = mysqlTable("patient_invitations", {
+  id: int("id").autoincrement().primaryKey(),
+  physicianId: int("physician_id").notNull().references(() => users.id),
+  patientEmail: varchar("patient_email", { length: 320 }).notNull(),
+  patientName: varchar("patient_name", { length: 256 }),
+  invitationToken: varchar("invitation_token", { length: 128 }).notNull().unique(),
+  status: mysqlEnum("status", ["pending", "accepted", "expired"]).default("pending").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type PatientInvitation = typeof patientInvitations.$inferSelect;
+export type InsertPatientInvitation = typeof patientInvitations.$inferInsert;
