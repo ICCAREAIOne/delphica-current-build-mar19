@@ -1643,10 +1643,10 @@ export const appRouter = router({
           });
           
           // Track delivery
-          await db.createProtocolDelivery({
+          const delivery = await db.createProtocolDelivery({
             userId: input.userId,
             carePlanId: input.carePlanId,
-            protocolName: carePlan.title || 'Care Protocol',
+            protocolName: input.customProtocol?.title || carePlan.title || 'Care Protocol',
             deliveryType: 'manual',
             emailSent: emailResult.success,
             emailMessageId: emailResult.messageId,
@@ -1654,6 +1654,91 @@ export const appRouter = router({
             errorMessage: emailResult.error,
             sentAt: emailResult.success ? new Date() : null,
           });
+
+          // Create audit trail if protocol was customized
+          if (input.customProtocol && delivery) {
+            const originalProtocol = {
+              title: carePlan.title || 'Care Protocol',
+              diagnosis: carePlan.diagnosis || '',
+              duration: '12 weeks',
+              goals: carePlan.goals || [],
+              interventions: (carePlan as any).interventions || [],
+              medications: carePlan.medications || [],
+              lifestyle: (carePlan as any).lifestyle || [],
+              followUp: (carePlan as any).followUp || { frequency: 'Every 2 weeks', metrics: [] },
+              warnings: (carePlan as any).warnings || [],
+            };
+
+            // Calculate changes
+            const changes: Array<{
+              field: string;
+              changeType: 'added' | 'removed' | 'modified';
+              oldValue?: string;
+              newValue?: string;
+            }> = [];
+
+            // Compare fields
+            if (originalProtocol.title !== input.customProtocol.title) {
+              changes.push({
+                field: 'title',
+                changeType: 'modified',
+                oldValue: originalProtocol.title,
+                newValue: input.customProtocol.title,
+              });
+            }
+
+            if (originalProtocol.diagnosis !== input.customProtocol.diagnosis) {
+              changes.push({
+                field: 'diagnosis',
+                changeType: 'modified',
+                oldValue: originalProtocol.diagnosis,
+                newValue: input.customProtocol.diagnosis,
+              });
+            }
+
+            if (originalProtocol.duration !== input.customProtocol.duration) {
+              changes.push({
+                field: 'duration',
+                changeType: 'modified',
+                oldValue: originalProtocol.duration,
+                newValue: input.customProtocol.duration,
+              });
+            }
+
+            // Track medication changes
+            const origMedNames = (originalProtocol.medications || []).map((m: any) => m.name);
+            const custMedNames = (input.customProtocol.medications || []).map((m: any) => m.name);
+            
+            custMedNames.forEach((name: string) => {
+              if (!origMedNames.includes(name)) {
+                changes.push({
+                  field: 'medications',
+                  changeType: 'added',
+                  newValue: name,
+                });
+              }
+            });
+
+            origMedNames.forEach((name: string) => {
+              if (!custMedNames.includes(name)) {
+                changes.push({
+                  field: 'medications',
+                  changeType: 'removed',
+                  oldValue: name,
+                });
+              }
+            });
+
+            await db.createProtocolAudit({
+              protocolDeliveryId: delivery.insertId as number,
+              carePlanId: input.carePlanId,
+              physicianId: ctx.user.id,
+              patientId: input.userId,
+              originalProtocol,
+              customizedProtocol: input.customProtocol,
+              changesSummary: changes,
+            });
+          }
           
           return {
             success: emailResult.success,
@@ -1674,6 +1759,109 @@ export const appRouter = router({
       }))
       .query(async ({ input }) => {
         return await db.getProtocolDeliveriesByUser(input.userId);
+      }),
+
+    getAuditTrail: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getProtocolAuditsByPatient(input.patientId);
+      }),
+  }),
+
+  // ============ Protocol Templates ============
+  templates: router({
+    getAll: protectedProcedure
+      .query(async ({ ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        return await db.getAllProtocolTemplates(ctx.user.id);
+      }),
+
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getProtocolTemplateById(input.id);
+      }),
+
+    search: protectedProcedure
+      .input(z.object({
+        searchTerm: z.string(),
+        category: z.string().optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.searchProtocolTemplates(input.searchTerm, input.category);
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        name: z.string(),
+        description: z.string().optional(),
+        category: z.string(),
+        tags: z.array(z.string()).optional(),
+        templateData: z.object({
+          diagnosis: z.string(),
+          duration: z.string(),
+          goals: z.array(z.string()),
+          interventions: z.array(z.object({
+            category: z.string(),
+            items: z.array(z.string()),
+          })),
+          medications: z.array(z.object({
+            name: z.string(),
+            dosage: z.string(),
+            frequency: z.string(),
+            instructions: z.string().optional(),
+          })).optional(),
+          lifestyle: z.array(z.string()).optional(),
+          followUp: z.object({
+            frequency: z.string(),
+            metrics: z.array(z.string()),
+          }).optional(),
+          warnings: z.array(z.string()).optional(),
+        }),
+        isPublic: z.boolean().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        return await db.createProtocolTemplate({
+          createdBy: ctx.user.id,
+          name: input.name,
+          description: input.description,
+          category: input.category,
+          tags: input.tags,
+          templateData: input.templateData,
+          isPublic: input.isPublic,
+        });
+      }),
+
+    use: protectedProcedure
+      .input(z.object({ templateId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.incrementTemplateUsage(input.templateId);
+        return { success: true };
+      }),
+  }),
+
+  // ============ Drug Interaction Checking ============
+  drugSafety: router({
+    checkInteractions: protectedProcedure
+      .input(z.object({
+        medications: z.array(z.object({
+          name: z.string(),
+          dosage: z.string(),
+          frequency: z.string(),
+        })),
+        allergies: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { comprehensiveDrugSafetyCheck } = await import('./drugInteractionService');
+        
+        return await comprehensiveDrugSafetyCheck(
+          input.medications,
+          input.allergies || []
+        );
       }),
   }),
 });

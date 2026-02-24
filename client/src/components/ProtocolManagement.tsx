@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { FileText, Send, CheckCircle2, XCircle, Clock, AlertCircle, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ProtocolCustomizationDialog } from './ProtocolCustomizationDialog';
+import { ProtocolAuditTrail } from './ProtocolAuditTrail';
 
 interface ProtocolManagementProps {
   userId: number;
@@ -25,6 +26,9 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
 
   // Get protocol delivery history
   const { data: deliveries, refetch: refetchDeliveries } = trpc.protocol.getDeliveries.useQuery({ userId });
+
+  // Get audit trail
+  const { data: auditTrail } = trpc.protocol.getAuditTrail.useQuery({ patientId: userId });
 
   // Send protocol mutation
   const sendProtocol = trpc.protocol.generateAndSend.useMutation({
@@ -219,6 +223,13 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Audit Trail */}
+      {auditTrail && auditTrail.length > 0 && (
+        <div className="mt-6">
+          <ProtocolAuditTrail auditEntries={auditTrail} />
+        </div>
       )}
 
       {/* Customization Dialog */}

@@ -1516,3 +1516,177 @@ export async function getUserById(userId: number) {
   const [user] = await database.select().from(users).where(eq(users.id, userId));
   return user || null;
 }
+
+// ============ Protocol Customization Audit ============
+
+export async function createProtocolAudit(data: {
+  protocolDeliveryId: number;
+  carePlanId: number;
+  physicianId: number;
+  patientId: number;
+  originalProtocol: any;
+  customizedProtocol: any;
+  changesSummary?: any[];
+  customizationReason?: string;
+  allergenConflictsResolved?: string[];
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { protocolCustomizationAudit } = await import("../drizzle/schema");
+
+  const [audit] = await database.insert(protocolCustomizationAudit).values({
+    protocolDeliveryId: data.protocolDeliveryId,
+    carePlanId: data.carePlanId,
+    physicianId: data.physicianId,
+    patientId: data.patientId,
+    originalProtocol: data.originalProtocol,
+    customizedProtocol: data.customizedProtocol,
+    changesSummary: data.changesSummary,
+    customizationReason: data.customizationReason,
+    allergenConflictsResolved: data.allergenConflictsResolved,
+  });
+
+  return audit;
+}
+
+export async function getProtocolAuditByDeliveryId(deliveryId: number) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { protocolCustomizationAudit } = await import("../drizzle/schema");
+
+  const [audit] = await database
+    .select()
+    .from(protocolCustomizationAudit)
+    .where(eq(protocolCustomizationAudit.protocolDeliveryId, deliveryId));
+
+  return audit || null;
+}
+
+export async function getProtocolAuditsByPatient(patientId: number) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { protocolCustomizationAudit } = await import("../drizzle/schema");
+
+  return database
+    .select()
+    .from(protocolCustomizationAudit)
+    .where(eq(protocolCustomizationAudit.patientId, patientId))
+    .orderBy(desc(protocolCustomizationAudit.createdAt));
+}
+
+// ============ Protocol Templates ============
+
+export async function createProtocolTemplate(data: {
+  createdBy: number;
+  name: string;
+  description?: string;
+  category: string;
+  tags?: string[];
+  templateData: any;
+  isPublic?: boolean;
+  isDefault?: boolean;
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { protocolTemplates } = await import("../drizzle/schema");
+
+  const [template] = await database.insert(protocolTemplates).values({
+    createdBy: data.createdBy,
+    name: data.name,
+    description: data.description,
+    category: data.category,
+    tags: data.tags,
+    templateData: data.templateData,
+    isPublic: data.isPublic || false,
+    isDefault: data.isDefault || false,
+    usageCount: 0,
+  });
+
+  return template;
+}
+
+export async function getAllProtocolTemplates(physicianId?: number) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { protocolTemplates } = await import("../drizzle/schema");
+
+  // Get public templates + physician's own templates
+  if (physicianId) {
+    const allTemplates = await database
+      .select()
+      .from(protocolTemplates);
+    
+    return allTemplates.filter(
+      t => t.isPublic || t.createdBy === physicianId
+    ).sort((a, b) => b.usageCount - a.usageCount);
+  }
+
+  // Get all public templates
+  return database
+    .select()
+    .from(protocolTemplates)
+    .where(eq(protocolTemplates.isPublic, true))
+    .orderBy(desc(protocolTemplates.usageCount), desc(protocolTemplates.createdAt));
+}
+
+export async function getProtocolTemplateById(id: number) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { protocolTemplates } = await import("../drizzle/schema");
+
+  const [template] = await database
+    .select()
+    .from(protocolTemplates)
+    .where(eq(protocolTemplates.id, id));
+
+  return template || null;
+}
+
+export async function incrementTemplateUsage(id: number) {
+  const database = await getDb();
+  if (!database) return;
+
+  const { protocolTemplates } = await import("../drizzle/schema");
+
+  await database
+    .update(protocolTemplates)
+    .set({
+      usageCount: sql`${protocolTemplates.usageCount} + 1`,
+      lastUsedAt: new Date(),
+    })
+    .where(eq(protocolTemplates.id, id));
+}
+
+export async function searchProtocolTemplates(searchTerm: string, category?: string) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { protocolTemplates } = await import("../drizzle/schema");
+
+  const results = await database
+    .select()
+    .from(protocolTemplates)
+    .where(eq(protocolTemplates.status, 'active'));
+
+  // Filter by category if provided
+  let filtered = category
+    ? results.filter(t => t.category === category)
+    : results;
+
+  // Filter by search term (name or description)
+  if (searchTerm) {
+    return results.filter(
+      (t) =>
+        t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
+
+  return results;
+}

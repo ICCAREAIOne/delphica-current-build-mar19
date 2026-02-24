@@ -876,3 +876,101 @@ export const protocolDeliveries = mysqlTable("protocol_deliveries", {
 
 export type ProtocolDelivery = typeof protocolDeliveries.$inferSelect;
 export type InsertProtocolDelivery = typeof protocolDeliveries.$inferInsert;
+
+/**
+ * Protocol customization audit trail
+ */
+export const protocolCustomizationAudit = mysqlTable("protocol_customization_audit", {
+  id: int("id").autoincrement().primaryKey(),
+  protocolDeliveryId: int("protocol_delivery_id").notNull().references(() => protocolDeliveries.id),
+  carePlanId: int("care_plan_id").notNull().references(() => patientCarePlans.id),
+  physicianId: int("physician_id").notNull().references(() => users.id),
+  patientId: int("patient_id").notNull().references(() => users.id),
+  
+  // Original protocol data
+  originalProtocol: json("original_protocol").$type<{
+    title: string;
+    diagnosis: string;
+    duration: string;
+    goals: string[];
+    interventions: Array<{ category: string; items: string[] }>;
+    medications?: Array<{ name: string; dosage: string; frequency: string; instructions?: string }>;
+    lifestyle?: string[];
+    followUp?: { frequency: string; metrics: string[] };
+    warnings?: string[];
+  }>().notNull(),
+  
+  // Customized protocol data
+  customizedProtocol: json("customized_protocol").$type<{
+    title: string;
+    diagnosis: string;
+    duration: string;
+    goals: string[];
+    interventions: Array<{ category: string; items: string[] }>;
+    medications?: Array<{ name: string; dosage: string; frequency: string; instructions?: string }>;
+    lifestyle?: string[];
+    followUp?: { frequency: string; metrics: string[] };
+    warnings?: string[];
+  }>().notNull(),
+  
+  // Change summary
+  changesSummary: json("changes_summary").$type<Array<{
+    field: string;
+    changeType: "added" | "removed" | "modified";
+    oldValue?: string;
+    newValue?: string;
+    reason?: string;
+  }>>(),
+  
+  // Justification for changes
+  customizationReason: text("customization_reason"),
+  allergenConflictsResolved: json("allergen_conflicts_resolved").$type<string[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ProtocolCustomizationAudit = typeof protocolCustomizationAudit.$inferSelect;
+export type InsertProtocolCustomizationAudit = typeof protocolCustomizationAudit.$inferInsert;
+
+/**
+ * Protocol templates library
+ */
+export const protocolTemplates = mysqlTable("protocol_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  createdBy: int("created_by").notNull().references(() => users.id),
+  
+  // Template metadata
+  name: varchar("name", { length: 256 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 128 }).notNull(), // e.g., "Diabetes", "Hypertension", "Chronic Pain"
+  tags: json("tags").$type<string[]>(), // For search/filtering
+  
+  // Template content
+  templateData: json("template_data").$type<{
+    diagnosis: string;
+    duration: string;
+    goals: string[];
+    interventions: Array<{ category: string; items: string[] }>;
+    medications?: Array<{ name: string; dosage: string; frequency: string; instructions?: string }>;
+    lifestyle?: string[];
+    followUp?: { frequency: string; metrics: string[] };
+    warnings?: string[];
+  }>().notNull(),
+  
+  // Usage tracking
+  usageCount: int("usage_count").default(0).notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  // Visibility
+  isPublic: boolean("is_public").default(false).notNull(), // Can other physicians use it?
+  isDefault: boolean("is_default").default(false).notNull(), // System-provided template
+  
+  // Status
+  status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProtocolTemplate = typeof protocolTemplates.$inferSelect;
+export type InsertProtocolTemplate = typeof protocolTemplates.$inferInsert;

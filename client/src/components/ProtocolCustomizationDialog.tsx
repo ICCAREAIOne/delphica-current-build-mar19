@@ -7,8 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, Plus, X, Save, Send, Eye } from 'lucide-react';
+import { ProtocolTemplateLibrary } from './ProtocolTemplateLibrary';
+import { AlertCircle, Plus, X, Save, Send, Eye, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { trpc } from '@/lib/trpc';
 
 interface Medication {
   name: string;
@@ -77,6 +79,11 @@ export function ProtocolCustomizationDialog({
   const [newWarning, setNewWarning] = useState('');
   const [newMetric, setNewMetric] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [drugSafetyResults, setDrugSafetyResults] = useState<any>(null);
+  const [checkingDrugSafety, setCheckingDrugSafety] = useState(false);
+
+  // Drug safety check mutation
+  const checkDrugSafety = trpc.drugSafety.checkInteractions.useMutation();
 
   // Initialize protocol from care plan
   useEffect(() => {
@@ -100,7 +107,33 @@ export function ProtocolCustomizationDialog({
     }
   }, [carePlan, open]);
 
-  // Check for allergen conflicts
+  // Run comprehensive drug safety check
+  const runDrugSafetyCheck = async () => {
+    if (!protocol.medications || protocol.medications.length === 0) {
+      setDrugSafetyResults(null);
+      return;
+    }
+
+    setCheckingDrugSafety(true);
+    try {
+      const result = await checkDrugSafety.mutateAsync({
+        medications: protocol.medications.filter(m => m.name.trim() !== ''),
+        allergies: patientAllergies,
+      });
+      setDrugSafetyResults(result);
+    } catch (error) {
+      console.error('Drug safety check failed:', error);
+      toast({
+        title: 'Drug Safety Check Failed',
+        description: 'Unable to check for drug interactions. Please review manually.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckingDrugSafety(false);
+    }
+  };
+
+  // Check for allergen conflicts (simple version)
   const checkAllergenConflicts = () => {
     const conflicts: string[] = [];
     
@@ -117,6 +150,7 @@ export function ProtocolCustomizationDialog({
   };
 
   const allergenConflicts = checkAllergenConflicts();
+  const hasCriticalIssues = (drugSafetyResults?.criticalIssuesCount || 0) > 0;
 
   // Add/Remove handlers
   const addGoal = () => {
@@ -410,13 +444,32 @@ export function ProtocolCustomizationDialog({
         )}
 
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="templates">Templates</TabsTrigger>
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="goals">Goals</TabsTrigger>
             <TabsTrigger value="interventions">Interventions</TabsTrigger>
             <TabsTrigger value="medications">Medications</TabsTrigger>
             <TabsTrigger value="other">Other</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="templates" className="space-y-4">
+            <ProtocolTemplateLibrary
+              onApplyTemplate={(templateData) => {
+                setProtocol({
+                  title: templateData.diagnosis || protocol.title,
+                  diagnosis: templateData.diagnosis || protocol.diagnosis,
+                  duration: templateData.duration || protocol.duration,
+                  goals: templateData.goals || protocol.goals,
+                  interventions: templateData.interventions || protocol.interventions,
+                  medications: templateData.medications || protocol.medications,
+                  lifestyle: templateData.lifestyle || protocol.lifestyle,
+                  followUp: templateData.followUp || protocol.followUp,
+                  warnings: templateData.warnings || protocol.warnings,
+                });
+              }}
+            />
+          </TabsContent>
 
           <TabsContent value="basic" className="space-y-4">
             <div>
@@ -539,11 +592,100 @@ export function ProtocolCustomizationDialog({
           <TabsContent value="medications" className="space-y-4">
             <div className="flex justify-between items-center">
               <Label>Medications</Label>
-              <Button onClick={addMedication} size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Medication
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={runDrugSafetyCheck}
+                  disabled={checkingDrugSafety || !protocol.medications || protocol.medications.length < 2}
+                  size="sm"
+                  variant="outline"
+                >
+                  <ShieldAlert className="mr-2 h-4 w-4" />
+                  {checkingDrugSafety ? 'Checking...' : 'Check Interactions'}
+                </Button>
+                <Button onClick={addMedication} size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Medication
+                </Button>
+              </div>
             </div>
+
+            {/* Drug Safety Results */}
+            {drugSafetyResults && (
+              <Card className={hasCriticalIssues ? 'border-destructive' : 'border-orange-500'}>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5" />
+                    Drug Safety Check Results
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Summary */}
+                  <div className="flex gap-4 text-sm">
+                    {drugSafetyResults.criticalIssuesCount > 0 && (
+                      <Badge variant="destructive">
+                        {drugSafetyResults.criticalIssuesCount} Critical
+                      </Badge>
+                    )}
+                    {drugSafetyResults.moderateIssuesCount > 0 && (
+                      <Badge variant="outline" className="border-orange-500 text-orange-600">
+                        {drugSafetyResults.moderateIssuesCount} Moderate
+                      </Badge>
+                    )}
+                    {drugSafetyResults.minorIssuesCount > 0 && (
+                      <Badge variant="secondary">
+                        {drugSafetyResults.minorIssuesCount} Minor
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Drug Interactions */}
+                  {drugSafetyResults.drugInteractions && drugSafetyResults.drugInteractions.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Drug-Drug Interactions:</p>
+                      {drugSafetyResults.drugInteractions.map((interaction: any, idx: number) => (
+                        <div key={idx} className="p-3 border rounded-md space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={interaction.severity === 'critical' ? 'destructive' : interaction.severity === 'moderate' ? 'outline' : 'secondary'}
+                            >
+                              {interaction.severity}
+                            </Badge>
+                            <span className="text-sm font-medium">
+                              {interaction.drug1} + {interaction.drug2}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{interaction.description}</p>
+                          <p className="text-sm font-medium">→ {interaction.recommendation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Allergy Conflicts */}
+                  {drugSafetyResults.allergyConflicts && drugSafetyResults.allergyConflicts.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Drug-Allergy Conflicts:</p>
+                      {drugSafetyResults.allergyConflicts.map((conflict: any, idx: number) => (
+                        <div key={idx} className="p-3 border rounded-md space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={conflict.severity === 'critical' ? 'destructive' : conflict.severity === 'moderate' ? 'outline' : 'secondary'}
+                            >
+                              {conflict.severity}
+                            </Badge>
+                            <span className="text-sm font-medium">
+                              {conflict.medication} vs {conflict.allergy}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{conflict.description}</p>
+                          <p className="text-sm font-medium">→ {conflict.recommendation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
             <div className="space-y-4">
               {protocol.medications?.map((med, i) => (
                 <Card key={i} className={allergenConflicts.some(c => c.includes(med.name)) ? 'border-destructive' : ''}>
