@@ -1690,3 +1690,358 @@ export async function searchProtocolTemplates(searchTerm: string, category?: str
 
   return results;
 }
+
+
+// ============================================================================
+// Template Versioning Functions
+// ============================================================================
+
+export async function createTemplateVersion(data: {
+  templateId: number;
+  versionNumber: number;
+  changeSummary: string;
+  changedBy: number;
+  templateData: any;
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { protocolTemplateVersions } = await import("../drizzle/schema");
+
+  const [version] = await database.insert(protocolTemplateVersions).values({
+    templateId: data.templateId,
+    versionNumber: data.versionNumber,
+    changeSummary: data.changeSummary,
+    changedBy: data.changedBy,
+    templateData: data.templateData,
+  });
+
+  return version;
+}
+
+export async function getTemplateVersionHistory(templateId: number) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { protocolTemplateVersions } = await import("../drizzle/schema");
+
+  return database
+    .select()
+    .from(protocolTemplateVersions)
+    .where(eq(protocolTemplateVersions.templateId, templateId))
+    .orderBy(desc(protocolTemplateVersions.versionNumber));
+}
+
+export async function getTemplateVersion(versionId: number) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { protocolTemplateVersions } = await import("../drizzle/schema");
+
+  const [version] = await database
+    .select()
+    .from(protocolTemplateVersions)
+    .where(eq(protocolTemplateVersions.id, versionId));
+
+  return version || null;
+}
+
+export async function getLatestVersionNumber(templateId: number): Promise<number> {
+  const database = await getDb();
+  if (!database) return 0;
+
+  const { protocolTemplateVersions } = await import("../drizzle/schema");
+
+  const versions = await database
+    .select()
+    .from(protocolTemplateVersions)
+    .where(eq(protocolTemplateVersions.templateId, templateId))
+    .orderBy(desc(protocolTemplateVersions.versionNumber))
+    .limit(1);
+
+  return versions.length > 0 ? versions[0].versionNumber : 0;
+}
+
+// ============================================================================
+// Template Preset Functions
+// ============================================================================
+
+export async function createTemplatePreset(data: {
+  physicianId: number;
+  baseTemplateId?: number;
+  name: string;
+  description?: string;
+  category: string;
+  tags?: string[];
+  templateData: any;
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { physicianTemplatePresets } = await import("../drizzle/schema");
+
+  const [preset] = await database.insert(physicianTemplatePresets).values({
+    physicianId: data.physicianId,
+    baseTemplateId: data.baseTemplateId,
+    name: data.name,
+    description: data.description,
+    category: data.category,
+    tags: data.tags,
+    templateData: data.templateData,
+    usageCount: 0,
+  });
+
+  return preset;
+}
+
+export async function getPhysicianPresets(physicianId: number, category?: string) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { physicianTemplatePresets } = await import("../drizzle/schema");
+
+  let query = database
+    .select()
+    .from(physicianTemplatePresets)
+    .where(eq(physicianTemplatePresets.physicianId, physicianId));
+
+  const results = await query;
+
+  if (category) {
+    return results.filter(p => p.category === category);
+  }
+
+  return results.sort((a, b) => b.usageCount - a.usageCount);
+}
+
+export async function getPresetById(id: number) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { physicianTemplatePresets } = await import("../drizzle/schema");
+
+  const [preset] = await database
+    .select()
+    .from(physicianTemplatePresets)
+    .where(eq(physicianTemplatePresets.id, id));
+
+  return preset || null;
+}
+
+export async function updatePreset(id: number, data: Partial<{
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  templateData: any;
+}>) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { physicianTemplatePresets } = await import("../drizzle/schema");
+
+  await database
+    .update(physicianTemplatePresets)
+    .set(data)
+    .where(eq(physicianTemplatePresets.id, id));
+
+  return getPresetById(id);
+}
+
+export async function deletePreset(id: number) {
+  const database = await getDb();
+  if (!database) return;
+
+  const { physicianTemplatePresets } = await import("../drizzle/schema");
+
+  await database
+    .delete(physicianTemplatePresets)
+    .where(eq(physicianTemplatePresets.id, id));
+}
+
+export async function incrementPresetUsage(id: number) {
+  const database = await getDb();
+  if (!database) return;
+
+  const { physicianTemplatePresets } = await import("../drizzle/schema");
+
+  await database
+    .update(physicianTemplatePresets)
+    .set({
+      usageCount: sql`${physicianTemplatePresets.usageCount} + 1`,
+      lastUsedAt: new Date(),
+    })
+    .where(eq(physicianTemplatePresets.id, id));
+}
+
+// ============================================================================
+// Template Usage Analytics Functions
+// ============================================================================
+
+export async function logTemplateUsage(data: {
+  templateId?: number;
+  presetId?: number;
+  physicianId: number;
+  patientId?: number;
+  wasCustomized: boolean;
+  customizationCount?: number;
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { templateUsageLogs } = await import("../drizzle/schema");
+
+  const [log] = await database.insert(templateUsageLogs).values({
+    templateId: data.templateId,
+    presetId: data.presetId,
+    physicianId: data.physicianId,
+    patientId: data.patientId,
+    wasCustomized: data.wasCustomized,
+    customizationCount: data.customizationCount || 0,
+    outcomeRecorded: false,
+  });
+
+  return log;
+}
+
+export async function recordTemplateOutcome(logId: number, data: {
+  outcomeSuccess: boolean;
+  outcomeNotes?: string;
+}) {
+  const database = await getDb();
+  if (!database) return;
+
+  const { templateUsageLogs } = await import("../drizzle/schema");
+
+  await database
+    .update(templateUsageLogs)
+    .set({
+      outcomeRecorded: true,
+      outcomeSuccess: data.outcomeSuccess,
+      outcomeNotes: data.outcomeNotes,
+      outcomeRecordedAt: new Date(),
+    })
+    .where(eq(templateUsageLogs.id, logId));
+}
+
+export async function getTemplateUsageLogs(templateId: number, limit: number = 50) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { templateUsageLogs } = await import("../drizzle/schema");
+
+  return database
+    .select()
+    .from(templateUsageLogs)
+    .where(eq(templateUsageLogs.templateId, templateId))
+    .orderBy(desc(templateUsageLogs.createdAt))
+    .limit(limit);
+}
+
+export async function getTemplateAnalytics(templateId: number) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { templateUsageLogs, templateOutcomeCorrelations } = await import("../drizzle/schema");
+
+  // Get usage logs
+  const logs = await database
+    .select()
+    .from(templateUsageLogs)
+    .where(eq(templateUsageLogs.templateId, templateId));
+
+  // Calculate metrics
+  const totalUsages = logs.length;
+  const customizedUsages = logs.filter(l => l.wasCustomized).length;
+  const recordedOutcomes = logs.filter(l => l.outcomeRecorded);
+  const successfulOutcomes = recordedOutcomes.filter(l => l.outcomeSuccess).length;
+  const unsuccessfulOutcomes = recordedOutcomes.filter(l => !l.outcomeSuccess).length;
+  
+  const successRate = recordedOutcomes.length > 0
+    ? (successfulOutcomes / recordedOutcomes.length) * 100
+    : null;
+
+  const avgCustomizationCount = logs.length > 0
+    ? logs.reduce((sum, l) => sum + (l.customizationCount || 0), 0) / logs.length
+    : 0;
+
+  return {
+    templateId,
+    totalUsages,
+    customizedUsages,
+    customizationRate: totalUsages > 0 ? (customizedUsages / totalUsages) * 100 : 0,
+    recordedOutcomes: recordedOutcomes.length,
+    successfulOutcomes,
+    unsuccessfulOutcomes,
+    successRate,
+    avgCustomizationCount,
+  };
+}
+
+export async function updateTemplateOutcomeCorrelation(templateId: number) {
+  const database = await getDb();
+  if (!database) return;
+
+  const analytics = await getTemplateAnalytics(templateId);
+  if (!analytics) return;
+
+  const { templateOutcomeCorrelations } = await import("../drizzle/schema");
+
+  // Check if correlation record exists
+  const existing = await database
+    .select()
+    .from(templateOutcomeCorrelations)
+    .where(eq(templateOutcomeCorrelations.templateId, templateId));
+
+  if (existing.length > 0) {
+    // Update existing
+    await database
+      .update(templateOutcomeCorrelations)
+      .set({
+        totalUsages: analytics.totalUsages,
+        successfulOutcomes: analytics.successfulOutcomes,
+        unsuccessfulOutcomes: analytics.unsuccessfulOutcomes,
+        successRate: analytics.successRate?.toString(),
+        avgCustomizationCount: analytics.avgCustomizationCount.toString(),
+        lastCalculatedAt: new Date(),
+      })
+      .where(eq(templateOutcomeCorrelations.templateId, templateId));
+  } else {
+    // Create new
+    await database.insert(templateOutcomeCorrelations).values({
+      templateId,
+      totalUsages: analytics.totalUsages,
+      successfulOutcomes: analytics.successfulOutcomes,
+      unsuccessfulOutcomes: analytics.unsuccessfulOutcomes,
+      successRate: analytics.successRate?.toString(),
+      avgCustomizationCount: analytics.avgCustomizationCount.toString(),
+      mostCustomizedFields: [],
+    });
+  }
+}
+
+export async function getAllTemplateAnalytics() {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { templateOutcomeCorrelations, protocolTemplates } = await import("../drizzle/schema");
+
+  const correlations = await database
+    .select()
+    .from(templateOutcomeCorrelations)
+    .orderBy(desc(templateOutcomeCorrelations.totalUsages));
+
+  // Enrich with template names
+  const enriched = await Promise.all(
+    correlations.map(async (corr) => {
+      const template = await getProtocolTemplateById(corr.templateId);
+      return {
+        ...corr,
+        templateName: template?.name,
+        templateCategory: template?.category,
+      };
+    })
+  );
+
+  return enriched;
+}

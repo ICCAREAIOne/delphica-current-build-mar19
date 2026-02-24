@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, json, decimal } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -974,3 +974,119 @@ export const protocolTemplates = mysqlTable("protocol_templates", {
 
 export type ProtocolTemplate = typeof protocolTemplates.$inferSelect;
 export type InsertProtocolTemplate = typeof protocolTemplates.$inferInsert;
+
+/**
+ * Protocol template versions - Track template changes over time
+ */
+export const protocolTemplateVersions = mysqlTable("protocol_template_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  templateId: int("template_id").notNull().references(() => protocolTemplates.id, { onDelete: "cascade" }),
+  
+  versionNumber: int("version_number").notNull(), // 1, 2, 3, etc.
+  changeSummary: text("change_summary").notNull(), // What changed in this version
+  changedBy: int("changed_by").notNull().references(() => users.id),
+  
+  // Snapshot of template data at this version
+  templateData: json("template_data").$type<{
+    diagnosis: string;
+    duration: string;
+    goals: string[];
+    interventions: Array<{ category: string; items: string[] }>;
+    medications?: Array<{ name: string; dosage: string; frequency: string; instructions?: string }>;
+    lifestyle?: string[];
+    followUp?: { frequency: string; metrics: string[] };
+    warnings?: string[];
+  }>().notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ProtocolTemplateVersion = typeof protocolTemplateVersions.$inferSelect;
+export type InsertProtocolTemplateVersion = typeof protocolTemplateVersions.$inferInsert;
+
+/**
+ * Physician template presets - Personalized template modifications
+ */
+export const physicianTemplatePresets = mysqlTable("physician_template_presets", {
+  id: int("id").autoincrement().primaryKey(),
+  physicianId: int("physician_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  baseTemplateId: int("base_template_id").references(() => protocolTemplates.id, { onDelete: "set null" }),
+  
+  // Preset metadata
+  name: varchar("name", { length: 256 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 128 }).notNull(),
+  tags: json("tags").$type<string[]>(),
+  
+  // Customized template data
+  templateData: json("template_data").$type<{
+    diagnosis: string;
+    duration: string;
+    goals: string[];
+    interventions: Array<{ category: string; items: string[] }>;
+    medications?: Array<{ name: string; dosage: string; frequency: string; instructions?: string }>;
+    lifestyle?: string[];
+    followUp?: { frequency: string; metrics: string[] };
+    warnings?: string[];
+  }>().notNull(),
+  
+  // Usage tracking
+  usageCount: int("usage_count").default(0).notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PhysicianTemplatePreset = typeof physicianTemplatePresets.$inferSelect;
+export type InsertPhysicianTemplatePreset = typeof physicianTemplatePresets.$inferInsert;
+
+/**
+ * Template usage logs - Track when and how templates are used
+ */
+export const templateUsageLogs = mysqlTable("template_usage_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  templateId: int("template_id").references(() => protocolTemplates.id, { onDelete: "set null" }),
+  presetId: int("preset_id").references(() => physicianTemplatePresets.id, { onDelete: "set null" }),
+  physicianId: int("physician_id").notNull().references(() => users.id),
+  patientId: int("patient_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Usage context
+  wasCustomized: boolean("was_customized").default(false).notNull(),
+  customizationCount: int("customization_count").default(0), // Number of fields modified
+  
+  // Outcome tracking (filled in later)
+  outcomeRecorded: boolean("outcome_recorded").default(false).notNull(),
+  outcomeSuccess: boolean("outcome_success"), // Did protocol achieve goals?
+  outcomeNotes: text("outcome_notes"),
+  outcomeRecordedAt: timestamp("outcome_recorded_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type TemplateUsageLog = typeof templateUsageLogs.$inferSelect;
+export type InsertTemplateUsageLog = typeof templateUsageLogs.$inferInsert;
+
+/**
+ * Template outcome correlations - Aggregate analytics
+ */
+export const templateOutcomeCorrelations = mysqlTable("template_outcome_correlations", {
+  id: int("id").autoincrement().primaryKey(),
+  templateId: int("template_id").notNull().references(() => protocolTemplates.id, { onDelete: "cascade" }),
+  
+  // Aggregated metrics
+  totalUsages: int("total_usages").default(0).notNull(),
+  successfulOutcomes: int("successful_outcomes").default(0).notNull(),
+  unsuccessfulOutcomes: int("unsuccessful_outcomes").default(0).notNull(),
+  successRate: decimal("success_rate", { precision: 5, scale: 2 }), // Percentage
+  
+  // Customization patterns
+  avgCustomizationCount: decimal("avg_customization_count", { precision: 5, scale: 2 }),
+  mostCustomizedFields: json("most_customized_fields").$type<string[]>(),
+  
+  lastCalculatedAt: timestamp("last_calculated_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TemplateOutcomeCorrelation = typeof templateOutcomeCorrelations.$inferSelect;
+export type InsertTemplateOutcomeCorrelation = typeof templateOutcomeCorrelations.$inferInsert;

@@ -1842,6 +1842,151 @@ export const appRouter = router({
         await db.incrementTemplateUsage(input.templateId);
         return { success: true };
       }),
+
+    // ===== Template Versioning =====
+    createVersion: protectedProcedure
+      .input(z.object({
+        templateId: z.number(),
+        changeSummary: z.string(),
+        templateData: z.any(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const latestVersion = await db.getLatestVersionNumber(input.templateId);
+        
+        return await db.createTemplateVersion({
+          templateId: input.templateId,
+          versionNumber: latestVersion + 1,
+          changeSummary: input.changeSummary,
+          changedBy: ctx.user.id,
+          templateData: input.templateData,
+        });
+      }),
+
+    getVersionHistory: protectedProcedure
+      .input(z.object({ templateId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getTemplateVersionHistory(input.templateId);
+      }),
+
+    getVersion: protectedProcedure
+      .input(z.object({ versionId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getTemplateVersion(input.versionId);
+      }),
+
+    // ===== Template Presets =====
+    createPreset: protectedProcedure
+      .input(z.object({
+        baseTemplateId: z.number().optional(),
+        name: z.string(),
+        description: z.string().optional(),
+        category: z.string(),
+        tags: z.array(z.string()).optional(),
+        templateData: z.any(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        return await db.createTemplatePreset({
+          physicianId: ctx.user.id,
+          baseTemplateId: input.baseTemplateId,
+          name: input.name,
+          description: input.description,
+          category: input.category,
+          tags: input.tags,
+          templateData: input.templateData,
+        });
+      }),
+
+    getPresets: protectedProcedure
+      .input(z.object({ category: z.string().optional() }).optional())
+      .query(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        return await db.getPhysicianPresets(ctx.user.id, input?.category);
+      }),
+
+    getPresetById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getPresetById(input.id);
+      }),
+
+    updatePreset: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+        templateData: z.any().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        return await db.updatePreset(id, data);
+      }),
+
+    deletePreset: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deletePreset(input.id);
+        return { success: true };
+      }),
+
+    usePreset: protectedProcedure
+      .input(z.object({ presetId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.incrementPresetUsage(input.presetId);
+        return { success: true };
+      }),
+
+    // ===== Template Analytics =====
+    logUsage: protectedProcedure
+      .input(z.object({
+        templateId: z.number().optional(),
+        presetId: z.number().optional(),
+        patientId: z.number().optional(),
+        wasCustomized: z.boolean(),
+        customizationCount: z.number().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        return await db.logTemplateUsage({
+          templateId: input.templateId,
+          presetId: input.presetId,
+          physicianId: ctx.user.id,
+          patientId: input.patientId,
+          wasCustomized: input.wasCustomized,
+          customizationCount: input.customizationCount,
+        });
+      }),
+
+    recordOutcome: protectedProcedure
+      .input(z.object({
+        logId: z.number(),
+        outcomeSuccess: z.boolean(),
+        outcomeNotes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.recordTemplateOutcome(input.logId, {
+          outcomeSuccess: input.outcomeSuccess,
+          outcomeNotes: input.outcomeNotes,
+        });
+        return { success: true };
+      }),
+
+    getAnalytics: protectedProcedure
+      .input(z.object({ templateId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getTemplateAnalytics(input.templateId);
+      }),
+
+    getAllAnalytics: protectedProcedure
+      .query(async () => {
+        return await db.getAllTemplateAnalytics();
+      }),
   }),
 
   // ============ Drug Interaction Checking ============
