@@ -1184,13 +1184,13 @@ export const appRouter = router({
         const previousCheckIns = await db.getCarePlanCheckIns(carePlan.id);
         
         const greeting = await patientAvatarService.startCheckIn(
-          patient.name,
+          `${patient.firstName} ${patient.lastName}`,
           {
             ...carePlan,
-            goals: JSON.parse(carePlan.goals as string),
-            medications: carePlan.medications ? JSON.parse(carePlan.medications as string) : [],
-            lifestyle: carePlan.lifestyle ? JSON.parse(carePlan.lifestyle as string) : [],
-            monitoring: JSON.parse(carePlan.monitoring as string),
+            goals: carePlan.goals || [],
+            medications: carePlan.medications || [],
+            lifestyle: carePlan.lifestyle || [],
+            monitoring: carePlan.monitoring || [],
           },
           previousCheckIns
         );
@@ -1229,17 +1229,17 @@ export const appRouter = router({
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Care plan not found' });
         }
         
-        const messages = JSON.parse(conversation.messages as string);
+        const messages = (conversation.messages || []) as Array<{role: 'user' | 'assistant', content: string}>;
         messages.push({ role: 'user', content: input.userMessage });
         
         const response = await patientAvatarService.continueCheckIn(
           messages,
           {
             ...carePlan,
-            goals: JSON.parse(carePlan.goals as string),
-            medications: carePlan.medications ? JSON.parse(carePlan.medications as string) : [],
-            lifestyle: carePlan.lifestyle ? JSON.parse(carePlan.lifestyle as string) : [],
-            monitoring: JSON.parse(carePlan.monitoring as string),
+            goals: carePlan.goals || [],
+            medications: carePlan.medications || [],
+            lifestyle: carePlan.lifestyle || [],
+            monitoring: carePlan.monitoring || [],
           }
         );
         
@@ -1264,17 +1264,17 @@ export const appRouter = router({
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Care plan not found' });
         }
         
-        const messages = JSON.parse(conversation.messages as string);
+        const messages = (conversation.messages || []) as Array<{role: 'user' | 'assistant', content: string}>;
         
         // Extract structured data
         const checkInData = await patientAvatarService.extractCheckInData(
           messages,
           {
             ...carePlan,
-            goals: JSON.parse(carePlan.goals as string),
-            medications: carePlan.medications ? JSON.parse(carePlan.medications as string) : [],
-            lifestyle: carePlan.lifestyle ? JSON.parse(carePlan.lifestyle as string) : [],
-            monitoring: JSON.parse(carePlan.monitoring as string),
+            goals: carePlan.goals || [],
+            medications: carePlan.medications || [],
+            lifestyle: carePlan.lifestyle || [],
+            monitoring: carePlan.monitoring || [],
           }
         );
         
@@ -1283,10 +1283,10 @@ export const appRouter = router({
           messages,
           {
             ...carePlan,
-            goals: JSON.parse(carePlan.goals as string),
-            medications: carePlan.medications ? JSON.parse(carePlan.medications as string) : [],
-            lifestyle: carePlan.lifestyle ? JSON.parse(carePlan.lifestyle as string) : [],
-            monitoring: JSON.parse(carePlan.monitoring as string),
+            goals: carePlan.goals || [],
+            medications: carePlan.medications || [],
+            lifestyle: carePlan.lifestyle || [],
+            monitoring: carePlan.monitoring || [],
           }
         );
         

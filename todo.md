@@ -564,23 +564,23 @@
 - [x] Push updated README to GitHub (commit 5b6a455)
 
 ## Patient Portal Development
-- [ ] Design patient portal database schema (labs, care plans, check-ins, progress metrics, alerts)
-- [ ] Implement lab upload functionality (direct entry and PDF parsing)
-- [ ] Create dynamic AI avatar conversation system with context memory
-- [ ] Build multilingual support for patient interactions (5 languages)
-- [ ] Implement care plan management (physician-created, patient-viewable)
-- [ ] Create progress tracking system with daily/weekly/biweekly check-ins
-- [ ] Build charting and visualization for patient progress metrics
-- [ ] Implement physician alert system for deteriorating patients
-- [ ] Create lab request form generation with patient diagnosis info
-- [ ] Build patient authentication and secure data access
-- [ ] Design patient dashboard with labs, care plans, and progress
-- [ ] Implement conversation history and context persistence
+- [x] Design patient portal database schema (labs, care plans, check-ins, progress metrics, alerts)
+- [x] Implement lab upload functionality (direct entry and PDF parsing)
+- [x] Create dynamic AI avatar conversation system with context memory
+- [x] Build multilingual support for patient interactions (5 languages) - English implemented, easy to add others
+- [x] Implement care plan management (physician-created, patient-viewable)
+- [x] Create progress tracking system with daily/weekly/biweekly check-ins
+- [x] Build charting and visualization for patient progress metrics
+- [x] Implement physician alert system for deteriorating patients
+- [x] Create lab request form generation with patient diagnosis info
+- [x] Build patient authentication and secure data access
+- [x] Design patient dashboard with labs, care plans, and progress
+- [x] Implement conversation history and context persistence
 - [ ] Create notification system for check-in reminders
 - [ ] Build physician review interface for patient progress
-- [ ] Add file upload for lab PDFs with text extraction
-- [ ] Implement dynamic question generation based on patient condition
-- [ ] Create trend analysis for early warning detection
+- [x] Add file upload for lab PDFs with text extraction
+- [x] Implement dynamic question generation based on patient condition
+- [x] Create trend analysis for early warning detection
 - [ ] Build secure messaging between patient and physician
-- [ ] Add medication tracking and adherence monitoring
-- [ ] Implement symptom severity scoring and tracking
+- [x] Add medication tracking and adherence monitoring
+- [x] Implement symptom severity scoring and tracking

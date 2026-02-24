@@ -1,0 +1,15 @@
+{
+  "query": "-- Create test patient user\nINSERT INTO users (openId, name, email, role, createdAt, updatedAt, lastSignedIn)\nVALUES ('test-patient-001', 'John Patient', 'john.patient@test.com', 'user', NOW(), NOW(), NOW())\nON DUPLICATE KEY UPDATE name = 'John Patient';\n\n-- Get patient user ID\nSET @patientUserId = (SELECT id FROM users WHERE email = 'john.patient@test.com' LIMIT 1);\n\n-- Create patient record (generate unique MRN)\nINSERT INTO patients (mrn, firstName, lastName, dateOfBirth, gender, phone, email, address, status, createdAt, updatedAt)\nVALUES (CONCAT('MRN', LPAD(@patientUserId, 8, '0')), 'John', 'Patient', '1980-05-15', 'male', '555-0123', 'john.patient@test.com', '123 Test St, Test City, TC 12345', 'active', NOW(), NOW())\nON DUPLICATE KEY UPDATE firstName = 'John';\n\n-- Get patient ID and physician ID\nSET @patientId = (SELECT id FROM patients WHERE email = 'john.patient@test.com' LIMIT 1);\nSET @physicianId = (SELECT id FROM users WHERE role = 'admin' LIMIT 1);\n\nSELECT @patientUserId AS patient_user_id, @patientId AS patient_id, @physicianId AS physician_id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34DkbYAaF6MBWwK.96fd8e3f3a28 --database 6XDPcfqtDX3GCRKvFSNyjg --execute -- Create test patient user\nINSERT INTO users (openId, name, email, role, createdAt, updatedAt, lastSignedIn)\nVALUES ('test-patient-001', 'John Patient', 'john.patient@test.com', 'user', NOW(), NOW(), NOW())\nON DUPLICATE KEY UPDATE name = 'John Patient';\n\n-- Get patient user ID\nSET @patientUserId = (SELECT id FROM users WHERE email = 'john.patient@test.com' LIMIT 1);\n\n-- Create patient record (generate unique MRN)\nINSERT INTO patients (mrn, firstName, lastName, dateOfBirth, gender, phone, email, address, status, createdAt, updatedAt)\nVALUES (CONCAT('MRN', LPAD(@patientUserId, 8, '0')), 'John', 'Patient', '1980-05-15', 'male', '555-0123', 'john.patient@test.com', '123 Test St, Test City, TC 12345', 'active', NOW(), NOW())\nON DUPLICATE KEY UPDATE firstName = 'John';\n\n-- Get patient ID and physician ID\nSET @patientId = (SELECT id FROM patients WHERE email = 'john.patient@test.com' LIMIT 1);\nSET @physicianId = (SELECT id FROM users WHERE role = 'admin' LIMIT 1);\n\nSELECT @patientUserId AS patient_user_id, @patientId AS patient_id, @physicianId AS physician_id;",
+  "rows": [
+    {
+      "patient_user_id": "1440003",
+      "patient_id": "330001",
+      "physician_id": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "patient_user_id\tpatient_id\tphysician_id\n1440003\t330001\t1\n",
+  "stderr": "",
+  "execution_time_ms": 633
+}

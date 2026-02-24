@@ -24,6 +24,8 @@ import ProtocolComparison from "./pages/ProtocolComparison";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import PatientIntake from "./pages/PatientIntake";
 import IntakeDashboard from "./pages/IntakeDashboard";
+import PatientPortalDemo from "./pages/PatientPortalDemo";
+import PatientPortal from "./pages/PatientPortal";
 
 function Router() {
   return (
@@ -48,6 +50,8 @@ function Router() {
       <Route path={"/knowledge-base"} component={KnowledgeBase} />
       <Route path={"/intake"} component={PatientIntake} />
       <Route path={"/intake-dashboard"} component={IntakeDashboard} />
+      <Route path={"/patient-portal-demo"} component={PatientPortalDemo} />
+      <Route path={"/patient-portal"} component={PatientPortal} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>
