@@ -5,9 +5,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, CheckCircle2, AlertCircle, Trash2, Edit } from 'lucide-react';
+import { Check, CheckCircle2, AlertCircle, Trash2, Edit, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
+import { GenerateCMS1500Dialog } from './GenerateCMS1500Dialog';
 
 interface MedicalCodeReviewMultiSelectProps {
   protocolDeliveryId: number;
@@ -18,6 +19,7 @@ export function MedicalCodeReviewMultiSelect({ protocolDeliveryId, carePlanId }:
   const { toast } = useToast();
   const [selectedCodeIds, setSelectedCodeIds] = useState<Set<number>>(new Set());
   const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
+  const [cms1500DialogOpen, setCms1500DialogOpen] = useState(false);
 
   // Fetch protocol codes
   const { data: protocolCodes, refetch: refetchCodes } = trpc.medicalCoding.getProtocolCodes.useQuery({
@@ -162,24 +164,33 @@ export function MedicalCodeReviewMultiSelect({ protocolDeliveryId, carePlanId }:
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="font-medium">{selectedCodeIds.size} code(s) selected</span>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <Button
-                  size="sm"
                   variant="default"
+                  size="sm"
                   onClick={handleBatchVerify}
                   disabled={batchVerify.isPending}
                 >
-                  <Check className="w-4 h-4 mr-1" />
+                  <CheckCircle2 className="w-4 h-4 mr-1" />
                   Verify Selected
                 </Button>
                 <Button
-                  size="sm"
                   variant="destructive"
+                  size="sm"
                   onClick={handleBatchRemove}
                   disabled={batchRemove.isPending}
                 >
                   <Trash2 className="w-4 h-4 mr-1" />
                   Remove Selected
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCms1500DialogOpen(true)}
+                  className="ml-auto"
+                >
+                  <FileText className="w-4 h-4 mr-1" />
+                  Generate CMS-1500
                 </Button>
               </div>
             </div>
@@ -213,6 +224,14 @@ export function MedicalCodeReviewMultiSelect({ protocolDeliveryId, carePlanId }:
           {renderCodeList(snomedCodes, 'SNOMED')}
         </TabsContent>
       </Tabs>
+
+      {/* Generate CMS-1500 Dialog */}
+      <GenerateCMS1500Dialog
+        open={cms1500DialogOpen}
+        onOpenChange={setCms1500DialogOpen}
+        protocolDeliveryId={protocolDeliveryId}
+        patientName="Patient" 
+      />
 
       {/* Batch Delete Confirmation Dialog */}
       <Dialog open={batchDeleteConfirmOpen} onOpenChange={setBatchDeleteConfirmOpen}>

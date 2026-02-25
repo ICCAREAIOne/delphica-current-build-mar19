@@ -2352,6 +2352,267 @@ export const appRouter = router({
       }),
   }),
 
+  // ============ Billing & Claims Management ============
+  billing: router({
+    // Provider Profile Management
+    createProviderProfile: protectedProcedure
+      .input(z.object({
+        npi: z.string().length(10),
+        taxId: z.string(),
+        licenseNumber: z.string().optional(),
+        licenseState: z.string().length(2).optional(),
+        practiceName: z.string(),
+        practiceAddress: z.string(),
+        practiceCity: z.string(),
+        practiceState: z.string().length(2),
+        practiceZip: z.string(),
+        practicePhone: z.string(),
+        practiceFax: z.string().optional(),
+        taxonomyCode: z.string().optional(),
+        specialty: z.string().optional(),
+        billingContactName: z.string().optional(),
+        billingContactPhone: z.string().optional(),
+        billingContactEmail: z.string().email().optional(),
+        isPrimary: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const profile = await db.createProviderProfile({
+          userId: ctx.user.id,
+          ...input,
+          isActive: true,
+        });
+        return { success: true, profileId: Number((profile as any).insertId) };
+      }),
+
+    getProviderProfiles: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await db.getProviderProfilesByUserId(ctx.user.id);
+      }),
+
+    getPrimaryProfile: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await db.getPrimaryProviderProfile(ctx.user.id);
+      }),
+
+    updateProviderProfile: protectedProcedure
+      .input(z.object({
+        profileId: z.number(),
+        data: z.object({
+          npi: z.string().length(10).optional(),
+          taxId: z.string().optional(),
+          practiceName: z.string().optional(),
+          practiceAddress: z.string().optional(),
+          practiceCity: z.string().optional(),
+          practiceState: z.string().length(2).optional(),
+          practiceZip: z.string().optional(),
+          practicePhone: z.string().optional(),
+          specialty: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateProviderProfile(input.profileId, input.data);
+        return { success: true };
+      }),
+
+    setPrimaryProfile: protectedProcedure
+      .input(z.object({ profileId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.setPrimaryProviderProfile(ctx.user.id, input.profileId);
+        return { success: true };
+      }),
+
+    // CMS-1500 Generation
+    generateCMS1500: protectedProcedure
+      .input(z.object({
+        protocolDeliveryId: z.number(),
+        providerProfileId: z.number().optional(),
+        insuranceInfo: z.object({
+          insuranceCompany: z.string(),
+          insurancePolicyNumber: z.string(),
+          insuranceGroupNumber: z.string().optional(),
+          subscriberName: z.string(),
+          subscriberDob: z.string(),
+          relationshipToSubscriber: z.enum(["self", "spouse", "child", "other"]),
+        }),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // Get protocol delivery
+        const deliveries = await db.getProtocolDeliveriesByUser(ctx.user.id);
+        const delivery = deliveries.find(d => d.id === input.protocolDeliveryId);
+        if (!delivery) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Protocol delivery not found' });
+        }
+
+        // Get patient - delivery doesn't have patientId, need to get from carePlanId
+        if (!delivery.carePlanId) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Protocol delivery must be associated with a care plan' });
+        }
+        // Get all patients and find the one with this care plan
+        const allPatients = await db.getAllPatients();
+        let patient = null;
+        for (const p of allPatients) {
+          const carePlans = await db.getPatientCarePlans(p.id);
+          if (carePlans.some(cp => cp.id === delivery.carePlanId)) {
+            patient = p;
+            break;
+          }
+        }
+        if (!patient) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found for this care plan' });
+        }
+
+        // Get provider profile
+        let providerProfile;
+        if (input.providerProfileId) {
+          providerProfile = await db.getProviderProfileById(input.providerProfileId);
+        } else {
+          providerProfile = await db.getPrimaryProviderProfile(ctx.user.id);
+        }
+
+        if (!providerProfile) {
+          throw new TRPCError({ 
+            code: 'NOT_FOUND', 
+            message: 'Provider profile not found. Please create a provider profile first.' 
+          });
+        }
+
+        // Get medical codes for this protocol delivery
+        const codes = await db.getProtocolMedicalCodes(input.protocolDeliveryId);
+        
+        // Filter for ICD-10 and CPT codes only
+        const icd10Codes = codes.filter((c: any) => c.codeType === 'ICD10').map((c: any) => ({
+          code: c.code,
+          description: c.description,
+        }));
+        
+        const cptCodes = codes.filter((c: any) => c.codeType === 'CPT').map((c: any) => ({
+          code: c.code,
+          description: c.description,
+          charge: 150.00, // Default charge, should be configurable
+          units: 1,
+          date: delivery.sentAt || new Date(),
+        }));
+
+        if (icd10Codes.length === 0) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: 'No ICD-10 diagnosis codes found. Please add diagnosis codes before generating claim.' 
+          });
+        }
+
+        if (cptCodes.length === 0) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: 'No CPT procedure codes found. Please add procedure codes before generating claim.' 
+          });
+        }
+
+        // Calculate total charges
+        const totalCharges = cptCodes.reduce((sum: number, code: any) => sum + (code.charge * code.units), 0);
+
+        // Generate claim number
+        const claimNumber = await db.generateClaimNumber();
+
+        // Create billing claim record
+        const claimData = {
+          claimNumber,
+          protocolDeliveryId: input.protocolDeliveryId,
+          patientId: patient.id,
+          providerProfileId: providerProfile.id,
+          createdByUserId: ctx.user.id,
+          ...input.insuranceInfo,
+          subscriberDob: new Date(input.insuranceInfo.subscriberDob),
+          serviceDate: delivery.sentAt || new Date(),
+          diagnosisCodes: icd10Codes.map(c => c.code),
+          procedureCodes: cptCodes.map(c => ({
+            code: c.code,
+            description: c.description,
+            charge: c.charge,
+            units: c.units,
+          })),
+          totalCharges: totalCharges.toString(),
+          status: 'draft' as const,
+        };
+
+        const claimResult = await db.createBillingClaim(claimData);
+        const claimId = Number((claimResult as any).insertId);
+
+        // Generate PDF
+        const { generateCMS1500PDF } = await import('./cms1500');
+        const claim = await db.getBillingClaimById(claimId);
+        
+        if (!claim) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to retrieve created claim' });
+        }
+
+        const pdfBuffer = await generateCMS1500PDF({
+          claim,
+          patient,
+          provider: providerProfile,
+          diagnosisCodes: icd10Codes,
+          procedureCodes: cptCodes,
+        });
+
+        // Upload PDF to S3
+        const pdfKey = `billing-claims/${claimNumber}.pdf`;
+        const { url: pdfUrl } = await storagePut(pdfKey, pdfBuffer, 'application/pdf');
+
+        // Update claim with PDF URL
+        await db.updateBillingClaim(claimId, { pdfUrl });
+
+        return {
+          success: true,
+          claimId,
+          claimNumber,
+          pdfUrl,
+          totalCharges,
+        };
+      }),
+
+    // Get claims
+    getClaimsByPatient: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getBillingClaimsByPatient(input.patientId);
+      }),
+
+    getClaimsByProtocolDelivery: protectedProcedure
+      .input(z.object({ protocolDeliveryId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getBillingClaimsByProtocolDelivery(input.protocolDeliveryId);
+      }),
+
+    getClaim: protectedProcedure
+      .input(z.object({ claimId: z.number() }))
+      .query(async ({ input }) => {
+        const claim = await db.getBillingClaimById(input.claimId);
+        if (!claim) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Claim not found' });
+        }
+        return claim;
+      }),
+
+    updateClaimStatus: protectedProcedure
+      .input(z.object({
+        claimId: z.number(),
+        status: z.enum(["draft", "submitted", "pending", "paid", "denied", "appealed"]),
+        paidAmount: z.string().optional(),
+        denialReason: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateBillingClaimStatus(
+          input.claimId,
+          input.status,
+          {
+            paidAmount: input.paidAmount,
+            paidDate: input.status === 'paid' ? new Date() : undefined,
+            denialReason: input.denialReason,
+          }
+        );
+        return { success: true };
+      }),
+  }),
+
   // ============ Drug Interaction Checking ============
   drugSafety: router({
     checkInteractions: protectedProcedure

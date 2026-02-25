@@ -1175,3 +1175,98 @@ export const medicalCodeMappings = mysqlTable("medical_code_mappings", {
 
 export type MedicalCodeMapping = typeof medicalCodeMappings.$inferSelect;
 export type InsertMedicalCodeMapping = typeof medicalCodeMappings.$inferInsert;
+
+/**
+ * Provider Profiles - physician practice information for billing
+ */
+export const providerProfiles = mysqlTable("provider_profiles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  
+  // Provider identification
+  npi: varchar("npi", { length: 10 }).notNull(), // National Provider Identifier (10 digits)
+  taxId: varchar("taxId", { length: 20 }).notNull(), // Tax ID / EIN
+  licenseNumber: varchar("licenseNumber", { length: 64 }),
+  licenseState: varchar("licenseState", { length: 2 }), // Two-letter state code
+  
+  // Practice information
+  practiceName: varchar("practiceName", { length: 255 }).notNull(),
+  practiceAddress: text("practiceAddress").notNull(),
+  practiceCity: varchar("practiceCity", { length: 128 }).notNull(),
+  practiceState: varchar("practiceState", { length: 2 }).notNull(),
+  practiceZip: varchar("practiceZip", { length: 10 }).notNull(),
+  practicePhone: varchar("practicePhone", { length: 32 }).notNull(),
+  practiceFax: varchar("practiceFax", { length: 32 }),
+  
+  // Taxonomy code for specialty
+  taxonomyCode: varchar("taxonomyCode", { length: 10 }), // Healthcare Provider Taxonomy Code
+  specialty: varchar("specialty", { length: 128 }),
+  
+  // Billing contact
+  billingContactName: varchar("billingContactName", { length: 255 }),
+  billingContactPhone: varchar("billingContactPhone", { length: 32 }),
+  billingContactEmail: varchar("billingContactEmail", { length: 320 }),
+  
+  // Status
+  isActive: boolean("isActive").default(true).notNull(),
+  isPrimary: boolean("isPrimary").default(false).notNull(), // Primary profile for this user
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProviderProfile = typeof providerProfiles.$inferSelect;
+export type InsertProviderProfile = typeof providerProfiles.$inferInsert;
+
+/**
+ * Billing Claims - CMS-1500 claim records
+ */
+export const billingClaims = mysqlTable("billing_claims", {
+  id: int("id").autoincrement().primaryKey(),
+  claimNumber: varchar("claimNumber", { length: 64 }).notNull().unique(), // Auto-generated claim number
+  
+  // References
+  protocolDeliveryId: int("protocolDeliveryId").notNull().references(() => protocolDeliveries.id),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  providerProfileId: int("providerProfileId").notNull().references(() => providerProfiles.id),
+  createdByUserId: int("createdByUserId").notNull().references(() => users.id),
+  
+  // Patient insurance information
+  insuranceCompany: varchar("insuranceCompany", { length: 255 }),
+  insurancePolicyNumber: varchar("insurancePolicyNumber", { length: 128 }),
+  insuranceGroupNumber: varchar("insuranceGroupNumber", { length: 128 }),
+  subscriberName: varchar("subscriberName", { length: 255 }),
+  subscriberDob: timestamp("subscriberDob"),
+  relationshipToSubscriber: mysqlEnum("relationshipToSubscriber", ["self", "spouse", "child", "other"]),
+  
+  // Claim details
+  serviceDate: timestamp("serviceDate").notNull(),
+  diagnosisCodes: json("diagnosisCodes").$type<string[]>().notNull(), // ICD-10 codes
+  procedureCodes: json("procedureCodes").$type<{
+    code: string;
+    description: string;
+    charge: number;
+    units: number;
+  }[]>().notNull(), // CPT codes with charges
+  
+  totalCharges: decimal("totalCharges", { precision: 10, scale: 2 }).notNull(),
+  
+  // Claim status
+  status: mysqlEnum("status", ["draft", "submitted", "pending", "paid", "denied", "appealed"]).default("draft").notNull(),
+  submittedDate: timestamp("submittedDate"),
+  paidDate: timestamp("paidDate"),
+  paidAmount: decimal("paidAmount", { precision: 10, scale: 2 }),
+  
+  // Additional information
+  notes: text("notes"),
+  denialReason: text("denialReason"),
+  
+  // PDF storage
+  pdfUrl: text("pdfUrl"), // S3 URL for generated CMS-1500 PDF
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BillingClaim = typeof billingClaims.$inferSelect;
+export type InsertBillingClaim = typeof billingClaims.$inferInsert;

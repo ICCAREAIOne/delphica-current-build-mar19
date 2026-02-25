@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, 
@@ -37,7 +37,11 @@ import {
   patientConversations,
   physicianAlerts,
   labRequestForms,
-  patientProgressMetrics
+  patientProgressMetrics,
+  providerProfiles,
+  InsertProviderProfile,
+  billingClaims,
+  InsertBillingClaim
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -2327,4 +2331,170 @@ export async function verifyAllProtocolCodes(protocolDeliveryId: number, userId:
     .where(eq(protocolMedicalCodes.protocolDeliveryId, protocolDeliveryId));
 
   return { count: result[0]?.affectedRows || 0 };
+}
+
+
+// ============================================================================
+// Provider Profile Helpers
+// ============================================================================
+
+export async function createProviderProfile(data: InsertProviderProfile) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(providerProfiles).values(data);
+  return result;
+}
+
+export async function getProviderProfileById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(providerProfiles).where(eq(providerProfiles.id, id));
+  return result[0] || null;
+}
+
+export async function getProviderProfilesByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(providerProfiles).where(eq(providerProfiles.userId, userId));
+  return result;
+}
+
+export async function getPrimaryProviderProfile(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(providerProfiles)
+    .where(and(eq(providerProfiles.userId, userId), eq(providerProfiles.isPrimary, true)));
+  return result[0] || null;
+}
+
+export async function updateProviderProfile(id: number, data: Partial<InsertProviderProfile>) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.update(providerProfiles).set(data).where(eq(providerProfiles.id, id));
+  return result;
+}
+
+export async function setPrimaryProviderProfile(userId: number, profileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  // First, unset all primary flags for this user
+  await db.update(providerProfiles)
+    .set({ isPrimary: false })
+    .where(eq(providerProfiles.userId, userId));
+  
+  // Then set the specified profile as primary
+  const result = await db.update(providerProfiles)
+    .set({ isPrimary: true })
+    .where(eq(providerProfiles.id, profileId));
+  
+  return result;
+}
+
+// ============================================================================
+// Billing Claims Helpers
+// ============================================================================
+
+export async function createBillingClaim(data: InsertBillingClaim) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(billingClaims).values(data);
+  return result;
+}
+
+export async function getBillingClaimById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(billingClaims).where(eq(billingClaims.id, id));
+  return result[0] || null;
+}
+
+export async function getBillingClaimByClaimNumber(claimNumber: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(billingClaims).where(eq(billingClaims.claimNumber, claimNumber));
+  return result[0] || null;
+}
+
+export async function getBillingClaimsByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(billingClaims)
+    .where(eq(billingClaims.patientId, patientId))
+    .orderBy(desc(billingClaims.createdAt));
+  return result;
+}
+
+export async function getBillingClaimsByProvider(providerProfileId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(billingClaims)
+    .where(eq(billingClaims.providerProfileId, providerProfileId))
+    .orderBy(desc(billingClaims.createdAt));
+  return result;
+}
+
+export async function getBillingClaimsByProtocolDelivery(protocolDeliveryId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(billingClaims)
+    .where(eq(billingClaims.protocolDeliveryId, protocolDeliveryId))
+    .orderBy(desc(billingClaims.createdAt));
+  return result;
+}
+
+export async function updateBillingClaim(id: number, data: Partial<InsertBillingClaim>) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.update(billingClaims).set(data).where(eq(billingClaims.id, id));
+  return result;
+}
+
+export async function updateBillingClaimStatus(
+  id: number, 
+  status: "draft" | "submitted" | "pending" | "paid" | "denied" | "appealed",
+  additionalData?: { paidAmount?: string; paidDate?: Date; denialReason?: string }
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const updateData: any = { status };
+  
+  if (additionalData) {
+    if (additionalData.paidAmount) updateData.paidAmount = additionalData.paidAmount;
+    if (additionalData.paidDate) updateData.paidDate = additionalData.paidDate;
+    if (additionalData.denialReason) updateData.denialReason = additionalData.denialReason;
+  }
+  
+  if (status === "submitted") {
+    updateData.submittedDate = new Date();
+  }
+  
+  const result = await db.update(billingClaims).set(updateData).where(eq(billingClaims.id, id));
+  return result;
+}
+
+export async function generateClaimNumber(): Promise<string> {
+  // Generate claim number in format: CLM-YYYYMMDD-XXXXX
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  // Get count of claims today to generate unique sequential number
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const todayClaims = await db.select().from(billingClaims)
+    .where(and(
+      gte(billingClaims.createdAt, today),
+      lt(billingClaims.createdAt, tomorrow)
+    ));
+  
+  const sequenceNumber = String(todayClaims.length + 1).padStart(5, '0');
+  
+  return `CLM-${year}${month}${day}-${sequenceNumber}`;
 }

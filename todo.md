@@ -922,3 +922,18 @@
 - [x] Test batch remove functionality in UI
 - [x] Test select all/deselect all in UI
 - [x] Verify UI state updates after batch operations
+
+
+## Phase 1: CMS-1500 Billing Export
+- [x] Research CMS-1500 form specification and requirements
+- [x] Design billing_claims database schema
+- [x] Add provider NPI/Tax ID fields (separate provider_profiles table)
+- [x] Create billing_claims and provider_profiles tables
+- [x] Implement generateCMS1500 tRPC procedure
+- [x] Create CMS-1500 PDF generation service
+- [x] Build claim generation UI dialog
+- [x] Add provider information form
+- [x] Implement PDF download functionality
+- [x] Write unit tests for billing (14 tests - all passing)
+- [ ] Test with real protocol data
+- [ ] Validate CMS-1500 compliance
