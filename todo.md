@@ -843,3 +843,15 @@
 - [ ] Add code verification against official code sets
 - [ ] Create billing export functionality (CMS-1500 format)
 - [ ] Add EHR interoperability data export (HL7 FHIR)
+
+
+## Protocol Auto-Coding Integration
+- [x] Read existing protocol generation workflow in routers.ts
+- [x] Extract clinical data from protocol for Semantic Processor input
+- [x] Call Semantic Processor during protocol.generateAndSend
+- [x] Store generated ICD-10 codes in database with protocol linkage
+- [x] Store generated CPT codes in database with protocol linkage
+- [x] Store generated SNOMED codes in database with protocol linkage
+- [x] Handle coding errors gracefully without blocking protocol delivery
+- [x] Test auto-coding with real protocol data (5/5 tests passing)
+- [x] Verify codes are retrievable via getProtocolCodes endpoint

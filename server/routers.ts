@@ -1655,6 +1655,132 @@ export const appRouter = router({
             sentAt: emailResult.success ? new Date() : null,
           });
 
+          // Generate medical codes using Semantic Processor
+          try {
+            const { processClinicalNote } = await import('./semanticProcessor');
+            
+            // Extract clinical data from protocol
+            const clinicalNote = {
+              chiefComplaint: input.customProtocol?.diagnosis || carePlan.diagnosis || 'Care protocol',
+              historyOfPresentIllness: input.customProtocol?.goals?.join('. ') || '',
+              assessment: input.customProtocol?.diagnosis || carePlan.diagnosis || '',
+              plan: [
+                ...(input.customProtocol?.interventions?.flatMap(i => i.items) || []),
+                ...(input.customProtocol?.medications?.map(m => `${m.name} ${m.dosage} ${m.frequency}`) || []),
+                ...(input.customProtocol?.lifestyle || [])
+              ].join('. '),
+              procedures: input.customProtocol?.interventions?.flatMap(i => i.items) || [],
+            };
+            
+            // Process clinical note to generate codes
+            const codingResult = await processClinicalNote(clinicalNote);
+            
+            // Store ICD-10 codes
+            for (const icd10 of codingResult.icd10Codes) {
+              // Check if code exists in database
+              const existingCodes = await db.searchMedicalCodes({
+                searchTerm: icd10.code,
+                codeType: 'ICD10',
+                limit: 1,
+              });
+              
+              let codeId: number;
+              if (existingCodes.length > 0) {
+                codeId = existingCodes[0].id!;
+              } else {
+                // Create new code entry
+                codeId = await db.createMedicalCode({
+                  codeType: 'ICD10',
+                  code: icd10.code,
+                  description: icd10.description,
+                  category: icd10.category,
+                  searchTerms: icd10.description.toLowerCase(),
+                }) as number;
+              }
+              
+              // Assign code to protocol
+              if (delivery?.insertId) {
+                await db.assignMedicalCodeToProtocol({
+                  protocolDeliveryId: delivery.insertId as number,
+                  carePlanId: input.carePlanId,
+                  medicalCodeId: codeId,
+                  codeType: 'ICD10',
+                  isPrimary: icd10.category === 'primary',
+                  assignmentMethod: 'automatic',
+                });
+              }
+            }
+            
+            // Store CPT codes
+            for (const cpt of codingResult.cptCodes) {
+              const existingCodes = await db.searchMedicalCodes({
+                searchTerm: cpt.code,
+                codeType: 'CPT',
+                limit: 1,
+              });
+              
+              let codeId: number;
+              if (existingCodes.length > 0) {
+                codeId = existingCodes[0].id!;
+              } else {
+                codeId = await db.createMedicalCode({
+                  codeType: 'CPT',
+                  code: cpt.code,
+                  description: cpt.description,
+                  category: cpt.modifiers?.join(', ') || '',
+                  searchTerms: cpt.description.toLowerCase(),
+                }) as number;
+              }
+              
+              if (delivery?.insertId) {
+                await db.assignMedicalCodeToProtocol({
+                  protocolDeliveryId: delivery.insertId as number,
+                  carePlanId: input.carePlanId,
+                  medicalCodeId: codeId,
+                  codeType: 'CPT',
+                  assignmentMethod: 'automatic',
+                });
+              }
+            }
+            
+            // Store SNOMED codes
+            for (const snomed of codingResult.snomedConcepts) {
+              const existingCodes = await db.searchMedicalCodes({
+                searchTerm: snomed.conceptId,
+                codeType: 'SNOMED',
+                limit: 1,
+              });
+              
+              let codeId: number;
+              if (existingCodes.length > 0) {
+                codeId = existingCodes[0].id!;
+              } else {
+                codeId = await db.createMedicalCode({
+                  codeType: 'SNOMED',
+                  code: snomed.conceptId,
+                  description: snomed.term,
+                  category: snomed.semanticTag,
+                  searchTerms: snomed.term.toLowerCase(),
+                }) as number;
+              }
+              
+              if (delivery?.insertId) {
+                await db.assignMedicalCodeToProtocol({
+                  protocolDeliveryId: delivery.insertId as number,
+                  carePlanId: input.carePlanId,
+                  medicalCodeId: codeId,
+                  codeType: 'SNOMED',
+                  assignmentMethod: 'automatic',
+                });
+              }
+            }
+            
+            console.log(`[Protocol] Generated ${codingResult.icd10Codes.length} ICD-10, ${codingResult.cptCodes.length} CPT, ${codingResult.snomedConcepts.length} SNOMED codes`);
+          } catch (codingError) {
+            // Log error but don't block protocol delivery
+            console.error('[Protocol] Medical coding failed:', codingError);
+          }
+
           // Create audit trail if protocol was customized
           if (input.customProtocol && delivery) {
             const originalProtocol = {
