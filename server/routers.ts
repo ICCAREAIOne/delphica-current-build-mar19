@@ -2716,11 +2716,28 @@ export const appRouter = router({
         confidence: z.enum(['low', 'medium', 'high']).optional(),
       }))
       .mutation(async ({ input }) => {
+        // Auto-generate ICD-10 code if not provided
+        let diagnosisCode = input.diagnosisCode;
+        if (!diagnosisCode) {
+          const { generateICD10Codes } = await import('./semanticProcessor');
+          const session = await db.getClinicalSessionById(input.sessionId);
+          const icd10Codes = await generateICD10Codes({
+            chiefComplaint: session?.chiefComplaint || input.diagnosisName,
+            assessment: input.diagnosisName,
+          });
+          // Use the primary diagnosis code with highest confidence
+          const primaryCode = icd10Codes
+            .filter(c => c.category === 'primary')
+            .sort((a, b) => b.confidence - a.confidence)[0];
+          diagnosisCode = primaryCode?.code;
+        }
+
         await db.createDiagnosisEntry({
           ...input,
+          diagnosisCode,
           status: 'active',
         });
-        return { success: true };
+        return { success: true, generatedCode: diagnosisCode };
       }),
 
     getDiagnosesBySession: protectedProcedure
@@ -2772,11 +2789,26 @@ export const appRouter = router({
         monitoringParameters: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
+        // Auto-generate CPT code if not provided
+        let treatmentCode = input.treatmentCode;
+        if (!treatmentCode && input.treatmentType === 'procedure') {
+          const { generateCPTCodes } = await import('./semanticProcessor');
+          const cptCodes = await generateCPTCodes({
+            chiefComplaint: input.treatmentName,
+            plan: `${input.treatmentName}${input.dosage ? ` ${input.dosage}` : ''}`,
+            procedures: [input.treatmentName],
+          });
+          // Use the code with highest confidence
+          const topCode = cptCodes.sort((a, b) => b.confidence - a.confidence)[0];
+          treatmentCode = topCode?.code;
+        }
+
         await db.createTreatmentEntry({
           ...input,
+          treatmentCode,
           status: 'proposed',
         });
-        return { success: true };
+        return { success: true, generatedCode: treatmentCode };
       }),
 
     getTreatmentsBySession: protectedProcedure
@@ -2841,6 +2873,79 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await db.deleteClinicalObservation(input.observationId);
         return { success: true };
+      }),
+
+    // Semantic Processor Integration
+    suggestDiagnosisCodes: protectedProcedure
+      .input(z.object({
+        diagnosisName: z.string(),
+        symptoms: z.array(z.string()).optional(),
+        severity: z.string().optional(),
+        onset: z.string().optional(),
+        duration: z.string().optional(),
+        clinicalNotes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { generateICD10Codes } = await import('./semanticProcessor');
+        const codes = await generateICD10Codes({
+          chiefComplaint: input.diagnosisName,
+          assessment: input.diagnosisName,
+        });
+        return { codes };
+      }),
+
+    suggestTreatmentCodes: protectedProcedure
+      .input(z.object({
+        treatmentName: z.string(),
+        treatmentType: z.string(),
+        dosage: z.string().optional(),
+        frequency: z.string().optional(),
+        instructions: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { generateCPTCodes } = await import('./semanticProcessor');
+        const codes = await generateCPTCodes({
+          chiefComplaint: input.treatmentName,
+          plan: `${input.treatmentName}${input.dosage ? ` ${input.dosage}` : ''}${input.frequency ? ` ${input.frequency}` : ''}`,
+          procedures: [input.treatmentName],
+        });
+        return { codes };
+      }),
+
+    generateSessionCodes: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const { processClinicalNote } = await import('./semanticProcessor');
+        
+        // Get session data
+        const session = await db.getClinicalSessionById(input.sessionId);
+        if (!session) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' });
+        }
+
+        // Get diagnoses and treatments
+        const diagnoses = await db.getDiagnosisEntriesBySession(input.sessionId);
+        const treatments = await db.getTreatmentEntriesBySession(input.sessionId);
+
+        // Build clinical note
+        const clinicalNote = {
+          chiefComplaint: session.chiefComplaint || '',
+          historyOfPresentIllness: session.historyOfPresentIllness || undefined,
+          physicalExam: session.physicalExamFindings || undefined,
+          assessment: diagnoses.map(d => d.diagnosisName).join('; '),
+          plan: treatments.map(t => t.treatmentName).join('; '),
+          procedures: treatments.filter(t => t.treatmentType === 'procedure').map(t => t.treatmentName),
+        };
+
+        // Generate comprehensive codes
+        const result = await processClinicalNote(clinicalNote);
+
+        return {
+          icd10Codes: result.icd10Codes,
+          cptCodes: result.cptCodes,
+          confidenceScore: result.confidenceScore,
+          codingNotes: result.codingNotes,
+        };
       }),
   }),
 });

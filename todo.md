@@ -952,3 +952,15 @@
 - [x] Write unit tests for DAO Protocol (19 tests - all passing)
 - [ ] Test with real clinical scenarios
 - [ ] Validate data completeness and accuracy
+
+## DAO → Semantic Processor Integration
+- [x] Design integration architecture and data flow
+- [x] Create semantic mapping service for diagnosis → ICD-10
+- [x] Create semantic mapping service for treatment → CPT codes
+- [x] Implement automatic code generation on diagnosis entry
+- [x] Implement code suggestion endpoints for real-time suggestions
+- [ ] Add code verification and override UI
+- [ ] Link generated codes to protocol delivery
+- [ ] Create bridge between clinical sessions and billing claims
+- [x] Write unit tests for semantic mapping (14 tests - 11 passing)
+- [ ] Test end-to-end workflow: clinical entry → codes → billing
