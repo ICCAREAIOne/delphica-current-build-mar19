@@ -127,6 +127,13 @@
       "when": 1771945558351,
       "tag": "0017_fair_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1771985223333,
+      "tag": "0018_majestic_dust",
+      "breakpoints": true
     }
   ]
 }

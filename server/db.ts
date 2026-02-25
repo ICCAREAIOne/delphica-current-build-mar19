@@ -2045,3 +2045,176 @@ export async function getAllTemplateAnalytics() {
 
   return enriched;
 }
+
+
+// ============================================================================
+// Medical Codes (Semantic Processor)
+// ============================================================================
+
+export async function createMedicalCode(data: {
+  codeType: "ICD10" | "CPT" | "SNOMED";
+  code: string;
+  description: string;
+  category?: string;
+  searchTerms?: string;
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { medicalCodes } = await import("../drizzle/schema");
+
+  const [result] = await database.insert(medicalCodes).values(data);
+  return result.insertId;
+}
+
+export async function getMedicalCodeById(id: number) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { medicalCodes } = await import("../drizzle/schema");
+
+  const [code] = await database.select().from(medicalCodes).where(eq(medicalCodes.id, id));
+  return code;
+}
+
+export async function searchMedicalCodes(params: {
+  searchTerm: string;
+  codeType?: "ICD10" | "CPT" | "SNOMED";
+  limit?: number;
+}) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { medicalCodes } = await import("../drizzle/schema");
+  const { like, or } = await import("drizzle-orm");
+
+  let query = database.select().from(medicalCodes);
+
+  // Filter by code type if specified
+  if (params.codeType) {
+    query = query.where(eq(medicalCodes.codeType, params.codeType)) as any;
+  }
+
+  // Search in code, description, or search terms
+  const searchPattern = `%${params.searchTerm}%`;
+  query = query.where(
+    or(
+      like(medicalCodes.code, searchPattern),
+      like(medicalCodes.description, searchPattern),
+      like(medicalCodes.searchTerms, searchPattern)
+    )
+  ) as any;
+
+  // Limit results
+  query = query.limit(params.limit || 10) as any;
+
+  return await query;
+}
+
+export async function assignMedicalCodeToProtocol(data: {
+  protocolDeliveryId?: number;
+  carePlanId?: number;
+  medicalCodeId: number;
+  codeType: "ICD10" | "CPT" | "SNOMED";
+  isPrimary?: boolean;
+  assignmentMethod?: "automatic" | "manual" | "verified";
+  verifiedBy?: number;
+  verificationNotes?: string;
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { protocolMedicalCodes } = await import("../drizzle/schema");
+
+  const [result] = await database.insert(protocolMedicalCodes).values({
+    ...data,
+    verifiedAt: data.verifiedBy ? new Date() : undefined,
+  });
+  return result.insertId;
+}
+
+export async function getProtocolMedicalCodes(protocolDeliveryId: number) {
+  const database = await getDb();
+  if (!database) return [];
+
+  const { protocolMedicalCodes, medicalCodes } = await import("../drizzle/schema");
+
+  const codes = await database
+    .select({
+      id: protocolMedicalCodes.id,
+      codeType: protocolMedicalCodes.codeType,
+      isPrimary: protocolMedicalCodes.isPrimary,
+      assignmentMethod: protocolMedicalCodes.assignmentMethod,
+      verifiedBy: protocolMedicalCodes.verifiedBy,
+      verifiedAt: protocolMedicalCodes.verifiedAt,
+      verificationNotes: protocolMedicalCodes.verificationNotes,
+      code: medicalCodes.code,
+      description: medicalCodes.description,
+      category: medicalCodes.category,
+    })
+    .from(protocolMedicalCodes)
+    .leftJoin(medicalCodes, eq(protocolMedicalCodes.medicalCodeId, medicalCodes.id))
+    .where(eq(protocolMedicalCodes.protocolDeliveryId, protocolDeliveryId));
+
+  return codes;
+}
+
+export async function createMedicalCodeMapping(data: {
+  clinicalTerm: string;
+  medicalCodeId: number;
+  confidence?: number;
+  mappingSource?: "AI" | "manual" | "verified";
+}) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { medicalCodeMappings } = await import("../drizzle/schema");
+
+  const [result] = await database.insert(medicalCodeMappings).values({
+    ...data,
+    confidence: data.confidence?.toString(),
+  });
+  return result.insertId;
+}
+
+export async function findMedicalCodeMapping(clinicalTerm: string) {
+  const database = await getDb();
+  if (!database) return null;
+
+  const { medicalCodeMappings, medicalCodes } = await import("../drizzle/schema");
+
+  const [mapping] = await database
+    .select({
+      mappingId: medicalCodeMappings.id,
+      clinicalTerm: medicalCodeMappings.clinicalTerm,
+      confidence: medicalCodeMappings.confidence,
+      mappingSource: medicalCodeMappings.mappingSource,
+      usageCount: medicalCodeMappings.usageCount,
+      codeId: medicalCodes.id,
+      codeType: medicalCodes.codeType,
+      code: medicalCodes.code,
+      description: medicalCodes.description,
+    })
+    .from(medicalCodeMappings)
+    .leftJoin(medicalCodes, eq(medicalCodeMappings.medicalCodeId, medicalCodes.id))
+    .where(eq(medicalCodeMappings.clinicalTerm, clinicalTerm))
+    .orderBy(desc(medicalCodeMappings.usageCount));
+
+  return mapping;
+}
+
+export async function incrementMappingUsage(mappingId: number) {
+  const database = await getDb();
+  if (!database) return;
+
+  const { medicalCodeMappings } = await import("../drizzle/schema");
+  const { sql } = await import("drizzle-orm");
+
+  await database
+    .update(medicalCodeMappings)
+    .set({
+      usageCount: sql`${medicalCodeMappings.usageCount} + 1`,
+      lastUsedAt: new Date(),
+    })
+    .where(eq(medicalCodeMappings.id, mappingId));
+}

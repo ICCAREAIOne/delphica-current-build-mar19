@@ -826,3 +826,20 @@
 - [x] Test preset creation and application workflow (12/12 tests passing)
 - [x] Test analytics dashboard with real template data (12/12 tests passing)
 - [x] Verify all components work together seamlessly (12/12 tests passing)
+
+
+## Semantic Processor - Medical Coding Bridge
+- [x] Create medical_codes database table (ICD-10, CPT, SNOMED)
+- [x] Create protocol_medical_codes junction table for code assignments
+- [x] Build AI-powered medical coding service using LLM (already exists)
+- [x] Implement ICD-10 diagnosis code lookup and validation (already exists)
+- [x] Implement CPT procedure code lookup and validation (already exists)
+- [x] Implement SNOMED clinical term mapping (already exists)
+- [x] Test existing Semantic Processor with real clinical scenarios (10/10 tests passing)
+- [x] Add database helper functions for medical codes
+- [x] Create tRPC endpoints for code search and assignment
+- [ ] Integrate automatic coding with protocol generation
+- [ ] Build medical coding UI component for manual review/editing
+- [ ] Add code verification against official code sets
+- [ ] Create billing export functionality (CMS-1500 format)
+- [ ] Add EHR interoperability data export (HL7 FHIR)

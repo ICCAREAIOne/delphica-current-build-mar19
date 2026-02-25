@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, json, decimal } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, json, decimal, date, index } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -1090,3 +1090,88 @@ export const templateOutcomeCorrelations = mysqlTable("template_outcome_correlat
 
 export type TemplateOutcomeCorrelation = typeof templateOutcomeCorrelations.$inferSelect;
 export type InsertTemplateOutcomeCorrelation = typeof templateOutcomeCorrelations.$inferInsert;
+
+
+/**
+ * Medical codes - Standardized medical coding (ICD-10, CPT, SNOMED)
+ */
+export const medicalCodes = mysqlTable("medical_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Code details
+  codeType: mysqlEnum("code_type", ["ICD10", "CPT", "SNOMED"]).notNull(),
+  code: varchar("code", { length: 50 }).notNull(),
+  description: text("description").notNull(),
+  
+  // Additional metadata
+  category: varchar("category", { length: 100 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  effectiveDate: date("effective_date"),
+  expirationDate: date("expiration_date"),
+  
+  // Search optimization
+  searchTerms: text("search_terms"), // Comma-separated alternative terms
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  codeIdx: index("code_idx").on(table.code),
+  codeTypeIdx: index("code_type_idx").on(table.codeType),
+}));
+
+export type MedicalCode = typeof medicalCodes.$inferSelect;
+export type InsertMedicalCode = typeof medicalCodes.$inferInsert;
+
+/**
+ * Protocol medical codes - Junction table linking protocols to medical codes
+ */
+export const protocolMedicalCodes = mysqlTable("protocol_medical_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // References
+  carePlanId: int("care_plan_id").references(() => patientCarePlans.id, { onDelete: "cascade" }),
+  protocolDeliveryId: int("protocol_delivery_id").references(() => protocolDeliveries.id, { onDelete: "cascade" }),
+  medicalCodeId: int("medical_code_id").notNull().references(() => medicalCodes.id),
+  
+  // Code assignment context
+  codeType: mysqlEnum("code_type", ["ICD10", "CPT", "SNOMED"]).notNull(),
+  isPrimary: boolean("is_primary").default(false).notNull(), // Primary diagnosis/procedure
+  assignmentMethod: mysqlEnum("assignment_method", ["automatic", "manual", "verified"]).default("automatic").notNull(),
+  
+  // Verification
+  verifiedBy: int("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  verificationNotes: text("verification_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ProtocolMedicalCode = typeof protocolMedicalCodes.$inferSelect;
+export type InsertProtocolMedicalCode = typeof protocolMedicalCodes.$inferInsert;
+
+/**
+ * Medical code mappings - AI-generated mappings between clinical terms and codes
+ */
+export const medicalCodeMappings = mysqlTable("medical_code_mappings", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Clinical term to code mapping
+  clinicalTerm: varchar("clinical_term", { length: 255 }).notNull(),
+  medicalCodeId: int("medical_code_id").notNull().references(() => medicalCodes.id),
+  
+  // Mapping metadata
+  confidence: decimal("confidence", { precision: 5, scale: 2 }), // 0-100 confidence score
+  mappingSource: mysqlEnum("mapping_source", ["AI", "manual", "verified"]).default("AI").notNull(),
+  
+  // Usage tracking
+  usageCount: int("usage_count").default(0).notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  clinicalTermIdx: index("clinical_term_idx").on(table.clinicalTerm),
+}));
+
+export type MedicalCodeMapping = typeof medicalCodeMappings.$inferSelect;
+export type InsertMedicalCodeMapping = typeof medicalCodeMappings.$inferInsert;

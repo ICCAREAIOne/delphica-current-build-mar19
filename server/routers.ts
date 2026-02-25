@@ -1989,6 +1989,129 @@ export const appRouter = router({
       }),
   }),
 
+  // ============ Medical Coding (Semantic Processor) ============
+  medicalCoding: router({
+    // Process clinical note and generate all codes
+    processClinicalNote: protectedProcedure
+      .input(z.object({
+        chiefComplaint: z.string(),
+        historyOfPresentIllness: z.string().optional(),
+        physicalExam: z.string().optional(),
+        assessment: z.string().optional(),
+        plan: z.string().optional(),
+        procedures: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { processClinicalNote } = await import('./semanticProcessor');
+        return await processClinicalNote(input);
+      }),
+
+    // Generate ICD-10 codes only
+    generateICD10: protectedProcedure
+      .input(z.object({
+        chiefComplaint: z.string(),
+        historyOfPresentIllness: z.string().optional(),
+        physicalExam: z.string().optional(),
+        assessment: z.string().optional(),
+        plan: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { generateICD10Codes } = await import('./semanticProcessor');
+        return await generateICD10Codes(input);
+      }),
+
+    // Generate CPT codes only
+    generateCPT: protectedProcedure
+      .input(z.object({
+        chiefComplaint: z.string(),
+        plan: z.string().optional(),
+        procedures: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { generateCPTCodes } = await import('./semanticProcessor');
+        return await generateCPTCodes(input);
+      }),
+
+    // Extract clinical entities
+    extractEntities: protectedProcedure
+      .input(z.object({
+        chiefComplaint: z.string(),
+        historyOfPresentIllness: z.string().optional(),
+        physicalExam: z.string().optional(),
+        assessment: z.string().optional(),
+        plan: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { extractClinicalEntities } = await import('./semanticProcessor');
+        return await extractClinicalEntities(input);
+      }),
+
+    // Search medical codes
+    searchCodes: protectedProcedure
+      .input(z.object({
+        searchTerm: z.string(),
+        codeType: z.enum(['ICD10', 'CPT', 'SNOMED']).optional(),
+        limit: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.searchMedicalCodes(input);
+      }),
+
+    // Get codes for a protocol
+    getProtocolCodes: protectedProcedure
+      .input(z.object({ protocolDeliveryId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getProtocolMedicalCodes(input.protocolDeliveryId);
+      }),
+
+    // Assign code to protocol
+    assignCode: protectedProcedure
+      .input(z.object({
+        protocolDeliveryId: z.number().optional(),
+        carePlanId: z.number().optional(),
+        medicalCodeId: z.number(),
+        codeType: z.enum(['ICD10', 'CPT', 'SNOMED']),
+        isPrimary: z.boolean().optional(),
+        assignmentMethod: z.enum(['automatic', 'manual', 'verified']).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        return await db.assignMedicalCodeToProtocol({
+          ...input,
+          verifiedBy: input.assignmentMethod === 'verified' ? ctx.user.id : undefined,
+        });
+      }),
+
+    // Verify code assignment
+    verifyCode: protectedProcedure
+      .input(z.object({
+        assignmentId: z.number(),
+        verificationNotes: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const database = await db.getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        const { protocolMedicalCodes } = await import('../drizzle/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        await database
+          .update(protocolMedicalCodes)
+          .set({
+            assignmentMethod: 'verified',
+            verifiedBy: ctx.user.id,
+            verifiedAt: new Date(),
+            verificationNotes: input.verificationNotes,
+          })
+          .where(eq(protocolMedicalCodes.id, input.assignmentId));
+        
+        return { success: true };
+      }),
+  }),
+
   // ============ Drug Interaction Checking ============
   drugSafety: router({
     checkInteractions: protectedProcedure
