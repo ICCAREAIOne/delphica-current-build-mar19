@@ -879,3 +879,21 @@
 - [x] Add success/error toast notifications
 - [x] Test code removal with verified and unverified codes (3/3 tests passing)
 - [x] Verify removed codes no longer appear in UI
+
+
+## Bulk Code Verification
+- [x] Add verifyAllCodes tRPC endpoint
+- [x] Implement bulk verification logic in backend
+- [x] Add "Verify All" button to MedicalCodeReview header
+- [x] Show verification progress/count in UI
+- [x] Add success toast with count of verified codes
+- [x] Test bulk verification with multiple unverified codes (5/5 tests passing)
+
+## Code Edit Functionality
+- [x] Add updateCodeAssignment database helper function
+- [x] Create updateCode tRPC endpoint
+- [x] Add edit button to code cards in UI
+- [x] Implement inline editing dialog for code details
+- [x] Allow editing description, isPrimary status
+- [x] Add validation for code edits
+- [x] Test code editing for all code types (5/5 tests passing)

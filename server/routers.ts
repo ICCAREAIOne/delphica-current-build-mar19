@@ -2249,6 +2249,55 @@ export const appRouter = router({
         
         return { success: true };
       }),
+
+    // Verify all unverified codes for a protocol
+    verifyAllCodes: protectedProcedure
+      .input(z.object({
+        protocolDeliveryId: z.number(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const database = await db.getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+        
+        const { protocolMedicalCodes } = await import('../drizzle/schema');
+        const { eq, and, isNull } = await import('drizzle-orm');
+        
+        // Update all unverified codes
+        const result = await database
+          .update(protocolMedicalCodes)
+          .set({
+            assignmentMethod: 'verified',
+            verifiedBy: ctx.user.id,
+            verifiedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(protocolMedicalCodes.protocolDeliveryId, input.protocolDeliveryId),
+              isNull(protocolMedicalCodes.verifiedBy)
+            )
+          );
+        
+        return { success: true, count: (result as any).affectedRows || 0 };
+      }),
+
+    // Update code assignment
+    updateCode: protectedProcedure
+      .input(z.object({
+        assignmentId: z.number(),
+        description: z.string().optional(),
+        isPrimary: z.boolean().optional(),
+        verificationNotes: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const { assignmentId, ...updates } = input;
+        await db.updateCodeAssignment(assignmentId, updates);
+        
+        return { success: true };
+      }),
   }),
 
   // ============ Drug Interaction Checking ============

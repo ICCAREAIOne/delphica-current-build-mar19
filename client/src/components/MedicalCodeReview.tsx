@@ -24,6 +24,8 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
   const [newCode, setNewCode] = useState({ code: '', description: '', codeType: 'ICD10' as 'ICD10' | 'CPT' | 'SNOMED' });
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [codeToDelete, setCodeToDelete] = useState<{ id: number; code: string; description: string } | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCode, setEditingCode] = useState<{ id: number; code: string; description: string; isPrimary: boolean } | null>(null);
 
   // Fetch protocol codes
   const { data: protocolCodes, refetch: refetchCodes } = trpc.medicalCoding.getProtocolCodes.useQuery({
@@ -51,6 +53,37 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
     onSuccess: () => {
       toast({ title: 'Code verified successfully' });
       refetchCodes();
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to verify code', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Verify all codes mutation
+  const verifyAllMutation = trpc.medicalCoding.verifyAllCodes.useMutation({
+    onSuccess: () => {
+      refetchCodes();
+    },
+  });
+
+  // Remove code mutation
+  const removeCodeMutation = trpc.medicalCoding.removeCode.useMutation({
+    onSuccess: () => {
+      toast({ title: 'Code removed successfully' });
+      refetchCodes();
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to remove code', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Update code mutation
+  const updateCodeMutation = trpc.medicalCoding.updateCode.useMutation({
+    onSuccess: () => {
+      toast({ title: 'Code updated successfully' });
+      refetchCodes();
+      setIsEditDialogOpen(false);
+      setEditingCode(null);
     },
     onError: (error) => {
       toast({ title: 'Failed to verify code', description: error.message, variant: 'destructive' });
@@ -175,6 +208,21 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={() => {
+                      setEditingCode({
+                        id: code.id,
+                        code: code.code || '',
+                        description: code.description || '',
+                        isPrimary: code.isPrimary || false,
+                      });
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => {
                       setCodeToDelete({ id: code.id, code: code.code || '', description: code.description || '' });
@@ -203,10 +251,26 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
                 Review and verify AI-generated medical codes for this protocol
               </CardDescription>
             </div>
-            <Button onClick={() => setIsAddCodeDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Code
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const result = await verifyAllMutation.mutateAsync({ protocolDeliveryId });
+                    toast({ title: `Verified ${result.count} codes successfully` });
+                  } catch (error) {
+                    toast({ title: "Failed to verify codes", variant: "destructive" });
+                  }
+                }}
+                disabled={verifyAllMutation.isPending}
+              >
+                {verifyAllMutation.isPending ? "Verifying..." : "Verify All"}
+              </Button>
+              <Button onClick={() => setIsAddCodeDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Code
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -321,6 +385,60 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
             </Button>
             <Button onClick={handleAssignCode} disabled={assignCode.isPending}>
               Add Code
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Code Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Medical Code</DialogTitle>
+            <DialogDescription>
+              Update the description or primary status of this medical code
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingCode && (
+            <div className="space-y-4">
+              <div>
+                <Label>Code</Label>
+                <Input value={editingCode.code} disabled className="font-mono" />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Input 
+                  value={editingCode.description} 
+                  onChange={(e) => setEditingCode({ ...editingCode, description: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isPrimary"
+                  checked={editingCode.isPrimary}
+                  onChange={(e) => setEditingCode({ ...editingCode, isPrimary: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="isPrimary">Primary Diagnosis</Label>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => editingCode && updateCodeMutation.mutateAsync({
+                assignmentId: editingCode.id,
+                description: editingCode.description,
+                isPrimary: editingCode.isPrimary,
+              })}
+              disabled={updateCodeMutation.isPending}
+            >
+              {updateCodeMutation.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>

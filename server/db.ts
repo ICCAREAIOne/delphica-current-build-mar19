@@ -2228,3 +2228,43 @@ export async function removeCodeAssignment(assignmentId: number) {
   await database.delete(protocolMedicalCodes).where(eq(protocolMedicalCodes.id, assignmentId));
   return true;
 }
+
+export async function updateCodeAssignment(assignmentId: number, updates: {
+  description?: string;
+  isPrimary?: boolean;
+  verificationNotes?: string;
+}) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+
+  const { protocolMedicalCodes, medicalCodes } = await import("../drizzle/schema");
+
+  // If description is being updated, update the medical code itself
+  if (updates.description !== undefined) {
+    const [assignment] = await database
+      .select({ medicalCodeId: protocolMedicalCodes.medicalCodeId })
+      .from(protocolMedicalCodes)
+      .where(eq(protocolMedicalCodes.id, assignmentId));
+
+    if (assignment?.medicalCodeId) {
+      await database
+        .update(medicalCodes)
+        .set({ description: updates.description })
+        .where(eq(medicalCodes.id, assignment.medicalCodeId));
+    }
+  }
+
+  // Update the assignment itself
+  const assignmentUpdates: any = {};
+  if (updates.isPrimary !== undefined) assignmentUpdates.isPrimary = updates.isPrimary;
+  if (updates.verificationNotes !== undefined) assignmentUpdates.verificationNotes = updates.verificationNotes;
+
+  if (Object.keys(assignmentUpdates).length > 0) {
+    await database
+      .update(protocolMedicalCodes)
+      .set(assignmentUpdates)
+      .where(eq(protocolMedicalCodes.id, assignmentId));
+  }
+
+  return true;
+}
