@@ -8,7 +8,7 @@ import { FileText, Send, CheckCircle2, XCircle, Clock, AlertCircle, Edit } from 
 import { useToast } from '@/hooks/use-toast';
 import { ProtocolCustomizationDialog } from './ProtocolCustomizationDialog';
 import { ProtocolAuditTrail } from './ProtocolAuditTrail';
-import { MedicalCodeReview } from './MedicalCodeReview';
+import { MedicalCodeReviewMultiSelect } from './MedicalCodeReviewMultiSelect';
 
 interface ProtocolManagementProps {
   userId: number;
@@ -258,7 +258,7 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
       {reviewingCodes && (
         <Dialog open={!!reviewingCodes} onOpenChange={() => setReviewingCodes(null)}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <MedicalCodeReview
+            <MedicalCodeReviewMultiSelect
               protocolDeliveryId={reviewingCodes.deliveryId}
               carePlanId={reviewingCodes.carePlanId}
             />
