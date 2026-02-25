@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Send, CheckCircle2, XCircle, Clock, AlertCircle, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ProtocolCustomizationDialog } from './ProtocolCustomizationDialog';
 import { ProtocolAuditTrail } from './ProtocolAuditTrail';
+import { MedicalCodeReview } from './MedicalCodeReview';
 
 interface ProtocolManagementProps {
   userId: number;
@@ -17,6 +19,7 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
   const { toast } = useToast();
   const [sendingProtocolId, setSendingProtocolId] = useState<number | null>(null);
   const [customizingPlan, setCustomizingPlan] = useState<any | null>(null);
+  const [reviewingCodes, setReviewingCodes] = useState<{ deliveryId: number; carePlanId: number } | null>(null);
 
   // Get patient's care plans
   const { data: carePlans, isLoading: carePlansLoading } = trpc.patientPortal.getPatientCarePlans.useQuery({ patientId: userId });
@@ -206,6 +209,13 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setReviewingCodes({ deliveryId: delivery.id, carePlanId: delivery.carePlanId })}
+                    >
+                      Review Codes
+                    </Button>
                     {delivery.pdfGenerated && (
                       <Badge variant="outline" className="text-xs">
                         <FileText className="mr-1 h-3 w-3" />
@@ -242,6 +252,18 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
           onSend={handleSendCustomizedProtocol}
           isSending={sendingProtocolId === customizingPlan.id}
         />
+      )}
+
+      {/* Medical Code Review Dialog */}
+      {reviewingCodes && (
+        <Dialog open={!!reviewingCodes} onOpenChange={() => setReviewingCodes(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <MedicalCodeReview
+              protocolDeliveryId={reviewingCodes.deliveryId}
+              carePlanId={reviewingCodes.carePlanId}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
