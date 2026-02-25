@@ -1270,3 +1270,132 @@ export const billingClaims = mysqlTable("billing_claims", {
 
 export type BillingClaim = typeof billingClaims.$inferSelect;
 export type InsertBillingClaim = typeof billingClaims.$inferInsert;
+
+
+/**
+ * Clinical Sessions - DAO Protocol Interface
+ * Structured clinical data entry for diagnosis and treatment capture
+ */
+export const clinicalSessions = mysqlTable("clinical_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  
+  // Session metadata
+  sessionType: mysqlEnum("sessionType", ["initial_consultation", "follow_up", "emergency", "routine_checkup"]).notNull(),
+  sessionDate: timestamp("sessionDate").notNull(),
+  chiefComplaint: text("chiefComplaint"), // Primary reason for visit
+  
+  // Session status
+  status: mysqlEnum("status", ["in_progress", "completed", "cancelled"]).default("in_progress").notNull(),
+  
+  // Clinical notes
+  historyOfPresentIllness: text("historyOfPresentIllness"),
+  reviewOfSystems: json("reviewOfSystems").$type<Record<string, string>>(), // Systematic review
+  physicalExamFindings: text("physicalExamFindings"),
+  assessmentAndPlan: text("assessmentAndPlan"),
+  
+  // Timestamps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  completedAt: timestamp("completedAt"),
+});
+
+export type ClinicalSession = typeof clinicalSessions.$inferSelect;
+export type InsertClinicalSession = typeof clinicalSessions.$inferInsert;
+
+/**
+ * Diagnosis Entries - Structured diagnosis capture
+ */
+export const diagnosisEntries = mysqlTable("diagnosis_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  
+  // Diagnosis information
+  diagnosisCode: varchar("diagnosisCode", { length: 16 }), // ICD-10 code
+  diagnosisName: varchar("diagnosisName", { length: 255 }).notNull(),
+  diagnosisType: mysqlEnum("diagnosisType", ["primary", "secondary", "differential"]).notNull(),
+  
+  // Clinical details
+  severity: mysqlEnum("severity", ["mild", "moderate", "severe", "critical"]),
+  onset: varchar("onset", { length: 128 }), // When symptoms started
+  duration: varchar("duration", { length: 128 }), // How long symptoms have lasted
+  symptoms: json("symptoms").$type<string[]>(), // Associated symptoms
+  
+  // Supporting information
+  clinicalNotes: text("clinicalNotes"),
+  confidence: mysqlEnum("confidence", ["low", "medium", "high"]).default("medium"),
+  
+  // Status
+  status: mysqlEnum("status", ["active", "resolved", "chronic", "ruled_out"]).default("active").notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DiagnosisEntry = typeof diagnosisEntries.$inferSelect;
+export type InsertDiagnosisEntry = typeof diagnosisEntries.$inferInsert;
+
+/**
+ * Treatment Entries - Structured treatment capture
+ */
+export const treatmentEntries = mysqlTable("treatment_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  diagnosisId: int("diagnosisId").references(() => diagnosisEntries.id), // Optional link to diagnosis
+  
+  // Treatment information
+  treatmentType: mysqlEnum("treatmentType", ["medication", "procedure", "therapy", "lifestyle", "referral"]).notNull(),
+  treatmentName: varchar("treatmentName", { length: 255 }).notNull(),
+  treatmentCode: varchar("treatmentCode", { length: 16 }), // CPT code for procedures
+  
+  // Medication-specific fields
+  dosage: varchar("dosage", { length: 128 }),
+  frequency: varchar("frequency", { length: 128 }),
+  route: varchar("route", { length: 64 }), // oral, IV, topical, etc.
+  duration: varchar("duration", { length: 128 }), // Treatment duration
+  
+  // General treatment details
+  instructions: text("instructions"),
+  rationale: text("rationale"), // Why this treatment was chosen
+  expectedOutcome: text("expectedOutcome"),
+  
+  // Monitoring
+  sideEffects: json("sideEffects").$type<string[]>(),
+  contraindications: json("contraindications").$type<string[]>(),
+  monitoringParameters: text("monitoringParameters"),
+  
+  // Status
+  status: mysqlEnum("status", ["proposed", "active", "completed", "discontinued"]).default("proposed").notNull(),
+  startDate: timestamp("startDate"),
+  endDate: timestamp("endDate"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TreatmentEntry = typeof treatmentEntries.$inferSelect;
+export type InsertTreatmentEntry = typeof treatmentEntries.$inferInsert;
+
+/**
+ * Clinical Observations - Vital signs and measurements
+ */
+export const clinicalObservations = mysqlTable("clinical_observations", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  
+  // Observation details
+  observationType: varchar("observationType", { length: 128 }).notNull(), // BP, HR, Temp, etc.
+  observationValue: varchar("observationValue", { length: 255 }).notNull(),
+  unit: varchar("unit", { length: 32 }), // mmHg, bpm, °F, etc.
+  
+  // Context
+  notes: text("notes"),
+  isAbnormal: boolean("isAbnormal").default(false),
+  
+  observedAt: timestamp("observedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ClinicalObservation = typeof clinicalObservations.$inferSelect;
+export type InsertClinicalObservation = typeof clinicalObservations.$inferInsert;

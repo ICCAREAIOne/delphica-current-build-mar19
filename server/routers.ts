@@ -2633,5 +2633,215 @@ export const appRouter = router({
         );
       }),
   }),
+
+  // DAO Protocol Interface - Clinical Data Entry
+  daoProtocol: router({
+    // Clinical Sessions
+    createSession: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        sessionType: z.enum(['initial_consultation', 'follow_up', 'emergency', 'routine_checkup']),
+        sessionDate: z.string().transform(str => new Date(str)),
+        chiefComplaint: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.createClinicalSession({
+          ...input,
+          physicianId: ctx.user.id,
+          status: 'in_progress',
+        });
+        
+        // Query back the created session
+        const sessions = await db.getClinicalSessionsByPhysician(ctx.user.id);
+        const newSession = sessions[0];
+        
+        return { success: true, sessionId: newSession.id };
+      }),
+
+    getSession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => {
+        const session = await db.getClinicalSessionById(input.sessionId);
+        if (!session) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' });
+        }
+        return session;
+      }),
+
+    getPatientSessions: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getClinicalSessionsByPatient(input.patientId);
+      }),
+
+    getPhysicianSessions: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await db.getClinicalSessionsByPhysician(ctx.user.id);
+      }),
+
+    updateSession: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        chiefComplaint: z.string().optional(),
+        historyOfPresentIllness: z.string().optional(),
+        reviewOfSystems: z.record(z.string(), z.string()).optional(),
+        physicalExamFindings: z.string().optional(),
+        assessmentAndPlan: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { sessionId, ...updateData } = input;
+        await db.updateClinicalSession(sessionId, updateData);
+        return { success: true };
+      }),
+
+    completeSession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.completeClinicalSession(input.sessionId);
+        return { success: true };
+      }),
+
+    // Diagnosis Entries
+    addDiagnosis: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        diagnosisCode: z.string().optional(),
+        diagnosisName: z.string(),
+        diagnosisType: z.enum(['primary', 'secondary', 'differential']),
+        severity: z.enum(['mild', 'moderate', 'severe', 'critical']).optional(),
+        onset: z.string().optional(),
+        duration: z.string().optional(),
+        symptoms: z.array(z.string()).optional(),
+        clinicalNotes: z.string().optional(),
+        confidence: z.enum(['low', 'medium', 'high']).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.createDiagnosisEntry({
+          ...input,
+          status: 'active',
+        });
+        return { success: true };
+      }),
+
+    getDiagnosesBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getDiagnosisEntriesBySession(input.sessionId);
+      }),
+
+    updateDiagnosis: protectedProcedure
+      .input(z.object({
+        diagnosisId: z.number(),
+        diagnosisCode: z.string().optional(),
+        diagnosisName: z.string().optional(),
+        severity: z.enum(['mild', 'moderate', 'severe', 'critical']).optional(),
+        symptoms: z.array(z.string()).optional(),
+        clinicalNotes: z.string().optional(),
+        status: z.enum(['active', 'resolved', 'chronic', 'ruled_out']).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { diagnosisId, ...updateData } = input;
+        await db.updateDiagnosisEntry(diagnosisId, updateData);
+        return { success: true };
+      }),
+
+    deleteDiagnosis: protectedProcedure
+      .input(z.object({ diagnosisId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteDiagnosisEntry(input.diagnosisId);
+        return { success: true };
+      }),
+
+    // Treatment Entries
+    addTreatment: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        diagnosisId: z.number().optional(),
+        treatmentType: z.enum(['medication', 'procedure', 'therapy', 'lifestyle', 'referral']),
+        treatmentName: z.string(),
+        treatmentCode: z.string().optional(),
+        dosage: z.string().optional(),
+        frequency: z.string().optional(),
+        route: z.string().optional(),
+        duration: z.string().optional(),
+        instructions: z.string().optional(),
+        rationale: z.string().optional(),
+        expectedOutcome: z.string().optional(),
+        sideEffects: z.array(z.string()).optional(),
+        contraindications: z.array(z.string()).optional(),
+        monitoringParameters: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.createTreatmentEntry({
+          ...input,
+          status: 'proposed',
+        });
+        return { success: true };
+      }),
+
+    getTreatmentsBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getTreatmentEntriesBySession(input.sessionId);
+      }),
+
+    getTreatmentsByDiagnosis: protectedProcedure
+      .input(z.object({ diagnosisId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getTreatmentEntriesByDiagnosis(input.diagnosisId);
+      }),
+
+    updateTreatment: protectedProcedure
+      .input(z.object({
+        treatmentId: z.number(),
+        treatmentName: z.string().optional(),
+        dosage: z.string().optional(),
+        frequency: z.string().optional(),
+        instructions: z.string().optional(),
+        status: z.enum(['proposed', 'active', 'completed', 'discontinued']).optional(),
+        startDate: z.string().transform(str => new Date(str)).optional(),
+        endDate: z.string().transform(str => new Date(str)).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { treatmentId, ...updateData } = input;
+        await db.updateTreatmentEntry(treatmentId, updateData);
+        return { success: true };
+      }),
+
+    deleteTreatment: protectedProcedure
+      .input(z.object({ treatmentId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteTreatmentEntry(input.treatmentId);
+        return { success: true };
+      }),
+
+    // Clinical Observations
+    addObservation: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        observationType: z.string(),
+        observationValue: z.string(),
+        unit: z.string().optional(),
+        notes: z.string().optional(),
+        isAbnormal: z.boolean().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.createClinicalObservation(input);
+        return { success: true };
+      }),
+
+    getObservationsBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getClinicalObservationsBySession(input.sessionId);
+      }),
+
+    deleteObservation: protectedProcedure
+      .input(z.object({ observationId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteClinicalObservation(input.observationId);
+        return { success: true };
+      }),
+  }),
 });
 export type AppRouter = typeof appRouter;

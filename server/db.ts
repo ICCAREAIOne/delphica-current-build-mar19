@@ -41,7 +41,15 @@ import {
   providerProfiles,
   InsertProviderProfile,
   billingClaims,
-  InsertBillingClaim
+  InsertBillingClaim,
+  clinicalSessions,
+  InsertClinicalSession,
+  diagnosisEntries,
+  InsertDiagnosisEntry,
+  treatmentEntries,
+  InsertTreatmentEntry,
+  clinicalObservations,
+  InsertClinicalObservation
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -2497,4 +2505,188 @@ export async function generateClaimNumber(): Promise<string> {
   const sequenceNumber = String(todayClaims.length + 1).padStart(5, '0');
   
   return `CLM-${year}${month}${day}-${sequenceNumber}`;
+}
+
+
+// ============================================================================
+// DAO Protocol Interface - Clinical Sessions
+// ============================================================================
+
+export async function createClinicalSession(data: InsertClinicalSession) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(clinicalSessions).values(data);
+  return result;
+}
+
+export async function getClinicalSessionById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(clinicalSessions).where(eq(clinicalSessions.id, id));
+  return result[0] || null;
+}
+
+export async function getClinicalSessionsByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(clinicalSessions)
+    .where(eq(clinicalSessions.patientId, patientId))
+    .orderBy(desc(clinicalSessions.sessionDate));
+  return result;
+}
+
+export async function getClinicalSessionsByPhysician(physicianId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(clinicalSessions)
+    .where(eq(clinicalSessions.physicianId, physicianId))
+    .orderBy(desc(clinicalSessions.sessionDate));
+  return result;
+}
+
+export async function updateClinicalSession(id: number, data: Partial<InsertClinicalSession>) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.update(clinicalSessions)
+    .set(data)
+    .where(eq(clinicalSessions.id, id));
+  return result;
+}
+
+export async function completeClinicalSession(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.update(clinicalSessions)
+    .set({ status: 'completed', completedAt: new Date() })
+    .where(eq(clinicalSessions.id, id));
+  return result;
+}
+
+// ============================================================================
+// DAO Protocol Interface - Diagnosis Entries
+// ============================================================================
+
+export async function createDiagnosisEntry(data: InsertDiagnosisEntry) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(diagnosisEntries).values(data);
+  return result;
+}
+
+export async function getDiagnosisEntryById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(diagnosisEntries).where(eq(diagnosisEntries.id, id));
+  return result[0] || null;
+}
+
+export async function getDiagnosisEntriesBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(diagnosisEntries)
+    .where(eq(diagnosisEntries.sessionId, sessionId))
+    .orderBy(desc(diagnosisEntries.createdAt));
+  return result;
+}
+
+export async function updateDiagnosisEntry(id: number, data: Partial<InsertDiagnosisEntry>) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.update(diagnosisEntries)
+    .set(data)
+    .where(eq(diagnosisEntries.id, id));
+  return result;
+}
+
+export async function deleteDiagnosisEntry(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.delete(diagnosisEntries).where(eq(diagnosisEntries.id, id));
+  return result;
+}
+
+// ============================================================================
+// DAO Protocol Interface - Treatment Entries
+// ============================================================================
+
+export async function createTreatmentEntry(data: InsertTreatmentEntry) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(treatmentEntries).values(data);
+  return result;
+}
+
+export async function getTreatmentEntryById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(treatmentEntries).where(eq(treatmentEntries.id, id));
+  return result[0] || null;
+}
+
+export async function getTreatmentEntriesBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(treatmentEntries)
+    .where(eq(treatmentEntries.sessionId, sessionId))
+    .orderBy(desc(treatmentEntries.createdAt));
+  return result;
+}
+
+export async function getTreatmentEntriesByDiagnosis(diagnosisId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(treatmentEntries)
+    .where(eq(treatmentEntries.diagnosisId, diagnosisId))
+    .orderBy(desc(treatmentEntries.createdAt));
+  return result;
+}
+
+export async function updateTreatmentEntry(id: number, data: Partial<InsertTreatmentEntry>) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.update(treatmentEntries)
+    .set(data)
+    .where(eq(treatmentEntries.id, id));
+  return result;
+}
+
+export async function deleteTreatmentEntry(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.delete(treatmentEntries).where(eq(treatmentEntries.id, id));
+  return result;
+}
+
+// ============================================================================
+// DAO Protocol Interface - Clinical Observations
+// ============================================================================
+
+export async function createClinicalObservation(data: InsertClinicalObservation) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(clinicalObservations).values(data);
+  return result;
+}
+
+export async function getClinicalObservationById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(clinicalObservations).where(eq(clinicalObservations.id, id));
+  return result[0] || null;
+}
+
+export async function getClinicalObservationsBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(clinicalObservations)
+    .where(eq(clinicalObservations.sessionId, sessionId))
+    .orderBy(desc(clinicalObservations.observedAt));
+  return result;
+}
+
+export async function deleteClinicalObservation(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.delete(clinicalObservations).where(eq(clinicalObservations.id, id));
+  return result;
 }
