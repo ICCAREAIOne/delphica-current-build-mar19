@@ -2268,3 +2268,63 @@ export async function updateCodeAssignment(assignmentId: number, updates: {
 
   return true;
 }
+
+// Batch verify multiple code assignments
+export async function batchVerifyCodes(assignmentIds: number[], userId: number) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+
+  const { protocolMedicalCodes } = await import("../drizzle/schema");
+  const { inArray } = await import("drizzle-orm");
+
+  if (assignmentIds.length === 0) {
+    return { count: 0 };
+  }
+
+  await database
+    .update(protocolMedicalCodes)
+    .set({
+      verifiedBy: userId,
+      verifiedAt: new Date(),
+    })
+    .where(inArray(protocolMedicalCodes.id, assignmentIds));
+
+  return { count: assignmentIds.length };
+}
+
+// Batch remove multiple code assignments
+export async function batchRemoveCodes(assignmentIds: number[]) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+
+  const { protocolMedicalCodes } = await import("../drizzle/schema");
+  const { inArray } = await import("drizzle-orm");
+
+  if (assignmentIds.length === 0) {
+    return { count: 0 };
+  }
+
+  await database
+    .delete(protocolMedicalCodes)
+    .where(inArray(protocolMedicalCodes.id, assignmentIds));
+
+  return { count: assignmentIds.length };
+}
+
+// Verify all codes for a protocol delivery
+export async function verifyAllProtocolCodes(protocolDeliveryId: number, userId: number) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+
+  const { protocolMedicalCodes } = await import("../drizzle/schema");
+
+  const result = await database
+    .update(protocolMedicalCodes)
+    .set({
+      verifiedBy: userId,
+      verifiedAt: new Date(),
+    })
+    .where(eq(protocolMedicalCodes.protocolDeliveryId, protocolDeliveryId));
+
+  return { count: result[0]?.affectedRows || 0 };
+}

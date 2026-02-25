@@ -897,3 +897,19 @@
 - [x] Allow editing description, isPrimary status
 - [x] Add validation for code edits
 - [x] Test code editing for all code types (5/5 tests passing)
+
+
+## Batch Code Operations - Multi-Select
+- [x] Add batchVerifyCodes backend endpoint
+- [x] Add batchRemoveCodes backend endpoint
+- [x] Add multi-select state management to MedicalCodeReview
+- [x] Add checkbox to each code card
+- [x] Add "Select All" checkbox in header
+- [x] Create batch action toolbar (appears when codes selected)
+- [x] Add "Verify Selected" button to toolbar
+- [x] Add "Remove Selected" button to toolbar
+- [x] Show selected count in toolbar
+- [x] Add confirmation dialog for batch remove
+- [x] Test batch verification with multiple codes
+- [x] Test batch removal with multiple codes
+- [x] Test select all / deselect all functionality

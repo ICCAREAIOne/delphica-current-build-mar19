@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { inArray } from "drizzle-orm";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -2297,6 +2298,57 @@ export const appRouter = router({
         await db.updateCodeAssignment(assignmentId, updates);
         
         return { success: true };
+      }),
+
+    // Batch verify multiple codes
+    batchVerifyCodes: protectedProcedure
+      .input(z.object({
+        assignmentIds: z.array(z.number()),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const database = await db.getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
+        
+        const { protocolMedicalCodes } = await import('../drizzle/schema');
+        
+        const result = await database
+          .update(protocolMedicalCodes)
+          .set({ 
+            assignmentMethod: 'verified',
+            verifiedBy: ctx.user.id,
+            verifiedAt: new Date(),
+          })
+          .where(inArray(protocolMedicalCodes.id, input.assignmentIds));
+        
+        return { 
+          success: true,
+          count: input.assignmentIds.length,
+        };
+      }),
+
+    // Batch remove multiple codes
+    batchRemoveCodes: protectedProcedure
+      .input(z.object({
+        assignmentIds: z.array(z.number()),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        const database = await db.getDb();
+        if (!database) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
+        
+        const { protocolMedicalCodes } = await import('../drizzle/schema');
+        
+        await database
+          .delete(protocolMedicalCodes)
+          .where(inArray(protocolMedicalCodes.id, input.assignmentIds));
+        
+        return { 
+          success: true,
+          count: input.assignmentIds.length,
+        };
       }),
   }),
 
