@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, X, Plus, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Check, X, Plus, Search, AlertCircle, CheckCircle2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface MedicalCodeReviewProps {
@@ -22,6 +22,8 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
   const [selectedCodeType, setSelectedCodeType] = useState<'ICD10' | 'CPT' | 'SNOMED' | ''>('');
   const [isAddCodeDialogOpen, setIsAddCodeDialogOpen] = useState(false);
   const [newCode, setNewCode] = useState({ code: '', description: '', codeType: 'ICD10' as 'ICD10' | 'CPT' | 'SNOMED' });
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [codeToDelete, setCodeToDelete] = useState<{ id: number; code: string; description: string } | null>(null);
 
   // Fetch protocol codes
   const { data: protocolCodes, refetch: refetchCodes } = trpc.medicalCoding.getProtocolCodes.useQuery({
@@ -52,6 +54,19 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
     },
     onError: (error) => {
       toast({ title: 'Failed to verify code', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Remove code mutation
+  const removeCode = trpc.medicalCoding.removeCode.useMutation({
+    onSuccess: () => {
+      toast({ title: 'Code removed successfully' });
+      refetchCodes();
+      setDeleteConfirmOpen(false);
+      setCodeToDelete(null);
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to remove code', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -157,6 +172,17 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
                       Verify
                     </Button>
                   )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => {
+                      setCodeToDelete({ id: code.id, code: code.code || '', description: code.description || '' });
+                      setDeleteConfirmOpen(true);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -295,6 +321,38 @@ export function MedicalCodeReview({ protocolDeliveryId, carePlanId }: MedicalCod
             </Button>
             <Button onClick={handleAssignCode} disabled={assignCode.isPending}>
               Add Code
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Medical Code</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove this code? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {codeToDelete && (
+            <div className="p-4 border rounded-lg bg-muted/50">
+              <code className="text-lg font-mono font-semibold">{codeToDelete.code}</code>
+              <p className="text-sm text-muted-foreground mt-1">{codeToDelete.description}</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => codeToDelete && removeCode.mutateAsync({ assignmentId: codeToDelete.id })}
+              disabled={removeCode.isPending}
+            >
+              {removeCode.isPending ? 'Removing...' : 'Remove Code'}
             </Button>
           </DialogFooter>
         </DialogContent>

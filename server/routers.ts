@@ -2236,6 +2236,19 @@ export const appRouter = router({
         
         return { success: true };
       }),
+
+    // Remove code assignment
+    removeCode: protectedProcedure
+      .input(z.object({
+        assignmentId: z.number(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+        
+        await db.removeCodeAssignment(input.assignmentId);
+        
+        return { success: true };
+      }),
   }),
 
   // ============ Drug Interaction Checking ============

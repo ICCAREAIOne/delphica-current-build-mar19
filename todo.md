@@ -869,3 +869,13 @@
 - [x] Integrate medical coding UI into ProtocolManagement component
 - [x] Add "Review Codes" button to protocol delivery records
 - [x] Test complete code review and verification workflow (7/7 tests passing)
+
+
+## Code Removal Feature
+- [x] Add removeCodeAssignment database helper function
+- [x] Create removeCode tRPC endpoint with authorization
+- [x] Add delete button to each code card in MedicalCodeReview
+- [x] Implement confirmation dialog before code removal
+- [x] Add success/error toast notifications
+- [x] Test code removal with verified and unverified codes (3/3 tests passing)
+- [x] Verify removed codes no longer appear in UI

@@ -2218,3 +2218,13 @@ export async function incrementMappingUsage(mappingId: number) {
     })
     .where(eq(medicalCodeMappings.id, mappingId));
 }
+
+export async function removeCodeAssignment(assignmentId: number) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+
+  const { protocolMedicalCodes } = await import("../drizzle/schema");
+
+  await database.delete(protocolMedicalCodes).where(eq(protocolMedicalCodes.id, assignmentId));
+  return true;
+}
