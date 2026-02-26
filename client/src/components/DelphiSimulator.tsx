@@ -6,8 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, MessageSquare, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, MessageSquare, TrendingUp, CheckCircle2, AlertCircle, ThumbsUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { FeedbackRating } from './FeedbackRating';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface DelphiSimulatorProps {
   sessionId: number;
@@ -21,6 +25,29 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
   const [physicianMessage, setPhysicianMessage] = useState('');
   const [currentDay, setCurrentDay] = useState(1);
   const [activeTab, setActiveTab] = useState<'scenarios' | 'conversation' | 'outcomes' | 'comparison'>('scenarios');
+  
+  // Feedback state
+  const [showInteractionFeedback, setShowInteractionFeedback] = useState(false);
+  const [showOutcomeFeedback, setShowOutcomeFeedback] = useState(false);
+  const [selectedInteractionId, setSelectedInteractionId] = useState<number | null>(null);
+  const [selectedOutcomeId, setSelectedOutcomeId] = useState<number | null>(null);
+  const [interactionFeedback, setInteractionFeedback] = useState({
+    realismScore: 0,
+    clinicalAccuracy: 0,
+    conversationalQuality: 0,
+    comments: '',
+    issuesReported: [] as string[],
+  });
+  const [outcomeFeedback, setOutcomeFeedback] = useState({
+    accuracyScore: 0,
+    evidenceQuality: 0,
+    clinicalRelevance: 0,
+    actualOutcomeOccurred: '' as 'yes' | 'no' | 'partially' | 'unknown' | '',
+    actualProbability: '',
+    actualSeverity: '' as 'mild' | 'moderate' | 'severe' | 'critical' | '',
+    comments: '',
+    suggestedImprovements: '',
+  });
 
   // Generate scenarios
   const generateScenarios = trpc.delphiSimulator.generateScenarios.useMutation({
@@ -103,6 +130,45 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
     },
   });
 
+  // Submit interaction feedback
+  const submitInteractionFeedback = trpc.delphiSimulator.submitInteractionFeedback.useMutation({
+    onSuccess: () => {
+      toast.success('Feedback submitted successfully');
+      setShowInteractionFeedback(false);
+      setInteractionFeedback({
+        realismScore: 0,
+        clinicalAccuracy: 0,
+        conversationalQuality: 0,
+        comments: '',
+        issuesReported: [],
+      });
+    },
+    onError: (error) => {
+      toast.error(`Failed to submit feedback: ${error.message}`);
+    },
+  });
+
+  // Submit outcome feedback
+  const submitOutcomeFeedback = trpc.delphiSimulator.submitOutcomeFeedback.useMutation({
+    onSuccess: () => {
+      toast.success('Feedback submitted successfully');
+      setShowOutcomeFeedback(false);
+      setOutcomeFeedback({
+        accuracyScore: 0,
+        evidenceQuality: 0,
+        clinicalRelevance: 0,
+        actualOutcomeOccurred: '',
+        actualProbability: '',
+        actualSeverity: '',
+        comments: '',
+        suggestedImprovements: '',
+      });
+    },
+    onError: (error) => {
+      toast.error(`Failed to submit feedback: ${error.message}`);
+    },
+  });
+
   // Auto-generate scenarios on mount if none exist
   useEffect(() => {
     if (scenarios && scenarios.length === 0 && !generateScenarios.isPending) {
@@ -140,6 +206,51 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
       comparisonId,
       scenarioId,
       physicianNotes: 'Selected via Delphi Simulator',
+    });
+  };
+
+  const handleOpenInteractionFeedback = (interactionId: number) => {
+    setSelectedInteractionId(interactionId);
+    setShowInteractionFeedback(true);
+  };
+
+  const handleSubmitInteractionFeedback = () => {
+    if (!selectedInteractionId || !selectedScenarioId) return;
+    if (interactionFeedback.realismScore === 0 || interactionFeedback.clinicalAccuracy === 0 || interactionFeedback.conversationalQuality === 0) {
+      toast.error('Please provide all ratings');
+      return;
+    }
+    
+    submitInteractionFeedback.mutate({
+      interactionId: selectedInteractionId,
+      scenarioId: selectedScenarioId,
+      ...interactionFeedback,
+    });
+  };
+
+  const handleOpenOutcomeFeedback = (outcomeId: number) => {
+    setSelectedOutcomeId(outcomeId);
+    setShowOutcomeFeedback(true);
+  };
+
+  const handleSubmitOutcomeFeedback = () => {
+    if (!selectedOutcomeId || !selectedScenarioId) return;
+    if (outcomeFeedback.accuracyScore === 0 || outcomeFeedback.evidenceQuality === 0 || outcomeFeedback.clinicalRelevance === 0) {
+      toast.error('Please provide all ratings');
+      return;
+    }
+    
+    submitOutcomeFeedback.mutate({
+      outcomeId: selectedOutcomeId,
+      scenarioId: selectedScenarioId,
+      accuracyScore: outcomeFeedback.accuracyScore,
+      evidenceQuality: outcomeFeedback.evidenceQuality,
+      clinicalRelevance: outcomeFeedback.clinicalRelevance,
+      actualOutcomeOccurred: outcomeFeedback.actualOutcomeOccurred || undefined,
+      actualProbability: outcomeFeedback.actualProbability || undefined,
+      actualSeverity: outcomeFeedback.actualSeverity || undefined,
+      comments: outcomeFeedback.comments || undefined,
+      suggestedImprovements: outcomeFeedback.suggestedImprovements || undefined,
     });
   };
 
@@ -272,9 +383,21 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
                                   : 'bg-muted'
                               }`}
                             >
-                              <div className="text-xs font-semibold mb-1">
-                                {interaction.role === 'physician' ? 'You' : 'Patient'}
-                                {interaction.dayInSimulation && ` (Day ${interaction.dayInSimulation})`}
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="text-xs font-semibold">
+                                  {interaction.role === 'physician' ? 'You' : 'Patient'}
+                                  {interaction.dayInSimulation && ` (Day ${interaction.dayInSimulation})`}
+                                </div>
+                                {interaction.role === 'patient' && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 px-2"
+                                    onClick={() => handleOpenInteractionFeedback(interaction.id)}
+                                  >
+                                    <ThumbsUp className="h-3 w-3" />
+                                  </Button>
+                                )}
                               </div>
                               <div className="text-sm">{interaction.message}</div>
                             </div>
@@ -378,6 +501,15 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
                             Source: {outcome.evidenceSource}
                           </p>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full mt-3"
+                          onClick={() => handleOpenOutcomeFeedback(outcome.id)}
+                        >
+                          <ThumbsUp className="h-4 w-4 mr-2" />
+                          Rate Prediction
+                        </Button>
                       </CardContent>
                     </Card>
                   ))}
@@ -466,6 +598,152 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Interaction Feedback Dialog */}
+      <Dialog open={showInteractionFeedback} onOpenChange={setShowInteractionFeedback}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Rate Virtual Patient Interaction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <FeedbackRating
+              label="Realism Score"
+              value={interactionFeedback.realismScore}
+              onChange={(value) => setInteractionFeedback({ ...interactionFeedback, realismScore: value })}
+            />
+            <FeedbackRating
+              label="Clinical Accuracy"
+              value={interactionFeedback.clinicalAccuracy}
+              onChange={(value) => setInteractionFeedback({ ...interactionFeedback, clinicalAccuracy: value })}
+            />
+            <FeedbackRating
+              label="Conversational Quality"
+              value={interactionFeedback.conversationalQuality}
+              onChange={(value) => setInteractionFeedback({ ...interactionFeedback, conversationalQuality: value })}
+            />
+            <div className="space-y-2">
+              <Label htmlFor="interaction-comments">Comments (Optional)</Label>
+              <Textarea
+                id="interaction-comments"
+                placeholder="Share your thoughts on this interaction..."
+                value={interactionFeedback.comments}
+                onChange={(e) => setInteractionFeedback({ ...interactionFeedback, comments: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInteractionFeedback(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitInteractionFeedback} disabled={submitInteractionFeedback.isPending}>
+              {submitInteractionFeedback.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Feedback
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Outcome Feedback Dialog */}
+      <Dialog open={showOutcomeFeedback} onOpenChange={setShowOutcomeFeedback}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Rate Outcome Prediction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <FeedbackRating
+              label="Accuracy Score"
+              value={outcomeFeedback.accuracyScore}
+              onChange={(value) => setOutcomeFeedback({ ...outcomeFeedback, accuracyScore: value })}
+            />
+            <FeedbackRating
+              label="Evidence Quality"
+              value={outcomeFeedback.evidenceQuality}
+              onChange={(value) => setOutcomeFeedback({ ...outcomeFeedback, evidenceQuality: value })}
+            />
+            <FeedbackRating
+              label="Clinical Relevance"
+              value={outcomeFeedback.clinicalRelevance}
+              onChange={(value) => setOutcomeFeedback({ ...outcomeFeedback, clinicalRelevance: value })}
+            />
+            
+            <div className="border-t pt-4 space-y-4">
+              <h4 className="font-medium">Actual Outcome (If Known)</h4>
+              
+              <div className="space-y-2">
+                <Label htmlFor="actual-outcome">Did this outcome occur?</Label>
+                <Select
+                  value={outcomeFeedback.actualOutcomeOccurred}
+                  onValueChange={(value) => setOutcomeFeedback({ ...outcomeFeedback, actualOutcomeOccurred: value as any })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Yes</SelectItem>
+                    <SelectItem value="no">No</SelectItem>
+                    <SelectItem value="partially">Partially</SelectItem>
+                    <SelectItem value="unknown">Unknown</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {outcomeFeedback.actualOutcomeOccurred && outcomeFeedback.actualOutcomeOccurred !== 'unknown' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="actual-severity">Actual Severity</Label>
+                    <Select
+                      value={outcomeFeedback.actualSeverity}
+                      onValueChange={(value) => setOutcomeFeedback({ ...outcomeFeedback, actualSeverity: value as any })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mild">Mild</SelectItem>
+                        <SelectItem value="moderate">Moderate</SelectItem>
+                        <SelectItem value="severe">Severe</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="outcome-comments">Comments (Optional)</Label>
+              <Textarea
+                id="outcome-comments"
+                placeholder="Share your thoughts on this prediction..."
+                value={outcomeFeedback.comments}
+                onChange={(e) => setOutcomeFeedback({ ...outcomeFeedback, comments: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="suggested-improvements">Suggested Improvements (Optional)</Label>
+              <Textarea
+                id="suggested-improvements"
+                placeholder="How could this prediction be improved?"
+                value={outcomeFeedback.suggestedImprovements}
+                onChange={(e) => setOutcomeFeedback({ ...outcomeFeedback, suggestedImprovements: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOutcomeFeedback(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitOutcomeFeedback} disabled={submitOutcomeFeedback.isPending}>
+              {submitOutcomeFeedback.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Feedback
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

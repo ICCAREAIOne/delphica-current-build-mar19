@@ -1724,3 +1724,58 @@ export const scenarioComparisons = mysqlTable("scenario_comparisons", {
 
 export type ScenarioComparison = typeof scenarioComparisons.$inferSelect;
 export type InsertScenarioComparison = typeof scenarioComparisons.$inferInsert;
+
+/**
+ * Interaction Feedback - Physician ratings of virtual patient realism
+ */
+export const interactionFeedback = mysqlTable("interaction_feedback", {
+  id: int("id").autoincrement().primaryKey(),
+  interactionId: int("interactionId").notNull().references(() => scenarioInteractions.id),
+  scenarioId: int("scenarioId").notNull().references(() => simulationScenarios.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  
+  // Realism ratings (1-5 scale)
+  realismScore: int("realismScore").notNull(), // How realistic was the patient response?
+  clinicalAccuracy: int("clinicalAccuracy").notNull(), // How clinically accurate was the response?
+  conversationalQuality: int("conversationalQuality").notNull(), // How natural was the conversation?
+  
+  // Feedback details
+  comments: text("comments"), // Optional detailed feedback
+  issuesReported: json("issuesReported").$type<string[]>(), // Specific issues (e.g., "unrealistic symptoms", "wrong terminology")
+  
+  // Metadata
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type InteractionFeedback = typeof interactionFeedback.$inferSelect;
+export type InsertInteractionFeedback = typeof interactionFeedback.$inferInsert;
+
+/**
+ * Outcome Feedback - Physician ratings of outcome prediction accuracy
+ */
+export const outcomeFeedback = mysqlTable("outcome_feedback", {
+  id: int("id").autoincrement().primaryKey(),
+  outcomeId: int("outcomeId").notNull().references(() => scenarioOutcomes.id),
+  scenarioId: int("scenarioId").notNull().references(() => simulationScenarios.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  
+  // Accuracy ratings (1-5 scale)
+  accuracyScore: int("accuracyScore").notNull(), // How accurate was the outcome prediction?
+  evidenceQuality: int("evidenceQuality").notNull(), // How strong was the supporting evidence?
+  clinicalRelevance: int("clinicalRelevance").notNull(), // How relevant to actual practice?
+  
+  // Actual outcome (if known)
+  actualOutcomeOccurred: mysqlEnum("actualOutcomeOccurred", ["yes", "no", "partially", "unknown"]),
+  actualProbability: decimal("actualProbability", { precision: 5, scale: 2 }), // Actual probability if known
+  actualSeverity: mysqlEnum("actualSeverity", ["mild", "moderate", "severe", "critical"]),
+  
+  // Feedback details
+  comments: text("comments"),
+  suggestedImprovements: text("suggestedImprovements"),
+  
+  // Metadata
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type OutcomeFeedback = typeof outcomeFeedback.$inferSelect;
+export type InsertOutcomeFeedback = typeof outcomeFeedback.$inferInsert;

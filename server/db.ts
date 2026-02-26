@@ -71,7 +71,11 @@ import {
   scenarioOutcomes,
   InsertScenarioOutcome,
   scenarioComparisons,
-  InsertScenarioComparison
+  InsertScenarioComparison,
+  interactionFeedback,
+  InsertInteractionFeedback,
+  outcomeFeedback,
+  InsertOutcomeFeedback
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -3570,4 +3574,144 @@ export async function updateScenarioComparison(
     .update(scenarioComparisons)
     .set(updates)
     .where(eq(scenarioComparisons.id, comparisonId));
+}
+
+
+// ============================================================================
+// Delphi Simulator - Feedback System
+// ============================================================================
+
+/**
+ * Submit feedback for a virtual patient interaction
+ */
+export async function submitInteractionFeedback(data: InsertInteractionFeedback) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(interactionFeedback).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+/**
+ * Get feedback for a specific interaction
+ */
+export async function getInteractionFeedback(interactionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db
+    .select()
+    .from(interactionFeedback)
+    .where(eq(interactionFeedback.interactionId, interactionId));
+  
+  return result[0] || null;
+}
+
+/**
+ * Get all feedback for a scenario
+ */
+export async function getScenarioInteractionFeedback(scenarioId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(interactionFeedback)
+    .where(eq(interactionFeedback.scenarioId, scenarioId))
+    .orderBy(interactionFeedback.createdAt);
+}
+
+/**
+ * Submit feedback for an outcome prediction
+ */
+export async function submitOutcomeFeedback(data: InsertOutcomeFeedback) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(outcomeFeedback).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+/**
+ * Get feedback for a specific outcome
+ */
+export async function getOutcomeFeedback(outcomeId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db
+    .select()
+    .from(outcomeFeedback)
+    .where(eq(outcomeFeedback.outcomeId, outcomeId));
+  
+  return result[0] || null;
+}
+
+/**
+ * Get all feedback for scenario outcomes
+ */
+export async function getScenarioOutcomeFeedback(scenarioId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(outcomeFeedback)
+    .where(eq(outcomeFeedback.scenarioId, scenarioId))
+    .orderBy(outcomeFeedback.createdAt);
+}
+
+/**
+ * Get feedback analytics for continuous improvement
+ */
+export async function getFeedbackAnalytics(physicianId?: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  // Get interaction feedback stats
+  let interactionQuery = db.select().from(interactionFeedback);
+  if (physicianId) {
+    interactionQuery = interactionQuery.where(eq(interactionFeedback.physicianId, physicianId)) as any;
+  }
+  const interactionFeedbacks = await interactionQuery;
+  
+  // Get outcome feedback stats
+  let outcomeQuery = db.select().from(outcomeFeedback);
+  if (physicianId) {
+    outcomeQuery = outcomeQuery.where(eq(outcomeFeedback.physicianId, physicianId)) as any;
+  }
+  const outcomeFeedbacks = await outcomeQuery;
+  
+  // Calculate averages
+  const interactionStats = {
+    count: interactionFeedbacks.length,
+    avgRealismScore: interactionFeedbacks.length > 0
+      ? interactionFeedbacks.reduce((sum, f) => sum + f.realismScore, 0) / interactionFeedbacks.length
+      : 0,
+    avgClinicalAccuracy: interactionFeedbacks.length > 0
+      ? interactionFeedbacks.reduce((sum, f) => sum + f.clinicalAccuracy, 0) / interactionFeedbacks.length
+      : 0,
+    avgConversationalQuality: interactionFeedbacks.length > 0
+      ? interactionFeedbacks.reduce((sum, f) => sum + f.conversationalQuality, 0) / interactionFeedbacks.length
+      : 0,
+  };
+  
+  const outcomeStats = {
+    count: outcomeFeedbacks.length,
+    avgAccuracyScore: outcomeFeedbacks.length > 0
+      ? outcomeFeedbacks.reduce((sum, f) => sum + f.accuracyScore, 0) / outcomeFeedbacks.length
+      : 0,
+    avgEvidenceQuality: outcomeFeedbacks.length > 0
+      ? outcomeFeedbacks.reduce((sum, f) => sum + f.evidenceQuality, 0) / outcomeFeedbacks.length
+      : 0,
+    avgClinicalRelevance: outcomeFeedbacks.length > 0
+      ? outcomeFeedbacks.reduce((sum, f) => sum + f.clinicalRelevance, 0) / outcomeFeedbacks.length
+      : 0,
+  };
+  
+  return {
+    interactionStats,
+    outcomeStats,
+    totalFeedbackCount: interactionFeedbacks.length + outcomeFeedbacks.length,
+  };
 }

@@ -3812,6 +3812,87 @@ Provide a score (0-100) and reasoning for each scenario.`;
         const comparisons = await db.getScenarioComparisons(input.sessionId);
         return comparisons;
       }),
+
+    /**
+     * Submit feedback for a virtual patient interaction
+     */
+    submitInteractionFeedback: protectedProcedure
+      .input(z.object({
+        interactionId: z.number(),
+        scenarioId: z.number(),
+        realismScore: z.number().min(1).max(5),
+        clinicalAccuracy: z.number().min(1).max(5),
+        conversationalQuality: z.number().min(1).max(5),
+        comments: z.string().optional(),
+        issuesReported: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const feedbackId = await db.submitInteractionFeedback({
+          ...input,
+          physicianId: ctx.user.id,
+        });
+        return { success: true, feedbackId };
+      }),
+
+    /**
+     * Submit feedback for an outcome prediction
+     */
+    submitOutcomeFeedback: protectedProcedure
+      .input(z.object({
+        outcomeId: z.number(),
+        scenarioId: z.number(),
+        accuracyScore: z.number().min(1).max(5),
+        evidenceQuality: z.number().min(1).max(5),
+        clinicalRelevance: z.number().min(1).max(5),
+        actualOutcomeOccurred: z.enum(['yes', 'no', 'partially', 'unknown']).optional(),
+        actualProbability: z.string().optional(),
+        actualSeverity: z.enum(['mild', 'moderate', 'severe', 'critical']).optional(),
+        comments: z.string().optional(),
+        suggestedImprovements: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const feedbackId = await db.submitOutcomeFeedback({
+          ...input,
+          physicianId: ctx.user.id,
+        });
+        return { success: true, feedbackId };
+      }),
+
+    /**
+     * Get interaction feedback for a scenario
+     */
+    getInteractionFeedback: protectedProcedure
+      .input(z.object({
+        scenarioId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const feedback = await db.getScenarioInteractionFeedback(input.scenarioId);
+        return feedback;
+      }),
+
+    /**
+     * Get outcome feedback for a scenario
+     */
+    getOutcomeFeedback: protectedProcedure
+      .input(z.object({
+        scenarioId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const feedback = await db.getScenarioOutcomeFeedback(input.scenarioId);
+        return feedback;
+      }),
+
+    /**
+     * Get feedback analytics for continuous improvement
+     */
+    getFeedbackAnalytics: protectedProcedure
+      .input(z.object({
+        physicianId: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        const analytics = await db.getFeedbackAnalytics(input.physicianId);
+        return analytics;
+      }),
   }),
 
   /**

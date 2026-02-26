@@ -169,6 +169,13 @@
       "when": 1772070622328,
       "tag": "0023_oval_cerise",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1772070783309,
+      "tag": "0024_new_makkari",
+      "breakpoints": true
     }
   ]
 }
