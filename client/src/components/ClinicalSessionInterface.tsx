@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Pill, Activity, CheckCircle2, XCircle } from 'lucide-react';
 import { TreatmentRecommendations } from './TreatmentRecommendations';
+import { CollaborationPanel } from './CollaborationPanel';
+import { useAuth } from '@/_core/hooks/useAuth';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface ClinicalSessionInterfaceProps {
@@ -19,6 +21,7 @@ interface ClinicalSessionInterfaceProps {
 
 export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSessionInterfaceProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [showNewSessionDialog, setShowNewSessionDialog] = useState(false);
   const [showDiagnosisDialog, setShowDiagnosisDialog] = useState(false);
@@ -197,7 +200,9 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
 
       {/* Active Session Details */}
       {activeSession && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left column: Diagnoses and Treatments */}
+          <div className="lg:col-span-2 space-y-6">
           {/* Diagnoses */}
           <Card>
             <CardHeader>
@@ -287,18 +292,29 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
               )}
             </CardContent>
           </Card>
-        </div>
-      )}
-
-      {/* AI Treatment Recommendations */}
-      {activeSession && activeSessionId && (
-        <TreatmentRecommendations 
+          
+          {/* AI Treatment Recommendations */}
+          {activeSessionId && (
+            <TreatmentRecommendations 
           sessionId={activeSessionId} 
           onRecommendationAccepted={() => {
             refetchTreatments();
             refetchSession();
           }}
-        />
+            />
+          )}
+          </div>
+          
+          {/* Right column: Collaboration Panel */}
+          <div className="lg:col-span-1">
+            {user && activeSessionId && (
+              <CollaborationPanel 
+                sessionId={activeSessionId} 
+                currentUserId={user.id}
+              />
+            )}
+          </div>
+        </div>
       )}
 
       {/* Complete Session Button */}

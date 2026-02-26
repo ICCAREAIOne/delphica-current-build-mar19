@@ -976,3 +976,21 @@
 - [x] Implement accept/reject/modify controls
 - [x] Add feedback textarea for physician notes
 - [ ] Test recommendation display and interactions
+
+
+## Real-Time Collaboration Feature
+- [x] Design collaboration database schema (session_participants, session_comments, session_activity)
+- [x] Create database tables for collaboration
+- [x] Implement session participant tracking (join/leave/presence)
+- [x] Add collaborative commenting system
+- [x] Create activity feed for session changes
+- [x] Build tRPC procedures for collaboration operations (9 endpoints)
+- [x] Implement polling-based real-time updates
+- [x] Create presence indicator UI component
+- [x] Build collaborative comment thread UI
+- [x] Add activity feed display
+- [x] Integrate collaboration into ClinicalSessionInterface
+- [ ] Add "Invite Physician" functionality
+- [ ] Implement notification system for collaboration events
+- [ ] Write unit tests for collaboration features (10+ tests)
+- [ ] Test multi-physician workflows

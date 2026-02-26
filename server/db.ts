@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte, lt, sql } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, lt, gt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, 
@@ -48,6 +48,12 @@ import {
   InsertDiagnosisEntry,
   treatmentEntries,
   InsertTreatmentEntry,
+  sessionParticipants,
+  InsertSessionParticipant,
+  sessionComments,
+  InsertSessionComment,
+  sessionActivity,
+  InsertSessionActivity,
   treatmentRecommendations,
   InsertTreatmentRecommendation,
   causalAnalyses,
@@ -2862,4 +2868,210 @@ export async function updateEvidenceCacheUsage(queryHash: string) {
     })
     .where(eq(evidenceCache.queryHash, queryHash));
   return result;
+}
+
+
+// ============================================================================
+// COLLABORATION HELPERS
+// ============================================================================
+
+/**
+ * Add a physician to a clinical session as a participant
+ */
+export async function addSessionParticipant(data: InsertSessionParticipant) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const result = await dbConn.insert(sessionParticipants).values(data);
+  return result;
+}
+
+/**
+ * Get all active participants for a session
+ */
+export async function getSessionParticipants(sessionId: number) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const participants = await dbConn
+    .select({
+      id: sessionParticipants.id,
+      sessionId: sessionParticipants.sessionId,
+      physicianId: sessionParticipants.physicianId,
+      physicianName: users.name,
+      physicianEmail: users.email,
+      role: sessionParticipants.role,
+      joinedAt: sessionParticipants.joinedAt,
+      lastActiveAt: sessionParticipants.lastActiveAt,
+      leftAt: sessionParticipants.leftAt,
+      status: sessionParticipants.status,
+    })
+    .from(sessionParticipants)
+    .leftJoin(users, eq(sessionParticipants.physicianId, users.id))
+    .where(eq(sessionParticipants.sessionId, sessionId))
+    .orderBy(desc(sessionParticipants.joinedAt));
+  
+  return participants;
+}
+
+/**
+ * Update participant's last active timestamp (for presence tracking)
+ */
+export async function updateParticipantActivity(participantId: number) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const result = await dbConn
+    .update(sessionParticipants)
+    .set({ lastActiveAt: new Date() })
+    .where(eq(sessionParticipants.id, participantId));
+  
+  return result;
+}
+
+/**
+ * Mark a participant as having left the session
+ */
+export async function removeSessionParticipant(participantId: number) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const result = await dbConn
+    .update(sessionParticipants)
+    .set({ 
+      leftAt: new Date(),
+      status: 'inactive'
+    })
+    .where(eq(sessionParticipants.id, participantId));
+  
+  return result;
+}
+
+/**
+ * Add a comment to a clinical session
+ */
+export async function addSessionComment(data: InsertSessionComment) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const result = await dbConn.insert(sessionComments).values(data);
+  return result;
+}
+
+/**
+ * Get all comments for a session with physician details
+ */
+export async function getSessionComments(sessionId: number) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const comments = await dbConn
+    .select({
+      id: sessionComments.id,
+      sessionId: sessionComments.sessionId,
+      physicianId: sessionComments.physicianId,
+      physicianName: users.name,
+      commentText: sessionComments.commentText,
+      commentType: sessionComments.commentType,
+      replyToId: sessionComments.replyToId,
+      createdAt: sessionComments.createdAt,
+      updatedAt: sessionComments.updatedAt,
+      isEdited: sessionComments.isEdited,
+    })
+    .from(sessionComments)
+    .leftJoin(users, eq(sessionComments.physicianId, users.id))
+    .where(eq(sessionComments.sessionId, sessionId))
+    .orderBy(asc(sessionComments.createdAt));
+  
+  return comments;
+}
+
+/**
+ * Update a comment
+ */
+export async function updateSessionComment(commentId: number, commentText: string) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const result = await dbConn
+    .update(sessionComments)
+    .set({ 
+      commentText,
+      isEdited: true,
+      updatedAt: new Date()
+    })
+    .where(eq(sessionComments.id, commentId));
+  
+  return result;
+}
+
+/**
+ * Delete a comment
+ */
+export async function deleteSessionComment(commentId: number) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const result = await dbConn
+    .delete(sessionComments)
+    .where(eq(sessionComments.id, commentId));
+  
+  return result;
+}
+
+/**
+ * Log an activity event for a session
+ */
+export async function logSessionActivity(data: InsertSessionActivity) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const result = await dbConn.insert(sessionActivity).values(data);
+  return result;
+}
+
+/**
+ * Get recent activity for a session
+ */
+export async function getSessionActivity(sessionId: number, limit: number = 50) {
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  const activities = await dbConn
+    .select({
+      id: sessionActivity.id,
+      sessionId: sessionActivity.sessionId,
+      physicianId: sessionActivity.physicianId,
+      physicianName: users.name,
+      activityType: sessionActivity.activityType,
+      activityData: sessionActivity.activityData,
+      createdAt: sessionActivity.createdAt,
+    })
+    .from(sessionActivity)
+    .leftJoin(users, eq(sessionActivity.physicianId, users.id))
+    .where(eq(sessionActivity.sessionId, sessionId))
+    .orderBy(desc(sessionActivity.createdAt))
+    .limit(limit);
+  
+  return activities;
+}
+
+/**
+ * Get active participants (last active within 5 minutes)
+ */
+export async function getActiveParticipants(sessionId: number) {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error('Database not available');
+  
+  const participants = await dbConn
+    .select({
+      id: sessionParticipants.id,
+      physicianId: sessionParticipants.physicianId,
+      physicianName: users.name,
+      role: sessionParticipants.role,
+      lastActiveAt: sessionParticipants.lastActiveAt,
+    })
+    .from(sessionParticipants)
+    .leftJoin(users, eq(sessionParticipants.physicianId, users.id))
+    .where(
+      and(
+        eq(sessionParticipants.sessionId, sessionId),
+        eq(sessionParticipants.status, 'active'),
+        gt(sessionParticipants.lastActiveAt, fiveMinutesAgo)
+      )
+    )
+    .orderBy(desc(sessionParticipants.lastActiveAt));
+  
+  return participants;
 }

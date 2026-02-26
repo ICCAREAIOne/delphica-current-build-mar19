@@ -1554,3 +1554,54 @@ export const evidenceCache = mysqlTable("evidence_cache", {
 
 export type EvidenceCache = typeof evidenceCache.$inferSelect;
 export type InsertEvidenceCache = typeof evidenceCache.$inferInsert;
+
+
+/**
+ * Session Participants - Track physicians collaborating on clinical sessions
+ */
+export const sessionParticipants = mysqlTable("session_participants", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  role: mysqlEnum("role", ["owner", "consultant", "observer"]).default("consultant").notNull(),
+  joinedAt: timestamp("joinedAt").defaultNow().notNull(),
+  lastActiveAt: timestamp("lastActiveAt").defaultNow().notNull(),
+  leftAt: timestamp("leftAt"),
+  status: mysqlEnum("status", ["active", "inactive"]).default("active").notNull(),
+});
+
+export type SessionParticipant = typeof sessionParticipants.$inferSelect;
+export type InsertSessionParticipant = typeof sessionParticipants.$inferInsert;
+
+/**
+ * Session Comments - Collaborative discussion threads
+ */
+export const sessionComments = mysqlTable("session_comments", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  commentText: text("commentText").notNull(),
+  commentType: mysqlEnum("commentType", ["general", "diagnosis", "treatment", "recommendation"]).default("general").notNull(),
+  replyToId: int("replyToId"), // For threaded comments
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  isEdited: boolean("isEdited").default(false).notNull(),
+});
+
+export type SessionComment = typeof sessionComments.$inferSelect;
+export type InsertSessionComment = typeof sessionComments.$inferInsert;
+
+/**
+ * Session Activity - Track all changes for real-time updates
+ */
+export const sessionActivity = mysqlTable("session_activity", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  activityType: varchar("activityType", { length: 64 }).notNull(), // joined, left, added_diagnosis, added_treatment, commented, etc.
+  activityData: json("activityData"), // Flexible storage for activity-specific data
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SessionActivity = typeof sessionActivity.$inferSelect;
+export type InsertSessionActivity = typeof sessionActivity.$inferInsert;

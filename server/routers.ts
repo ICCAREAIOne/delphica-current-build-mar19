@@ -3156,5 +3156,186 @@ export const appRouter = router({
         return outcomes;
       }),
   }),
+
+  /**
+   * COLLABORATION ROUTER
+   * Real-time collaboration for multi-physician case consultations
+   */
+  collaboration: router({
+    /**
+     * Join a clinical session as a participant
+     */
+    joinSession: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        role: z.enum(['owner', 'consultant', 'observer']).default('consultant'),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const participantData = {
+          sessionId: input.sessionId,
+          physicianId: ctx.user.id,
+          role: input.role,
+          joinedAt: new Date(),
+          lastActiveAt: new Date(),
+          status: 'active' as const,
+        };
+        const result = await db.addSessionParticipant(participantData);
+        
+        // Log activity
+        await db.logSessionActivity({
+          sessionId: input.sessionId,
+          physicianId: ctx.user.id,
+          activityType: 'joined',
+          activityData: { role: input.role },
+          createdAt: new Date(),
+        });
+        
+        return result;
+      }),
+
+    /**
+     * Leave a clinical session
+     */
+    leaveSession: protectedProcedure
+      .input(z.object({
+        participantId: z.number(),
+        sessionId: z.number(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.removeSessionParticipant(input.participantId);
+        
+        // Log activity
+        await db.logSessionActivity({
+          sessionId: input.sessionId,
+          physicianId: ctx.user.id,
+          activityType: 'left',
+          activityData: {},
+          createdAt: new Date(),
+        });
+        
+        return result;
+      }),
+
+    /**
+     * Update participant activity (heartbeat for presence)
+     */
+    updatePresence: protectedProcedure
+      .input(z.object({
+        participantId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const result = await db.updateParticipantActivity(input.participantId);
+        return result;
+      }),
+
+    /**
+     * Get all participants for a session
+     */
+    getParticipants: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const participants = await db.getSessionParticipants(input.sessionId);
+        return participants;
+      }),
+
+    /**
+     * Get active participants (online now)
+     */
+    getActiveParticipants: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const participants = await db.getActiveParticipants(input.sessionId);
+        return participants;
+      }),
+
+    /**
+     * Add a comment to a session
+     */
+    addComment: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        commentText: z.string(),
+        commentType: z.enum(['general', 'diagnosis', 'treatment', 'recommendation']).default('general'),
+        replyToId: z.number().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const commentData = {
+          sessionId: input.sessionId,
+          physicianId: ctx.user.id,
+          commentText: input.commentText,
+          commentType: input.commentType,
+          replyToId: input.replyToId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isEdited: false,
+        };
+        const result = await db.addSessionComment(commentData);
+        
+        // Log activity
+        await db.logSessionActivity({
+          sessionId: input.sessionId,
+          physicianId: ctx.user.id,
+          activityType: 'commented',
+          activityData: { commentType: input.commentType },
+          createdAt: new Date(),
+        });
+        
+        return result;
+      }),
+
+    /**
+     * Get all comments for a session
+     */
+    getComments: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const comments = await db.getSessionComments(input.sessionId);
+        return comments;
+      }),
+
+    /**
+     * Update a comment
+     */
+    updateComment: protectedProcedure
+      .input(z.object({
+        commentId: z.number(),
+        commentText: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const result = await db.updateSessionComment(input.commentId, input.commentText);
+        return result;
+      }),
+
+    /**
+     * Delete a comment
+     */
+    deleteComment: protectedProcedure
+      .input(z.object({
+        commentId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const result = await db.deleteSessionComment(input.commentId);
+        return result;
+      }),
+
+    /**
+     * Get activity feed for a session
+     */
+    getActivity: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        limit: z.number().default(50),
+      }))
+      .query(async ({ input }) => {
+        const activities = await db.getSessionActivity(input.sessionId, input.limit);
+        return activities;
+      }),
+  }),
 });
 export type AppRouter = typeof appRouter;
