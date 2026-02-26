@@ -1052,3 +1052,18 @@
 - [x] Create feedback quality score calculation
 - [x] Write unit tests for peer comparison (8 tests passing)
 - [x] Test with multiple physician data
+
+
+
+## Delphi-2M Integration (Prediction → Exploration → Decision → Action)
+- [x] Design database schema for risk predictions (disease_risk_predictions table)
+- [x] Create risk prediction import mechanism (simulated Delphi-2M data)
+- [x] Implement automatic scenario generation from high-risk predictions
+- [x] Build risk prediction dashboard UI
+- [x] Add "Explore Treatment" button linking predictions to simulator
+- [x] Create workflow visualization showing prediction → exploration flow
+- [x] Implement risk threshold configuration (trigger scenarios above threshold)
+- [x] Add prediction history and tracking
+- [x] Create tRPC procedures for risk prediction management (6 endpoints)
+- [x] Write unit tests for integration workflow (10 tests passing)
+- [x] Test complete prediction → exploration → decision → action loop

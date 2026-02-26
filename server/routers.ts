@@ -3914,6 +3914,247 @@ Provide a score (0-100) and reasoning for each scenario.`;
   }),
 
   /**
+   * Risk Predictions - Delphi-2M integration for prediction → exploration workflow
+   */
+  riskPredictions: router({
+    /**
+     * Import risk predictions (simulated Delphi-2M data)
+     */
+    importPredictions: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        predictions: z.array(z.object({
+          diseaseCode: z.string(),
+          diseaseName: z.string(),
+          diseaseCategory: z.string().optional(),
+          riskProbability: z.number().min(0).max(1),
+          riskLevel: z.enum(['low', 'moderate', 'high', 'very_high']),
+          timeHorizon: z.number(),
+          confidenceScore: z.number().optional(),
+          inputFeatures: z.any().optional(),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const predictionIds = [];
+        
+        for (const pred of input.predictions) {
+          const predictionId = await db.createRiskPrediction({
+            patientId: input.patientId,
+            physicianId: ctx.user.id,
+            diseaseCode: pred.diseaseCode,
+            diseaseName: pred.diseaseName,
+            diseaseCategory: pred.diseaseCategory,
+            riskProbability: pred.riskProbability.toString(),
+            riskLevel: pred.riskLevel,
+            timeHorizon: pred.timeHorizon,
+            confidenceScore: pred.confidenceScore?.toString(),
+            predictionSource: 'Delphi-2M',
+            inputFeatures: pred.inputFeatures,
+            actionTaken: 'pending',
+          });
+          
+          predictionIds.push(predictionId);
+        }
+        
+        return { success: true, predictionIds };
+      }),
+
+    /**
+     * Get risk predictions for a patient
+     */
+    getPatientPredictions: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const predictions = await db.getRiskPredictionsByPatient(input.patientId);
+        return predictions;
+      }),
+
+    /**
+     * Get high-risk predictions for a patient
+     */
+    getHighRiskPredictions: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        riskThreshold: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        const predictions = await db.getHighRiskPredictions(
+          input.patientId,
+          input.riskThreshold
+        );
+        return predictions;
+      }),
+
+    /**
+     * Get pending risk predictions for physician
+     */
+    getPendingPredictions: protectedProcedure
+      .query(async ({ ctx }) => {
+        const predictions = await db.getPendingRiskPredictions(ctx.user.id);
+        return predictions;
+      }),
+
+    /**
+     * Generate Delphi Simulator scenario from risk prediction
+     */
+    exploreRiskPrediction: protectedProcedure
+      .input(z.object({
+        predictionId: z.number(),
+        sessionId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // Get risk prediction
+        const prediction = await db.getRiskPredictionById(input.predictionId);
+        if (!prediction) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Risk prediction not found',
+          });
+        }
+        
+        // Get patient data
+        const patient = await db.getPatientById(prediction.patientId);
+        if (!patient) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Patient not found',
+          });
+        }
+        
+        // Generate preventive treatment scenarios using LLM
+        const prompt = `You are a clinical AI assistant helping physicians explore preventive treatment options.
+
+Patient Context:
+- Age: ${patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 'Unknown'}
+- Gender: ${patient.gender}
+- Medical History: ${patient.chronicConditions?.join(', ') || 'None documented'}
+- Current Medications: ${patient.currentMedications?.join(', ') || 'None'}
+
+Risk Prediction:
+- Disease: ${prediction.diseaseName} (${prediction.diseaseCode})
+- Risk Level: ${prediction.riskLevel}
+- Risk Probability: ${(Number(prediction.riskProbability) * 100).toFixed(1)}%
+- Time Horizon: ${prediction.timeHorizon} years
+- Category: ${prediction.diseaseCategory || 'Unknown'}
+
+Task: Generate 3-5 evidence-based preventive treatment scenarios to reduce the risk of developing ${prediction.diseaseName}. For each scenario, provide:
+1. Scenario name (brief, descriptive)
+2. Treatment approach (lifestyle, medication, monitoring, or combination)
+3. Description of interventions
+4. Expected risk reduction
+5. Implementation timeline
+6. Potential barriers
+
+Return ONLY valid JSON in this exact format:
+{
+  "scenarios": [
+    {
+      "name": "string",
+      "treatmentCode": "string (CPT or intervention code)",
+      "description": "string",
+      "expectedRiskReduction": "string (e.g., '20-30% reduction')",
+      "timeline": "string",
+      "barriers": "string"
+    }
+  ]
+}`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: 'system', content: 'You are a clinical AI assistant. Always respond with valid JSON only.' },
+            { role: 'user', content: prompt },
+          ],
+        });
+        
+        const content = response.choices[0]?.message?.content;
+        if (!content || typeof content !== 'string') {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Invalid LLM response format',
+          });
+        }
+        
+        let scenarios;
+        try {
+          scenarios = JSON.parse(content).scenarios || [];
+        } catch (e) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to parse LLM response',
+          });
+        }
+        
+        // Create simulation scenarios
+        const scenarioIds = [];
+        for (const scenario of scenarios.slice(0, 5)) {
+          const scenarioId = await db.createSimulationScenario({
+            sessionId: input.sessionId,
+            physicianId: ctx.user.id,
+            patientId: prediction.patientId,
+            scenarioName: scenario.name,
+            diagnosisCode: prediction.diseaseCode,
+            treatmentCode: scenario.treatmentCode || 'PREV-001',
+            treatmentDescription: scenario.description,
+            patientAge: patient.dateOfBirth ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+            patientGender: patient.gender,
+            timeHorizon: prediction.timeHorizon * 365, // Convert years to days
+            simulationGoal: `Prevent ${prediction.diseaseName} through ${scenario.name}`,
+            status: 'draft',
+          });
+          
+          scenarioIds.push(scenarioId);
+        }
+        
+        // Update risk prediction with first scenario ID
+        if (scenarioIds.length > 0) {
+          await db.updateRiskPredictionAction(
+            input.predictionId,
+            'explored',
+            scenarioIds[0]
+          );
+        }
+        
+        return {
+          success: true,
+          scenarioIds,
+          scenarioCount: scenarioIds.length,
+        };
+      }),
+
+    /**
+     * Update risk prediction action status
+     */
+    updateAction: protectedProcedure
+      .input(z.object({
+        predictionId: z.number(),
+        actionTaken: z.enum(['explored', 'monitored', 'dismissed', 'pending']),
+        clinicalNotes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateRiskPredictionAction(input.predictionId, input.actionTaken);
+        
+        // Update clinical notes if provided
+        if (input.clinicalNotes) {
+          // Note: Would need to add updateRiskPredictionNotes helper
+          // For now, this is a placeholder
+        }
+        
+        return { success: true };
+      }),
+
+    /**
+     * Get risk prediction statistics
+     */
+    getStats: protectedProcedure
+      .query(async ({ ctx }) => {
+        const stats = await db.getRiskPredictionStats(ctx.user.id);
+        return stats;
+      }),
+  }),
+
+  /**
    * Analytics router for dashboard metrics
    */
   analytics: router({

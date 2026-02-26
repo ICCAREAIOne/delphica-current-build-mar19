@@ -75,7 +75,9 @@ import {
   interactionFeedback,
   InsertInteractionFeedback,
   outcomeFeedback,
-  InsertOutcomeFeedback
+  InsertOutcomeFeedback,
+  diseaseRiskPredictions,
+  InsertDiseaseRiskPrediction
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -2541,8 +2543,8 @@ export async function generateClaimNumber(): Promise<string> {
 export async function createClinicalSession(data: InsertClinicalSession) {
   const db = await getDb();
   if (!db) throw new Error('Database not initialized');
-  const result = await db.insert(clinicalSessions).values(data);
-  return result;
+  const result = await db.insert(clinicalSessions).values(data) as any;
+  return Number(result[0].insertId);
 }
 
 export async function getClinicalSessionById(id: number) {
@@ -3888,5 +3890,140 @@ export async function getFeedbackDistribution() {
       evidenceQuality: evidenceQualityDistribution,
       clinicalRelevance: clinicalRelevanceDistribution,
     },
+  };
+}
+
+
+// ============================================================================
+// Disease Risk Predictions (Delphi-2M Integration)
+// ============================================================================
+
+/**
+ * Create a new disease risk prediction
+ */
+export async function createRiskPrediction(data: InsertDiseaseRiskPrediction) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(diseaseRiskPredictions).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+/**
+ * Get risk predictions for a patient
+ */
+export async function getRiskPredictionsByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(diseaseRiskPredictions)
+    .where(eq(diseaseRiskPredictions.patientId, patientId))
+    .orderBy(desc(diseaseRiskPredictions.riskProbability));
+}
+
+/**
+ * Get high-risk predictions (above threshold) for a patient
+ */
+export async function getHighRiskPredictions(patientId: number, riskThreshold: number = 0.3) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(diseaseRiskPredictions)
+    .where(
+      and(
+        eq(diseaseRiskPredictions.patientId, patientId),
+        gte(diseaseRiskPredictions.riskProbability, riskThreshold.toString())
+      )
+    )
+    .orderBy(desc(diseaseRiskPredictions.riskProbability));
+}
+
+/**
+ * Get pending risk predictions (not yet explored)
+ */
+export async function getPendingRiskPredictions(physicianId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(diseaseRiskPredictions)
+    .where(
+      and(
+        eq(diseaseRiskPredictions.physicianId, physicianId),
+        eq(diseaseRiskPredictions.actionTaken, 'pending')
+      )
+    )
+    .orderBy(desc(diseaseRiskPredictions.riskProbability));
+}
+
+/**
+ * Update risk prediction action status
+ */
+export async function updateRiskPredictionAction(
+  predictionId: number,
+  actionTaken: 'explored' | 'monitored' | 'dismissed' | 'pending',
+  simulationId?: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const updateData: any = {
+    actionTaken,
+    reviewedAt: new Date(),
+  };
+  
+  if (simulationId) {
+    updateData.simulationId = simulationId;
+    updateData.scenarioGenerated = true;
+  }
+  
+  await db
+    .update(diseaseRiskPredictions)
+    .set(updateData)
+    .where(eq(diseaseRiskPredictions.id, predictionId));
+}
+
+/**
+ * Get risk prediction by ID
+ */
+export async function getRiskPredictionById(predictionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db
+    .select()
+    .from(diseaseRiskPredictions)
+    .where(eq(diseaseRiskPredictions.id, predictionId));
+  
+  return result[0] || null;
+}
+
+/**
+ * Get risk prediction statistics for a physician
+ */
+export async function getRiskPredictionStats(physicianId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const predictions = await db
+    .select()
+    .from(diseaseRiskPredictions)
+    .where(eq(diseaseRiskPredictions.physicianId, physicianId));
+  
+  const highRisk = predictions.filter((p: any) => p.riskLevel === 'high' || p.riskLevel === 'very_high');
+  const explored = predictions.filter((p: any) => p.actionTaken === 'explored');
+  const pending = predictions.filter((p: any) => p.actionTaken === 'pending');
+  
+  return {
+    totalPredictions: predictions.length,
+    highRiskCount: highRisk.length,
+    exploredCount: explored.length,
+    pendingCount: pending.length,
+    explorationRate: predictions.length > 0 ? (explored.length / predictions.length) * 100 : 0,
   };
 }

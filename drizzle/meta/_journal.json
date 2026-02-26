@@ -176,6 +176,13 @@
       "when": 1772070783309,
       "tag": "0024_new_makkari",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1772091485316,
+      "tag": "0025_zippy_hairball",
+      "breakpoints": true
     }
   ]
 }

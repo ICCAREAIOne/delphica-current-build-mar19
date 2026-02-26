@@ -1779,3 +1779,54 @@ export const outcomeFeedback = mysqlTable("outcome_feedback", {
 
 export type OutcomeFeedback = typeof outcomeFeedback.$inferSelect;
 export type InsertOutcomeFeedback = typeof outcomeFeedback.$inferInsert;
+
+
+/**
+ * Disease Risk Predictions - Delphi-2M integration for prediction → exploration workflow
+ */
+export const diseaseRiskPredictions = mysqlTable("disease_risk_predictions", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  physicianId: int("physicianId").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Disease information
+  diseaseCode: varchar("diseaseCode", { length: 50 }).notNull(), // ICD-10 code
+  diseaseName: varchar("diseaseName", { length: 255 }).notNull(),
+  diseaseCategory: varchar("diseaseCategory", { length: 100 }), // e.g., "Cardiovascular", "Cancer", "Metabolic"
+  
+  // Risk prediction data
+  riskProbability: decimal("riskProbability", { precision: 5, scale: 4 }).notNull(), // 0.0000 to 1.0000
+  riskLevel: mysqlEnum("riskLevel", ["low", "moderate", "high", "very_high"]).notNull(),
+  timeHorizon: int("timeHorizon").notNull(), // Years ahead (e.g., 5, 10, 20)
+  confidenceScore: decimal("confidenceScore", { precision: 5, scale: 4 }), // Model confidence
+  
+  // Source and context
+  predictionSource: varchar("predictionSource", { length: 100 }).default("Delphi-2M"), // "Delphi-2M", "Manual", "Other Model"
+  predictionDate: timestamp("predictionDate").defaultNow(),
+  inputFeatures: json("inputFeatures").$type<{
+    age?: number;
+    gender?: string;
+    bmi?: number;
+    tobaccoUse?: boolean;
+    alcoholConsumption?: string;
+    medicalHistory?: string[];
+    familyHistory?: string[];
+    lifestyleFactors?: string[];
+  }>(), // Medical history, lifestyle factors used for prediction
+  
+  // Clinical action tracking
+  actionTaken: mysqlEnum("actionTaken", ["explored", "monitored", "dismissed", "pending"]).default("pending"),
+  scenarioGenerated: boolean("scenarioGenerated").default(false).notNull(), // Whether Delphi Simulator scenario was created
+  simulationId: int("simulationId").references(() => simulationScenarios.id), // Link to generated scenario
+  
+  // Notes and follow-up
+  clinicalNotes: text("clinicalNotes"),
+  reviewedAt: timestamp("reviewedAt"),
+  nextReviewDate: date("nextReviewDate"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DiseaseRiskPrediction = typeof diseaseRiskPredictions.$inferSelect;
+export type InsertDiseaseRiskPrediction = typeof diseaseRiskPredictions.$inferInsert;
