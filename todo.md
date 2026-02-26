@@ -1011,3 +1011,19 @@
 - [x] Integrate dashboard into main navigation
 - [ ] Write unit tests for analytics queries (5+ tests)
 - [ ] Test dashboard with real data
+
+
+## Phase 4: Delphi Simulator
+- [x] Design Delphi Simulator architecture and scenario model
+- [x] Create simulation_scenarios database schema
+- [x] Create scenario_interactions and scenario_outcomes tables
+- [x] Implement LLM-powered patient simulation engine
+- [x] Build treatment scenario generator
+- [x] Add "what-if" analysis capabilities
+- [x] Create bidirectional Causal Brain integration
+- [x] Implement scenario comparison and ranking
+- [x] Build simulator UI with role-play interface
+- [ ] Add scenario history and replay functionality
+- [x] Create tRPC procedures for Delphi Simulator (9 endpoints)
+- [x] Write unit tests for simulator (12 tests passing)
+- [ ] Test with real clinical scenarios

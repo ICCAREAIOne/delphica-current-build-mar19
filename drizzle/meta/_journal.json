@@ -162,6 +162,13 @@
       "when": 1772068830538,
       "tag": "0022_cloudy_thor_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1772070622328,
+      "tag": "0023_oval_cerise",
+      "breakpoints": true
     }
   ]
 }

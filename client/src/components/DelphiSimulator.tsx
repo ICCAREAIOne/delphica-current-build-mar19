@@ -1,0 +1,471 @@
+import { useState, useEffect } from 'react';
+import { trpc } from '@/lib/trpc';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, MessageSquare, TrendingUp, CheckCircle2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface DelphiSimulatorProps {
+  sessionId: number;
+  diagnosisCode: string;
+  diagnosisName: string;
+  onClose: () => void;
+}
+
+export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClose }: DelphiSimulatorProps) {
+  const [selectedScenarioId, setSelectedScenarioId] = useState<number | null>(null);
+  const [physicianMessage, setPhysicianMessage] = useState('');
+  const [currentDay, setCurrentDay] = useState(1);
+  const [activeTab, setActiveTab] = useState<'scenarios' | 'conversation' | 'outcomes' | 'comparison'>('scenarios');
+
+  // Generate scenarios
+  const generateScenarios = trpc.delphiSimulator.generateScenarios.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Generated ${data.scenarioIds.length} treatment scenarios`);
+      refetchScenarios();
+    },
+    onError: (error) => {
+      toast.error(`Failed to generate scenarios: ${error.message}`);
+    },
+  });
+
+  // Get scenarios
+  const { data: scenarios, refetch: refetchScenarios } = trpc.delphiSimulator.getScenarios.useQuery(
+    { sessionId },
+    { enabled: true }
+  );
+
+  // Simulate patient response
+  const simulateResponse = trpc.delphiSimulator.simulatePatientResponse.useMutation({
+    onSuccess: () => {
+      setPhysicianMessage('');
+      refetchConversation();
+      toast.success('Patient responded');
+    },
+    onError: (error) => {
+      toast.error(`Failed to simulate response: ${error.message}`);
+    },
+  });
+
+  // Get conversation
+  const { data: conversation, refetch: refetchConversation } = trpc.delphiSimulator.getConversation.useQuery(
+    { scenarioId: selectedScenarioId! },
+    { enabled: !!selectedScenarioId }
+  );
+
+  // Predict outcomes
+  const predictOutcomes = trpc.delphiSimulator.predictOutcomes.useMutation({
+    onSuccess: () => {
+      toast.success('Outcomes predicted');
+      refetchOutcomes();
+    },
+    onError: (error) => {
+      toast.error(`Failed to predict outcomes: ${error.message}`);
+    },
+  });
+
+  // Get outcomes
+  const { data: outcomes, refetch: refetchOutcomes } = trpc.delphiSimulator.getOutcomes.useQuery(
+    { scenarioId: selectedScenarioId! },
+    { enabled: !!selectedScenarioId }
+  );
+
+  // Compare scenarios
+  const compareScenarios = trpc.delphiSimulator.compareScenarios.useMutation({
+    onSuccess: () => {
+      toast.success('Scenarios compared');
+      refetchComparisons();
+      setActiveTab('comparison');
+    },
+    onError: (error) => {
+      toast.error(`Failed to compare scenarios: ${error.message}`);
+    },
+  });
+
+  // Get comparisons
+  const { data: comparisons, refetch: refetchComparisons } = trpc.delphiSimulator.getComparisons.useQuery(
+    { sessionId },
+    { enabled: true }
+  );
+
+  // Select scenario
+  const selectScenario = trpc.delphiSimulator.selectScenario.useMutation({
+    onSuccess: () => {
+      toast.success('Scenario selected as treatment plan');
+      onClose();
+    },
+    onError: (error) => {
+      toast.error(`Failed to select scenario: ${error.message}`);
+    },
+  });
+
+  // Auto-generate scenarios on mount if none exist
+  useEffect(() => {
+    if (scenarios && scenarios.length === 0 && !generateScenarios.isPending) {
+      generateScenarios.mutate({ sessionId, diagnosisCode, numScenarios: 3 });
+    }
+  }, [scenarios]);
+
+  const handleSendMessage = () => {
+    if (!selectedScenarioId || !physicianMessage.trim()) return;
+    
+    simulateResponse.mutate({
+      scenarioId: selectedScenarioId,
+      physicianMessage: physicianMessage.trim(),
+      dayInSimulation: currentDay,
+    });
+  };
+
+  const handlePredictOutcomes = () => {
+    if (!selectedScenarioId) return;
+    predictOutcomes.mutate({ scenarioId: selectedScenarioId });
+  };
+
+  const handleCompareAll = () => {
+    if (!scenarios || scenarios.length < 2) {
+      toast.error('Need at least 2 scenarios to compare');
+      return;
+    }
+    
+    const scenarioIds = scenarios.map(s => s.id);
+    compareScenarios.mutate({ sessionId, scenarioIds });
+  };
+
+  const handleSelectScenario = (comparisonId: number, scenarioId: number) => {
+    selectScenario.mutate({
+      comparisonId,
+      scenarioId,
+      physicianNotes: 'Selected via Delphi Simulator',
+    });
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'mild': return 'bg-green-100 text-green-800 border-green-300';
+      case 'moderate': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'severe': return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'critical': return 'bg-red-100 text-red-800 border-red-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Delphi Simulator</h2>
+          <p className="text-sm text-muted-foreground">
+            Explore treatment scenarios for: {diagnosisName} ({diagnosisCode})
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {scenarios && scenarios.length >= 2 && (
+            <Button
+              onClick={handleCompareAll}
+              disabled={compareScenarios.isPending}
+              variant="outline"
+            >
+              {compareScenarios.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Compare All Scenarios
+            </Button>
+          )}
+          <Button onClick={onClose} variant="outline">Close</Button>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
+          <TabsTrigger value="conversation" disabled={!selectedScenarioId}>Conversation</TabsTrigger>
+          <TabsTrigger value="outcomes" disabled={!selectedScenarioId}>Outcomes</TabsTrigger>
+          <TabsTrigger value="comparison">Comparison</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="scenarios" className="space-y-4">
+          {generateScenarios.isPending && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Generating treatment scenarios...</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {scenarios && scenarios.length > 0 && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {scenarios.map((scenario) => (
+                <Card
+                  key={scenario.id}
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    selectedScenarioId === scenario.id ? 'ring-2 ring-primary' : ''
+                  }`}
+                  onClick={() => setSelectedScenarioId(scenario.id)}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="text-lg">{scenario.scenarioName}</CardTitle>
+                      <Badge variant={scenario.status === 'completed' ? 'default' : 'secondary'}>
+                        {scenario.status}
+                      </Badge>
+                    </div>
+                    <CardDescription>
+                      {scenario.treatmentCode}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm mb-3">{scenario.treatmentDescription}</p>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div>Time Horizon: {scenario.timeHorizon} days</div>
+                      <div>Goal: {scenario.simulationGoal}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {scenarios && scenarios.length === 0 && !generateScenarios.isPending && (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-muted-foreground mb-4">No scenarios generated yet</p>
+                <Button
+                  onClick={() => generateScenarios.mutate({ sessionId, diagnosisCode, numScenarios: 3 })}
+                >
+                  Generate Scenarios
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="conversation" className="space-y-4">
+          {selectedScenarioId && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Virtual Patient Conversation</CardTitle>
+                  <CardDescription>
+                    Day {currentDay} of treatment - Role-play with AI patient
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-4">
+                      {conversation && conversation.length > 0 ? (
+                        conversation.map((interaction, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex ${
+                              interaction.role === 'physician' ? 'justify-end' : 'justify-start'
+                            }`}
+                          >
+                            <div
+                              className={`max-w-[80%] rounded-lg p-3 ${
+                                interaction.role === 'physician'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted'
+                              }`}
+                            >
+                              <div className="text-xs font-semibold mb-1">
+                                {interaction.role === 'physician' ? 'You' : 'Patient'}
+                                {interaction.dayInSimulation && ` (Day ${interaction.dayInSimulation})`}
+                              </div>
+                              <div className="text-sm">{interaction.message}</div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center text-muted-foreground py-8">
+                          <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p>Start a conversation with the virtual patient</p>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+
+                  <div className="mt-4 space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCurrentDay(Math.max(1, currentDay - 1))}
+                      >
+                        Day {currentDay - 1}
+                      </Button>
+                      <Button size="sm" variant="outline" disabled>
+                        Day {currentDay}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCurrentDay(currentDay + 1)}
+                      >
+                        Day {currentDay + 1}
+                      </Button>
+                    </div>
+                    <Textarea
+                      placeholder="Ask the patient a question or describe an action..."
+                      value={physicianMessage}
+                      onChange={(e) => setPhysicianMessage(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!physicianMessage.trim() || simulateResponse.isPending}
+                        className="flex-1"
+                      >
+                        {simulateResponse.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Send Message
+                      </Button>
+                      <Button
+                        onClick={handlePredictOutcomes}
+                        disabled={predictOutcomes.isPending}
+                        variant="outline"
+                      >
+                        {predictOutcomes.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Predict Outcomes
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="outcomes" className="space-y-4">
+          {selectedScenarioId && (
+            <>
+              {outcomes && outcomes.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {outcomes.map((outcome, idx) => (
+                    <Card key={idx}>
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-base">{outcome.outcomeType}</CardTitle>
+                          <Badge className={getSeverityColor(outcome.severity || 'mild')}>
+                            {outcome.severity}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Probability</span>
+                          <span className="font-semibold">{outcome.probability}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Expected Day</span>
+                          <span className="font-semibold">Day {outcome.expectedDay}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Confidence</span>
+                          <span className="font-semibold">{outcome.confidenceScore}%</span>
+                        </div>
+                        {outcome.description && (
+                          <p className="text-sm text-muted-foreground border-t pt-3">
+                            {outcome.description}
+                          </p>
+                        )}
+                        {outcome.evidenceSource && (
+                          <p className="text-xs text-muted-foreground">
+                            Source: {outcome.evidenceSource}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-muted-foreground mb-4">No outcomes predicted yet</p>
+                    <Button
+                      onClick={handlePredictOutcomes}
+                      disabled={predictOutcomes.isPending}
+                    >
+                      {predictOutcomes.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Predict Outcomes
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="comparison" className="space-y-4">
+          {comparisons && comparisons.length > 0 ? (
+            comparisons.map((comparison, idx) => (
+              <Card key={idx}>
+                <CardHeader>
+                  <CardTitle>Scenario Comparison</CardTitle>
+                  <CardDescription>
+                    {new Date(comparison.createdAt).toLocaleString()}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {comparison.ranking && Array.isArray(comparison.ranking) && comparison.ranking.map((rank: any, rankIdx: number) => {
+                      const scenario = scenarios?.find(s => s.id === rank.scenarioId);
+                      return (
+                        <div
+                          key={rankIdx}
+                          className="border rounded-lg p-4 space-y-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">#{rankIdx + 1}</Badge>
+                              <span className="font-semibold">{scenario?.scenarioName}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold">Score: {rank.score}/100</span>
+                              {comparison.selectedScenarioId === rank.scenarioId && (
+                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{rank.reasoning}</p>
+                          {!comparison.selectedScenarioId && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSelectScenario(comparison.id, rank.scenarioId)}
+                              disabled={selectScenario.isPending}
+                            >
+                              Select This Scenario
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <AlertCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p className="text-muted-foreground mb-4">No comparisons yet</p>
+                <Button
+                  onClick={handleCompareAll}
+                  disabled={!scenarios || scenarios.length < 2 || compareScenarios.isPending}
+                >
+                  {compareScenarios.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Compare Scenarios
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

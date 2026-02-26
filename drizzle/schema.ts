@@ -1605,3 +1605,122 @@ export const sessionActivity = mysqlTable("session_activity", {
 
 export type SessionActivity = typeof sessionActivity.$inferSelect;
 export type InsertSessionActivity = typeof sessionActivity.$inferInsert;
+
+
+/**
+ * Delphi Simulator - Treatment Scenario Exploration
+ */
+
+/**
+ * Simulation Scenarios - Treatment scenarios for exploration
+ */
+export const simulationScenarios = mysqlTable("simulation_scenarios", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  
+  // Scenario definition
+  scenarioName: varchar("scenarioName", { length: 255 }).notNull(),
+  diagnosisCode: varchar("diagnosisCode", { length: 16 }).notNull(), // ICD-10
+  treatmentCode: varchar("treatmentCode", { length: 16 }).notNull(), // CPT or treatment ID
+  treatmentDescription: text("treatmentDescription").notNull(),
+  
+  // Patient context for simulation
+  patientAge: int("patientAge"),
+  patientGender: varchar("patientGender", { length: 16 }),
+  comorbidities: json("comorbidities").$type<string[]>(),
+  currentMedications: json("currentMedications").$type<string[]>(),
+  allergies: json("allergies").$type<string[]>(),
+  
+  // Simulation parameters
+  timeHorizon: int("timeHorizon"), // Days to simulate
+  simulationGoal: varchar("simulationGoal", { length: 255 }), // What we're testing
+  
+  // Status
+  status: mysqlEnum("status", ["draft", "running", "completed", "archived"]).default("draft"),
+  
+  // Metadata
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+});
+
+export type SimulationScenario = typeof simulationScenarios.$inferSelect;
+export type InsertSimulationScenario = typeof simulationScenarios.$inferInsert;
+
+/**
+ * Scenario Interactions - Conversational role-play between physician and virtual patient
+ */
+export const scenarioInteractions = mysqlTable("scenario_interactions", {
+  id: int("id").autoincrement().primaryKey(),
+  scenarioId: int("scenarioId").notNull().references(() => simulationScenarios.id),
+  
+  // Interaction details
+  role: mysqlEnum("role", ["physician", "patient", "system"]).notNull(),
+  message: text("message").notNull(),
+  
+  // Context
+  dayInSimulation: int("dayInSimulation"), // Which day of treatment
+  interactionType: varchar("interactionType", { length: 64 }), // question, response, observation, etc.
+  
+  // Metadata
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScenarioInteraction = typeof scenarioInteractions.$inferSelect;
+export type InsertScenarioInteraction = typeof scenarioInteractions.$inferInsert;
+
+/**
+ * Scenario Outcomes - Predicted outcomes for each scenario
+ */
+export const scenarioOutcomes = mysqlTable("scenario_outcomes", {
+  id: int("id").autoincrement().primaryKey(),
+  scenarioId: int("scenarioId").notNull().references(() => simulationScenarios.id),
+  
+  // Outcome prediction
+  outcomeType: varchar("outcomeType", { length: 128 }).notNull(), // symptom_improvement, adverse_event, etc.
+  probability: decimal("probability", { precision: 5, scale: 2 }).notNull(), // 0-100%
+  severity: mysqlEnum("severity", ["mild", "moderate", "severe", "critical"]),
+  
+  // Timing
+  expectedDay: int("expectedDay"), // When this outcome is expected
+  duration: int("duration"), // How long it lasts (days)
+  
+  // Evidence
+  evidenceSource: varchar("evidenceSource", { length: 255 }), // Where this prediction comes from
+  confidenceScore: decimal("confidenceScore", { precision: 5, scale: 2 }), // 0-100%
+  
+  // Details
+  description: text("description"),
+  
+  // Metadata
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScenarioOutcome = typeof scenarioOutcomes.$inferSelect;
+export type InsertScenarioOutcome = typeof scenarioOutcomes.$inferInsert;
+
+/**
+ * Scenario Comparisons - Side-by-side analysis of multiple scenarios
+ */
+export const scenarioComparisons = mysqlTable("scenario_comparisons", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  physicianId: int("physicianId").notNull().references(() => users.id),
+  
+  // Scenarios being compared
+  scenarioIds: json("scenarioIds").$type<number[]>().notNull(),
+  
+  // Comparison results
+  ranking: json("ranking").$type<{scenarioId: number, score: number, reasoning: string}[]>(),
+  selectedScenarioId: int("selectedScenarioId").references(() => simulationScenarios.id),
+  
+  // Physician feedback
+  physicianNotes: text("physicianNotes"),
+  
+  // Metadata
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScenarioComparison = typeof scenarioComparisons.$inferSelect;
+export type InsertScenarioComparison = typeof scenarioComparisons.$inferInsert;

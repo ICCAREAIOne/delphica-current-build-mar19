@@ -63,7 +63,15 @@ import {
   evidenceCache,
   InsertEvidenceCache,
   clinicalObservations,
-  InsertClinicalObservation
+  InsertClinicalObservation,
+  simulationScenarios,
+  InsertSimulationScenario,
+  scenarioInteractions,
+  InsertScenarioInteraction,
+  scenarioOutcomes,
+  InsertScenarioOutcome,
+  scenarioComparisons,
+  InsertScenarioComparison
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -189,7 +197,7 @@ export async function createPatient(patient: InsertPatient) {
   if (!db) throw new Error("Database not available");
 
   const result = await db.insert(patients).values(patient) as any;
-  return Number(result.insertId);
+  return Number(result[0].insertId);
 }
 
 export async function updatePatient(id: number, updates: Partial<InsertPatient>) {
@@ -3409,4 +3417,157 @@ export async function getCollaborationTrends(params: {
     participants: stats.participants,
     activeSessions: stats.sessions.size,
   }));
+}
+
+// ============ Delphi Simulator ============
+
+/**
+ * Create a new simulation scenario
+ */
+export async function createSimulationScenario(scenario: InsertSimulationScenario) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(simulationScenarios).values(scenario);
+  return result[0].insertId;
+}
+
+/**
+ * Get simulation scenarios for a clinical session
+ */
+export async function getScenariosBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(simulationScenarios)
+    .where(eq(simulationScenarios.sessionId, sessionId))
+    .orderBy(desc(simulationScenarios.createdAt));
+}
+
+/**
+ * Get a single scenario by ID
+ */
+export async function getScenarioById(scenarioId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const results = await db
+    .select()
+    .from(simulationScenarios)
+    .where(eq(simulationScenarios.id, scenarioId))
+    .limit(1);
+  
+  return results[0] || null;
+}
+
+/**
+ * Update scenario status
+ */
+export async function updateScenarioStatus(scenarioId: number, status: 'draft' | 'running' | 'completed' | 'archived') {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  await db
+    .update(simulationScenarios)
+    .set({ 
+      status,
+      completedAt: status === 'completed' ? new Date() : undefined
+    })
+    .where(eq(simulationScenarios.id, scenarioId));
+}
+
+/**
+ * Add an interaction to a scenario
+ */
+export async function addScenarioInteraction(interaction: InsertScenarioInteraction) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(scenarioInteractions).values(interaction);
+  return result[0].insertId;
+}
+
+/**
+ * Get all interactions for a scenario
+ */
+export async function getScenarioInteractions(scenarioId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(scenarioInteractions)
+    .where(eq(scenarioInteractions.scenarioId, scenarioId))
+    .orderBy(asc(scenarioInteractions.createdAt));
+}
+
+/**
+ * Add predicted outcomes for a scenario
+ */
+export async function addScenarioOutcome(outcome: InsertScenarioOutcome) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(scenarioOutcomes).values(outcome);
+  return result[0].insertId;
+}
+
+/**
+ * Get all outcomes for a scenario
+ */
+export async function getScenarioOutcomes(scenarioId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(scenarioOutcomes)
+    .where(eq(scenarioOutcomes.scenarioId, scenarioId))
+    .orderBy(desc(scenarioOutcomes.probability));
+}
+
+/**
+ * Create a scenario comparison
+ */
+export async function createScenarioComparison(comparison: InsertScenarioComparison) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(scenarioComparisons).values(comparison);
+  return result[0].insertId;
+}
+
+/**
+ * Get scenario comparisons for a session
+ */
+export async function getScenarioComparisons(sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(scenarioComparisons)
+    .where(eq(scenarioComparisons.sessionId, sessionId))
+    .orderBy(desc(scenarioComparisons.createdAt));
+}
+
+/**
+ * Update scenario comparison with selection
+ */
+export async function updateScenarioComparison(
+  comparisonId: number,
+  updates: {
+    selectedScenarioId?: number;
+    physicianNotes?: string;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  await db
+    .update(scenarioComparisons)
+    .set(updates)
+    .where(eq(scenarioComparisons.id, comparisonId));
 }

@@ -12,6 +12,7 @@ import * as qaAnalytics from "./qaAnalytics";
 import { patientAvatarService } from "./patientAvatarService";
 import { labParsingService } from "./labParsingService";
 import { storagePut } from "./storage";
+import { invokeLLM } from "./_core/llm";
 
 export const appRouter = router({
   system: systemRouter,
@@ -3335,6 +3336,481 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const activities = await db.getSessionActivity(input.sessionId, input.limit);
         return activities;
+      }),
+  }),
+
+  /**
+   * Delphi Simulator - Treatment scenario exploration with LLM-powered patient simulation
+   */
+  delphiSimulator: router({    
+    /**
+     * Generate treatment scenarios for a clinical session
+     */
+    generateScenarios: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        diagnosisCode: z.string(),
+        numScenarios: z.number().default(3),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Get session and patient data
+        const session = await db.getClinicalSessionById(input.sessionId);
+        if (!session) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' });
+        }
+
+        const patient = await db.getPatientById(session.patientId);
+        if (!patient) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+        }
+
+        // Get diagnoses for context
+        const diagnoses = await db.getDiagnosisEntriesBySession(input.sessionId);
+        const primaryDiagnosis = diagnoses.find(d => d.diagnosisCode === input.diagnosisCode);
+        if (!primaryDiagnosis) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Diagnosis not found' });
+        }
+
+        // Get treatment recommendations from Causal Brain
+        const recommendations = await db.getTreatmentRecommendationsBySession(input.sessionId);
+
+        // Generate scenarios using LLM
+        const scenarioPrompt = `You are a medical AI assistant helping physicians explore treatment scenarios.
+
+Patient Context:
+- Age: ${Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} years
+- Gender: ${patient.gender}
+- Allergies: ${patient.allergies?.join(', ') || 'None'}
+- Chronic Conditions: ${patient.chronicConditions?.join(', ') || 'None'}
+- Current Medications: ${patient.currentMedications?.join(', ') || 'None'}
+
+Diagnosis:
+- Code: ${primaryDiagnosis.diagnosisCode}
+- Description: ${primaryDiagnosis.diagnosisName}
+- Severity: ${primaryDiagnosis.severity}
+- Symptoms: ${primaryDiagnosis.symptoms?.join(', ')}
+
+Generate ${input.numScenarios} distinct treatment scenarios for this diagnosis. Each scenario should:
+1. Use a different treatment approach (medication, procedure, lifestyle intervention, combination)
+2. Include specific treatment details (drug names, dosages, procedures)
+3. Consider patient-specific factors (age, comorbidities, allergies)
+4. Provide realistic time horizons (7-90 days)
+
+Return scenarios as a JSON array.`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: 'system', content: 'You are a medical AI assistant specializing in treatment planning.' },
+            { role: 'user', content: scenarioPrompt }
+          ],
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'treatment_scenarios',
+              strict: true,
+              schema: {
+                type: 'object',
+                properties: {
+                  scenarios: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string' },
+                        treatmentCode: { type: 'string' },
+                        treatmentDescription: { type: 'string' },
+                        timeHorizon: { type: 'number' },
+                        goal: { type: 'string' },
+                      },
+                      required: ['name', 'treatmentCode', 'treatmentDescription', 'timeHorizon', 'goal'],
+                      additionalProperties: false
+                    }
+                  }
+                },
+                required: ['scenarios'],
+                additionalProperties: false
+              }
+            }
+          }
+        });
+
+        const content = response.choices[0].message.content;
+        const result = JSON.parse(typeof content === 'string' ? content : '{}');
+        const scenarios = result.scenarios || [];
+
+        // Create scenario records in database
+        const scenarioIds = [];
+        for (const scenario of scenarios) {
+          const scenarioId = await db.createSimulationScenario({
+            sessionId: input.sessionId,
+            physicianId: ctx.user.id,
+            patientId: patient.id,
+            scenarioName: scenario.name,
+            diagnosisCode: input.diagnosisCode,
+            treatmentCode: scenario.treatmentCode,
+            treatmentDescription: scenario.treatmentDescription,
+            patientAge: Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)),
+            patientGender: patient.gender,
+            comorbidities: patient.chronicConditions || [],
+            currentMedications: patient.currentMedications || [],
+            allergies: patient.allergies || [],
+            timeHorizon: scenario.timeHorizon,
+            simulationGoal: scenario.goal,
+            status: 'draft',
+          });
+          scenarioIds.push(scenarioId);
+        }
+
+        return { scenarioIds, scenarios };
+      }),
+
+    /**
+     * Get scenarios for a session
+     */
+    getScenarios: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const scenarios = await db.getScenariosBySession(input.sessionId);
+        return scenarios;
+      }),
+
+    /**
+     * Simulate patient response to physician's question/action
+     */
+    simulatePatientResponse: protectedProcedure
+      .input(z.object({
+        scenarioId: z.number(),
+        physicianMessage: z.string(),
+        dayInSimulation: z.number().default(1),
+      }))
+      .mutation(async ({ input }) => {
+        // Get scenario details
+        const scenario = await db.getScenarioById(input.scenarioId);
+        if (!scenario) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Scenario not found' });
+        }
+
+        // Get patient details
+        const patient = await db.getPatientById(scenario.patientId);
+        if (!patient) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+        }
+
+        // Get conversation history
+        const interactions = await db.getScenarioInteractions(input.scenarioId);
+        const conversationHistory = interactions.map(i => ({
+          role: i.role === 'physician' ? ('user' as const) : ('assistant' as const),
+          content: i.message
+        }));
+
+        // Generate patient response using LLM
+        const systemPrompt = `You are simulating a virtual patient in a medical scenario exploration.
+
+Patient Profile:
+- Age: ${scenario.patientAge} years
+- Gender: ${scenario.patientGender}
+- Diagnosis: ${scenario.diagnosisCode}
+- Treatment: ${scenario.treatmentDescription}
+- Allergies: ${scenario.allergies?.join(', ') || 'None'}
+- Chronic Conditions: ${scenario.comorbidities?.join(', ') || 'None'}
+- Current Medications: ${scenario.currentMedications?.join(', ') || 'None'}
+
+Simulation Context:
+- Day ${input.dayInSimulation} of treatment (out of ${scenario.timeHorizon} days)
+- Goal: ${scenario.simulationGoal}
+
+You are role-playing as this patient. Respond naturally to the physician's questions and actions.
+Be realistic about symptoms, side effects, and treatment adherence.
+If the physician asks about symptoms, describe them based on typical progression for this treatment.
+If asked about medication adherence, be honest (patients sometimes forget or skip doses).
+Show appropriate emotional responses (concern, relief, frustration) based on the situation.`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...conversationHistory,
+            { role: 'user', content: input.physicianMessage }
+          ]
+        });
+
+        const responseContent = response.choices[0].message.content;
+        const patientResponse = typeof responseContent === 'string' ? responseContent : '';
+
+        // Save interactions
+        await db.addScenarioInteraction({
+          scenarioId: input.scenarioId,
+          role: 'physician',
+          message: input.physicianMessage,
+          dayInSimulation: input.dayInSimulation,
+          interactionType: 'question',
+        });
+
+        await db.addScenarioInteraction({
+          scenarioId: input.scenarioId,
+          role: 'patient',
+          message: patientResponse,
+          dayInSimulation: input.dayInSimulation,
+          interactionType: 'response',
+        });
+
+        // Update scenario status
+        await db.updateScenarioStatus(input.scenarioId, 'running');
+
+        return { patientResponse };
+      }),
+
+    /**
+     * Get conversation history for a scenario
+     */
+    getConversation: protectedProcedure
+      .input(z.object({
+        scenarioId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const interactions = await db.getScenarioInteractions(input.scenarioId);
+        return interactions;
+      }),
+
+    /**
+     * Predict outcomes for a scenario
+     */
+    predictOutcomes: protectedProcedure
+      .input(z.object({
+        scenarioId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        // Get scenario details
+        const scenario = await db.getScenarioById(input.scenarioId);
+        if (!scenario) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Scenario not found' });
+        }
+
+        // Get conversation history for context
+        const interactions = await db.getScenarioInteractions(input.scenarioId);
+
+        // Generate outcome predictions using LLM
+        const outcomePrompt = `Based on this treatment scenario, predict likely outcomes:
+
+Treatment: ${scenario.treatmentDescription}
+Patient Age: ${scenario.patientAge}
+Gender: ${scenario.patientGender}
+Comorbidities: ${scenario.comorbidities?.join(', ') || 'None'}
+Time Horizon: ${scenario.timeHorizon} days
+
+Conversation Summary:
+${interactions.slice(-5).map(i => `${i.role}: ${i.message}`).join('\n')}
+
+Predict 3-5 possible outcomes with:
+1. Outcome type (symptom_improvement, adverse_event, treatment_success, etc.)
+2. Probability (0-100%)
+3. Severity (mild, moderate, severe, critical)
+4. Expected day when this might occur
+5. Evidence source or reasoning
+6. Confidence score (0-100%)`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: 'system', content: 'You are a medical AI assistant predicting treatment outcomes based on evidence.' },
+            { role: 'user', content: outcomePrompt }
+          ],
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'outcome_predictions',
+              strict: true,
+              schema: {
+                type: 'object',
+                properties: {
+                  outcomes: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        outcomeType: { type: 'string' },
+                        probability: { type: 'number' },
+                        severity: { type: 'string', enum: ['mild', 'moderate', 'severe', 'critical'] },
+                        expectedDay: { type: 'number' },
+                        evidenceSource: { type: 'string' },
+                        confidenceScore: { type: 'number' },
+                        description: { type: 'string' },
+                      },
+                      required: ['outcomeType', 'probability', 'severity', 'expectedDay', 'evidenceSource', 'confidenceScore', 'description'],
+                      additionalProperties: false
+                    }
+                  }
+                },
+                required: ['outcomes'],
+                additionalProperties: false
+              }
+            }
+          }
+        });
+
+        const outcomeContent = response.choices[0].message.content;
+        const result = JSON.parse(typeof outcomeContent === 'string' ? outcomeContent : '{}');
+        const outcomes = result.outcomes || [];
+
+        // Save outcomes to database
+        for (const outcome of outcomes) {
+          await db.addScenarioOutcome({
+            scenarioId: input.scenarioId,
+            outcomeType: outcome.outcomeType,
+            probability: outcome.probability.toString(),
+            severity: outcome.severity as 'mild' | 'moderate' | 'severe' | 'critical',
+            expectedDay: outcome.expectedDay,
+            evidenceSource: outcome.evidenceSource,
+            confidenceScore: outcome.confidenceScore.toString(),
+            description: outcome.description,
+          });
+        }
+
+        return { outcomes };
+      }),
+
+    /**
+     * Get predicted outcomes for a scenario
+     */
+    getOutcomes: protectedProcedure
+      .input(z.object({
+        scenarioId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const outcomes = await db.getScenarioOutcomes(input.scenarioId);
+        return outcomes;
+      }),
+
+    /**
+     * Compare multiple scenarios side-by-side
+     */
+    compareScenarios: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        scenarioIds: z.array(z.number()),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Get all scenarios
+        const scenarios = await Promise.all(
+          input.scenarioIds.map(id => db.getScenarioById(id))
+        );
+
+        // Get outcomes for each scenario
+        const scenarioOutcomes = await Promise.all(
+          input.scenarioIds.map(id => db.getScenarioOutcomes(id))
+        );
+
+        // Build comparison prompt
+        const comparisonData = scenarios.map((scenario, idx) => {
+          if (!scenario) return null;
+          const outcomes = scenarioOutcomes[idx];
+          return {
+            id: scenario.id,
+            name: scenario.scenarioName,
+            treatment: scenario.treatmentDescription,
+            outcomes: outcomes.map(o => ({
+              type: o.outcomeType,
+              probability: parseFloat(o.probability),
+              severity: o.severity,
+            }))
+          };
+        }).filter(Boolean);
+
+        const comparisonPrompt = `Compare these treatment scenarios and rank them:
+
+${comparisonData.map((s, i) => `
+Scenario ${i + 1}: ${s?.name}
+Treatment: ${s?.treatment}
+Outcomes:
+${s?.outcomes.map(o => `- ${o.type} (${o.probability}% probability, ${o.severity} severity)`).join('\n')}`).join('\n')}
+
+Rank these scenarios from best to worst, considering:
+1. Efficacy (likelihood of symptom improvement)
+2. Safety (risk of adverse events)
+3. Patient-specific factors
+4. Evidence quality
+
+Provide a score (0-100) and reasoning for each scenario.`;
+
+        const response = await invokeLLM({
+          messages: [
+            { role: 'system', content: 'You are a medical AI assistant comparing treatment scenarios.' },
+            { role: 'user', content: comparisonPrompt }
+          ],
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'scenario_comparison',
+              strict: true,
+              schema: {
+                type: 'object',
+                properties: {
+                  ranking: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        scenarioId: { type: 'number' },
+                        score: { type: 'number' },
+                        reasoning: { type: 'string' },
+                      },
+                      required: ['scenarioId', 'score', 'reasoning'],
+                      additionalProperties: false
+                    }
+                  }
+                },
+                required: ['ranking'],
+                additionalProperties: false
+              }
+            }
+          }
+        });
+
+        const comparisonContent = response.choices[0].message.content;
+        const result = JSON.parse(typeof comparisonContent === 'string' ? comparisonContent : '{}');
+
+        // Save comparison
+        const comparisonId = await db.createScenarioComparison({
+          sessionId: input.sessionId,
+          physicianId: ctx.user.id,
+          scenarioIds: input.scenarioIds,
+          ranking: result.ranking,
+        });
+
+        return { comparisonId, ranking: result.ranking };
+      }),
+
+    /**
+     * Select a scenario as the chosen treatment plan
+     */
+    selectScenario: protectedProcedure
+      .input(z.object({
+        comparisonId: z.number(),
+        scenarioId: z.number(),
+        physicianNotes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateScenarioComparison(input.comparisonId, {
+          selectedScenarioId: input.scenarioId,
+          physicianNotes: input.physicianNotes,
+        });
+
+        // Mark scenario as completed
+        await db.updateScenarioStatus(input.scenarioId, 'completed');
+
+        return { success: true };
+      }),
+
+    /**
+     * Get scenario comparisons for a session
+     */
+    getComparisons: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const comparisons = await db.getScenarioComparisons(input.sessionId);
+        return comparisons;
       }),
   }),
 

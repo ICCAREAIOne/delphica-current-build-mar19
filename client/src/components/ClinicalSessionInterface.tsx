@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Pill, Activity, CheckCircle2, XCircle } from 'lucide-react';
 import { TreatmentRecommendations } from './TreatmentRecommendations';
 import { CollaborationPanel } from './CollaborationPanel';
+import { DelphiSimulator } from './DelphiSimulator';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -26,6 +27,8 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
   const [showNewSessionDialog, setShowNewSessionDialog] = useState(false);
   const [showDiagnosisDialog, setShowDiagnosisDialog] = useState(false);
   const [showTreatmentDialog, setShowTreatmentDialog] = useState(false);
+  const [showDelphiSimulator, setShowDelphiSimulator] = useState(false);
+  const [selectedDiagnosisForSimulation, setSelectedDiagnosisForSimulation] = useState<{ code: string; name: string } | null>(null);
 
   // Fetch patient sessions
   const { data: sessions, refetch: refetchSessions } = trpc.daoProtocol.getPatientSessions.useQuery({ patientId });
@@ -236,6 +239,21 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
                             </Badge>
                           </div>
                         </div>
+                        {diagnosis.diagnosisCode && diagnosis.diagnosisType === 'primary' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedDiagnosisForSimulation({
+                                code: diagnosis.diagnosisCode!,
+                                name: diagnosis.diagnosisName
+                              });
+                              setShowDelphiSimulator(true);
+                            }}
+                          >
+                            Explore Scenarios
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -589,6 +607,23 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delphi Simulator Dialog */}
+      <Dialog open={showDelphiSimulator} onOpenChange={setShowDelphiSimulator}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+          {showDelphiSimulator && activeSessionId && selectedDiagnosisForSimulation && (
+            <DelphiSimulator
+              sessionId={activeSessionId}
+              diagnosisCode={selectedDiagnosisForSimulation.code}
+              diagnosisName={selectedDiagnosisForSimulation.name}
+              onClose={() => {
+                setShowDelphiSimulator(false);
+                setSelectedDiagnosisForSimulation(null);
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
