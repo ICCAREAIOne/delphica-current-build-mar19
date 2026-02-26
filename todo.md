@@ -1067,3 +1067,14 @@
 - [x] Create tRPC procedures for risk prediction management (6 endpoints)
 - [x] Write unit tests for integration workflow (10 tests passing)
 - [x] Test complete prediction → exploration → decision → action loop
+
+
+## Framework Diagram Update - Dual Delphi Systems
+- [x] Design new framework architecture showing both Delphi-2M and Manus Delphi Simulator
+- [x] Create visual diagram with prediction → exploration workflow
+- [x] Show Delphi-2M as upstream risk predictor feeding into Manus Delphi Simulator
+- [x] Illustrate bidirectional communication between both Delphi systems and Causal Brain
+- [x] Generate high-quality framework image
+- [x] Update FRAMEWORK_ARCHITECTURE.md documentation
+- [x] Replace dashboard framework image with new dual-Delphi version
+- [x] Update component descriptions to reflect integrated workflow

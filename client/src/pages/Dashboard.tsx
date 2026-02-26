@@ -109,22 +109,22 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="h-6 w-6 text-primary" />
-              Clinical Decision Support Framework - Bidirectional Workflow
+              Clinical Decision Support Framework - Dual Delphi Integration
             </CardTitle>
             <CardDescription>
-              Causal Brain as central intelligence hub orchestrating bidirectional communication between all components for optimized precision care
+              Complete prediction → exploration → decision → action workflow integrating Delphi-2M disease risk prediction with Manus Delphi Simulator treatment exploration
             </CardDescription>
           </CardHeader>
           <CardContent>
             <img 
-              src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663160662498/EKeXghyMCKQhzZaT.png" 
-              alt="Clinical Workflow Framework with Semantic Processor" 
+              src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663160662498/dprZMooikoWGjrVc.png" 
+              alt="Clinical Decision Support Framework with Dual Delphi Systems" 
               className="w-full max-w-4xl mx-auto rounded-lg shadow-lg"
             />
             <div className="mt-6 p-4 bg-white/50 dark:bg-black/20 rounded-lg">
-              <p className="text-sm text-foreground font-medium mb-2">Key Innovation: Bidirectional Causal Brain ↔ Delphi Communication</p>
+              <p className="text-sm text-foreground font-medium mb-2">Key Innovation: Dual Delphi Systems Working Together</p>
               <p className="text-sm text-muted-foreground">
-                The Causal Brain serves as the central intelligence hub, orchestrating iterative refinement with the Delphi Simulator to ensure treatment scenarios are both creative and causally valid before delivering optimized precision care.
+                <strong>Delphi-2M</strong> (Nature, 2025) predicts disease risks up to 20 years in advance, automatically triggering <strong>Manus Delphi Simulator</strong> (Manus AI, 2026) to generate preventive treatment scenarios. The Causal Brain orchestrates bidirectional communication between both systems, validating predictions and providing evidence-based outcome analysis for complete proactive care.
               </p>
             </div>
           </CardContent>
