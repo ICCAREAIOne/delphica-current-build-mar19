@@ -3893,6 +3893,24 @@ Provide a score (0-100) and reasoning for each scenario.`;
         const analytics = await db.getFeedbackAnalytics(input.physicianId);
         return analytics;
       }),
+
+    /**
+     * Get peer comparison analytics
+     */
+    getPeerComparison: protectedProcedure
+      .query(async ({ ctx }) => {
+        const comparison = await db.getPeerComparisonAnalytics(ctx.user.id);
+        return comparison;
+      }),
+
+    /**
+     * Get feedback distribution across all physicians
+     */
+    getFeedbackDistribution: protectedProcedure
+      .query(async () => {
+        const distribution = await db.getFeedbackDistribution();
+        return distribution;
+      }),
   }),
 
   /**

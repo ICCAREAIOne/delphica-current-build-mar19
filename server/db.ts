@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, gte, lte, lt, gt, sql } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, lt, gt, sql, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, 
@@ -3713,5 +3713,180 @@ export async function getFeedbackAnalytics(physicianId?: number) {
     interactionStats,
     outcomeStats,
     totalFeedbackCount: interactionFeedbacks.length + outcomeFeedbacks.length,
+  };
+}
+
+
+/**
+ * Get peer comparison analytics for a physician
+ */
+export async function getPeerComparisonAnalytics(physicianId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  // Get physician's own feedback
+  const physicianAnalytics = await getFeedbackAnalytics(physicianId);
+  
+  // Get all physicians' feedback (excluding current physician)
+  const allInteractionFeedback = await db
+    .select()
+    .from(interactionFeedback)
+    .where(ne(interactionFeedback.physicianId, physicianId));
+  
+  const allOutcomeFeedback = await db
+    .select()
+    .from(outcomeFeedback)
+    .where(ne(outcomeFeedback.physicianId, physicianId));
+  
+  // Calculate peer averages
+  const peerInteractionStats = {
+    count: allInteractionFeedback.length,
+    avgRealismScore: allInteractionFeedback.length > 0
+      ? allInteractionFeedback.reduce((sum, f) => sum + f.realismScore, 0) / allInteractionFeedback.length
+      : 0,
+    avgClinicalAccuracy: allInteractionFeedback.length > 0
+      ? allInteractionFeedback.reduce((sum, f) => sum + f.clinicalAccuracy, 0) / allInteractionFeedback.length
+      : 0,
+    avgConversationalQuality: allInteractionFeedback.length > 0
+      ? allInteractionFeedback.reduce((sum, f) => sum + f.conversationalQuality, 0) / allInteractionFeedback.length
+      : 0,
+  };
+  
+  const peerOutcomeStats = {
+    count: allOutcomeFeedback.length,
+    avgAccuracyScore: allOutcomeFeedback.length > 0
+      ? allOutcomeFeedback.reduce((sum, f) => sum + f.accuracyScore, 0) / allOutcomeFeedback.length
+      : 0,
+    avgEvidenceQuality: allOutcomeFeedback.length > 0
+      ? allOutcomeFeedback.reduce((sum, f) => sum + f.evidenceQuality, 0) / allOutcomeFeedback.length
+      : 0,
+    avgClinicalRelevance: allOutcomeFeedback.length > 0
+      ? allOutcomeFeedback.reduce((sum, f) => sum + f.clinicalRelevance, 0) / allOutcomeFeedback.length
+      : 0,
+  };
+  
+  // Calculate percentile rankings
+  const allPhysicianIds = await db
+    .selectDistinct({ physicianId: interactionFeedback.physicianId })
+    .from(interactionFeedback);
+  
+  const allPhysicianScores = await Promise.all(
+    allPhysicianIds.map(async ({ physicianId: id }) => {
+      const analytics = await getFeedbackAnalytics(id);
+      return {
+        physicianId: id,
+        avgInteractionScore: (
+          analytics.interactionStats.avgRealismScore +
+          analytics.interactionStats.avgClinicalAccuracy +
+          analytics.interactionStats.avgConversationalQuality
+        ) / 3,
+        avgOutcomeScore: (
+          analytics.outcomeStats.avgAccuracyScore +
+          analytics.outcomeStats.avgEvidenceQuality +
+          analytics.outcomeStats.avgClinicalRelevance
+        ) / 3,
+      };
+    })
+  );
+  
+  // Calculate current physician's overall scores
+  const physicianInteractionScore = (
+    physicianAnalytics.interactionStats.avgRealismScore +
+    physicianAnalytics.interactionStats.avgClinicalAccuracy +
+    physicianAnalytics.interactionStats.avgConversationalQuality
+  ) / 3;
+  
+  const physicianOutcomeScore = (
+    physicianAnalytics.outcomeStats.avgAccuracyScore +
+    physicianAnalytics.outcomeStats.avgEvidenceQuality +
+    physicianAnalytics.outcomeStats.avgClinicalRelevance
+  ) / 3;
+  
+  // Calculate percentiles
+  const interactionPercentile = allPhysicianScores.length > 0
+    ? (allPhysicianScores.filter(p => p.avgInteractionScore < physicianInteractionScore).length / allPhysicianScores.length) * 100
+    : 50;
+  
+  const outcomePercentile = allPhysicianScores.length > 0
+    ? (allPhysicianScores.filter(p => p.avgOutcomeScore < physicianOutcomeScore).length / allPhysicianScores.length) * 100
+    : 50;
+  
+  return {
+    physician: physicianAnalytics,
+    peers: {
+      interactionStats: peerInteractionStats,
+      outcomeStats: peerOutcomeStats,
+      totalPeerCount: allPhysicianIds.length,
+    },
+    percentiles: {
+      interaction: Math.round(interactionPercentile),
+      outcome: Math.round(outcomePercentile),
+      overall: Math.round((interactionPercentile + outcomePercentile) / 2),
+    },
+    qualityScore: {
+      interaction: physicianInteractionScore,
+      outcome: physicianOutcomeScore,
+      overall: (physicianInteractionScore + physicianOutcomeScore) / 2,
+    },
+  };
+}
+
+/**
+ * Get feedback distribution across all physicians
+ */
+export async function getFeedbackDistribution() {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  // Get all interaction feedback scores
+  const interactionScores = await db
+    .select({
+      realismScore: interactionFeedback.realismScore,
+      clinicalAccuracy: interactionFeedback.clinicalAccuracy,
+      conversationalQuality: interactionFeedback.conversationalQuality,
+    })
+    .from(interactionFeedback);
+  
+  // Get all outcome feedback scores
+  const outcomeScores = await db
+    .select({
+      accuracyScore: outcomeFeedback.accuracyScore,
+      evidenceQuality: outcomeFeedback.evidenceQuality,
+      clinicalRelevance: outcomeFeedback.clinicalRelevance,
+    })
+    .from(outcomeFeedback);
+  
+  // Calculate distributions (count for each score 1-5)
+  const realismDistribution = [0, 0, 0, 0, 0];
+  const clinicalAccuracyDistribution = [0, 0, 0, 0, 0];
+  const conversationalQualityDistribution = [0, 0, 0, 0, 0];
+  
+  interactionScores.forEach(score => {
+    realismDistribution[score.realismScore - 1]++;
+    clinicalAccuracyDistribution[score.clinicalAccuracy - 1]++;
+    conversationalQualityDistribution[score.conversationalQuality - 1]++;
+  });
+  
+  const accuracyDistribution = [0, 0, 0, 0, 0];
+  const evidenceQualityDistribution = [0, 0, 0, 0, 0];
+  const clinicalRelevanceDistribution = [0, 0, 0, 0, 0];
+  
+  outcomeScores.forEach(score => {
+    accuracyDistribution[score.accuracyScore - 1]++;
+    evidenceQualityDistribution[score.evidenceQuality - 1]++;
+    clinicalRelevanceDistribution[score.clinicalRelevance - 1]++;
+  });
+  
+  return {
+    interaction: {
+      realism: realismDistribution,
+      clinicalAccuracy: clinicalAccuracyDistribution,
+      conversationalQuality: conversationalQualityDistribution,
+    },
+    outcome: {
+      accuracy: accuracyDistribution,
+      evidenceQuality: evidenceQualityDistribution,
+      clinicalRelevance: clinicalRelevanceDistribution,
+    },
   };
 }

@@ -29,6 +29,7 @@ import PatientPortal from "./pages/PatientPortal";
 import PhysicianReviewDashboard from "./pages/PhysicianReviewDashboard";
 import { SubscriptionManagement } from "./pages/SubscriptionManagement";
 import Analytics from "./pages/Analytics";
+import { PeerComparison } from "./pages/PeerComparison";
 
 function Router() {
   return (
@@ -41,6 +42,7 @@ function Router() {
       <Route path={"/patients/:patientId/encounters/new"} component={NewEncounter} />
       <Route path={"/new-encounter-with-protocol/:protocolId"} component={NewEncounterWithProtocol} />
       <Route path={"/analytics"} component={Analytics} />
+      <Route path={"/peer-comparison"} component={PeerComparison} />
       <Route path={"/outcome-analytics"} component={OutcomeAnalytics} />
       <Route path={"/settings/notifications"} component={NotificationSettings} />
       <Route path={"/library"} component={ClinicalLibrary} />
