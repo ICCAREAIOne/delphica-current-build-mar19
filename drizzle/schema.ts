@@ -1399,3 +1399,158 @@ export const clinicalObservations = mysqlTable("clinical_observations", {
 
 export type ClinicalObservation = typeof clinicalObservations.$inferSelect;
 export type InsertClinicalObservation = typeof clinicalObservations.$inferInsert;
+
+
+/**
+ * ========================================
+ * CAUSAL BRAIN INTELLIGENCE HUB
+ * ========================================
+ * Central AI orchestration for evidence-based treatment recommendations
+ */
+
+/**
+ * Treatment Recommendations - AI-generated treatment suggestions
+ */
+export const treatmentRecommendations = mysqlTable("treatment_recommendations", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  
+  // Recommendation details
+  treatmentName: varchar("treatmentName", { length: 255 }).notNull(),
+  treatmentType: varchar("treatmentType", { length: 128 }).notNull(), // medication, procedure, lifestyle, etc.
+  
+  // AI analysis
+  confidenceScore: decimal("confidenceScore", { precision: 5, scale: 2 }).notNull(), // 0-100
+  reasoning: text("reasoning").notNull(), // AI explanation
+  evidenceSources: json("evidenceSources").$type<string[]>(), // Citations
+  
+  // Clinical context
+  indicatedFor: text("indicatedFor"), // Conditions this treats
+  contraindications: json("contraindications").$type<string[]>(),
+  expectedOutcome: text("expectedOutcome"),
+  alternativeTreatments: json("alternativeTreatments").$type<string[]>(),
+  
+  // Dosing (for medications)
+  suggestedDosage: varchar("suggestedDosage", { length: 255 }),
+  suggestedFrequency: varchar("suggestedFrequency", { length: 128 }),
+  suggestedDuration: varchar("suggestedDuration", { length: 128 }),
+  
+  // Status tracking
+  status: mysqlEnum("status", ["pending", "accepted", "rejected", "modified"]).default("pending").notNull(),
+  physicianFeedback: text("physicianFeedback"),
+  modifiedBy: int("modifiedBy").references(() => users.id),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TreatmentRecommendation = typeof treatmentRecommendations.$inferSelect;
+export type InsertTreatmentRecommendation = typeof treatmentRecommendations.$inferInsert;
+
+/**
+ * Causal Analyses - Causal inference results for treatment effectiveness
+ */
+export const causalAnalyses = mysqlTable("causal_analyses", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Analysis scope
+  diagnosisCode: varchar("diagnosisCode", { length: 16 }).notNull(), // ICD-10 code
+  treatmentCode: varchar("treatmentCode", { length: 16 }).notNull(), // CPT or treatment identifier
+  
+  // Causal inference results
+  effectSize: decimal("effectSize", { precision: 10, scale: 4 }), // Measured effect
+  confidenceInterval: varchar("confidenceInterval", { length: 64 }), // e.g., "95% CI: 0.2-0.8"
+  pValue: decimal("pValue", { precision: 10, scale: 8 }),
+  sampleSize: int("sampleSize"), // Number of cases analyzed
+  
+  // Analysis details
+  methodology: varchar("methodology", { length: 128 }), // e.g., "propensity score matching"
+  confounders: json("confounders").$type<string[]>(), // Controlled variables
+  analysisNotes: text("analysisNotes"),
+  
+  // Outcome metrics
+  outcomeType: varchar("outcomeType", { length: 128 }), // symptom reduction, cure rate, etc.
+  outcomeValue: decimal("outcomeValue", { precision: 10, scale: 4 }),
+  
+  // Metadata
+  analyzedAt: timestamp("analyzedAt").defaultNow().notNull(),
+  lastUpdated: timestamp("lastUpdated").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CausalAnalysis = typeof causalAnalyses.$inferSelect;
+export type InsertCausalAnalysis = typeof causalAnalyses.$inferInsert;
+
+/**
+ * Patient Outcomes - Track actual clinical outcomes for policy learning
+ */
+export const patientOutcomes = mysqlTable("patient_outcomes", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  sessionId: int("sessionId").references(() => clinicalSessions.id),
+  recommendationId: int("recommendationId").references(() => treatmentRecommendations.id),
+  
+  // Outcome details
+  outcomeType: varchar("outcomeType", { length: 128 }).notNull(), // symptom_improvement, adverse_event, etc.
+  outcomeDescription: text("outcomeDescription").notNull(),
+  severity: mysqlEnum("severity", ["mild", "moderate", "severe", "critical"]),
+  
+  // Measurement
+  measurementType: varchar("measurementType", { length: 128 }), // subjective, objective, lab_value
+  measurementValue: varchar("measurementValue", { length: 255 }),
+  measurementUnit: varchar("measurementUnit", { length: 64 }),
+  
+  // Timing
+  timeFromTreatment: int("timeFromTreatment"), // Days since treatment started
+  isExpected: boolean("isExpected").default(true), // Was this outcome expected?
+  
+  // Causal attribution
+  likelyRelatedToTreatment: boolean("likelyRelatedToTreatment"),
+  attributionConfidence: decimal("attributionConfidence", { precision: 5, scale: 2 }), // 0-100
+  
+  // Follow-up
+  requiresIntervention: boolean("requiresIntervention").default(false),
+  interventionTaken: text("interventionTaken"),
+  
+  recordedAt: timestamp("recordedAt").defaultNow().notNull(),
+  recordedBy: int("recordedBy").references(() => users.id),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PatientOutcome = typeof patientOutcomes.$inferSelect;
+export type InsertPatientOutcome = typeof patientOutcomes.$inferInsert;
+
+/**
+ * Evidence Cache - Store retrieved medical literature references
+ */
+export const evidenceCache = mysqlTable("evidence_cache", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Query details
+  queryHash: varchar("queryHash", { length: 64 }).notNull().unique(), // Hash of search query
+  queryText: text("queryText").notNull(),
+  
+  // Evidence details
+  evidenceType: varchar("evidenceType", { length: 64 }).notNull(), // clinical_trial, meta_analysis, guideline
+  title: text("title").notNull(),
+  authors: text("authors"),
+  publicationDate: timestamp("publicationDate"),
+  source: varchar("source", { length: 255 }), // Journal name or database
+  doi: varchar("doi", { length: 255 }),
+  pmid: varchar("pmid", { length: 32 }), // PubMed ID
+  
+  // Content
+  abstract: text("abstract"),
+  keyFindings: text("keyFindings"),
+  relevanceScore: decimal("relevanceScore", { precision: 5, scale: 2 }), // 0-100
+  
+  // Usage tracking
+  timesReferenced: int("timesReferenced").default(0),
+  lastReferenced: timestamp("lastReferenced"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt"), // Cache expiration
+});
+
+export type EvidenceCache = typeof evidenceCache.$inferSelect;
+export type InsertEvidenceCache = typeof evidenceCache.$inferInsert;

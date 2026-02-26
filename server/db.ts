@@ -48,6 +48,14 @@ import {
   InsertDiagnosisEntry,
   treatmentEntries,
   InsertTreatmentEntry,
+  treatmentRecommendations,
+  InsertTreatmentRecommendation,
+  causalAnalyses,
+  InsertCausalAnalysis,
+  patientOutcomes,
+  InsertPatientOutcome,
+  evidenceCache,
+  InsertEvidenceCache,
   clinicalObservations,
   InsertClinicalObservation
 } from "../drizzle/schema";
@@ -2688,5 +2696,170 @@ export async function deleteClinicalObservation(id: number) {
   const db = await getDb();
   if (!db) throw new Error('Database not initialized');
   const result = await db.delete(clinicalObservations).where(eq(clinicalObservations.id, id));
+  return result;
+}
+
+
+// ========================================
+// CAUSAL BRAIN INTELLIGENCE HUB
+// ========================================
+
+/**
+ * Create a treatment recommendation
+ */
+export async function createTreatmentRecommendation(data: InsertTreatmentRecommendation) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(treatmentRecommendations).values(data);
+  return result;
+}
+
+/**
+ * Get treatment recommendations by session ID
+ */
+export async function getTreatmentRecommendationsBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(treatmentRecommendations).where(eq(treatmentRecommendations.sessionId, sessionId));
+  return result;
+}
+
+/**
+ * Get treatment recommendations by patient ID
+ */
+export async function getTreatmentRecommendationsByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.select().from(treatmentRecommendations).where(eq(treatmentRecommendations.patientId, patientId));
+  return result;
+}
+
+/**
+ * Update treatment recommendation status
+ */
+export async function updateTreatmentRecommendationStatus(
+  id: number,
+  status: 'pending' | 'accepted' | 'rejected' | 'modified',
+  feedback?: string,
+  modifiedBy?: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db
+    .update(treatmentRecommendations)
+    .set({ 
+      status, 
+      physicianFeedback: feedback,
+      modifiedBy 
+    })
+    .where(eq(treatmentRecommendations.id, id));
+  return result;
+}
+
+/**
+ * Create a causal analysis
+ */
+export async function createCausalAnalysis(data: InsertCausalAnalysis) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(causalAnalyses).values(data);
+  return result;
+}
+
+/**
+ * Get causal analyses by diagnosis and treatment codes
+ */
+export async function getCausalAnalysis(diagnosisCode: string, treatmentCode: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db
+    .select()
+    .from(causalAnalyses)
+    .where(
+      and(
+        eq(causalAnalyses.diagnosisCode, diagnosisCode),
+        eq(causalAnalyses.treatmentCode, treatmentCode)
+      )
+    )
+    .orderBy(desc(causalAnalyses.analyzedAt))
+    .limit(1);
+  return result[0] || null;
+}
+
+/**
+ * Record a patient outcome
+ */
+export async function recordPatientOutcome(data: InsertPatientOutcome) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(patientOutcomes).values(data);
+  return result;
+}
+
+/**
+ * Get patient outcomes by patient ID
+ */
+export async function getPatientOutcomes(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db
+    .select()
+    .from(patientOutcomes)
+    .where(eq(patientOutcomes.patientId, patientId))
+    .orderBy(desc(patientOutcomes.recordedAt));
+  return result;
+}
+
+/**
+ * Get outcomes by recommendation ID
+ */
+export async function getOutcomesByRecommendation(recommendationId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db
+    .select()
+    .from(patientOutcomes)
+    .where(eq(patientOutcomes.recommendationId, recommendationId))
+    .orderBy(desc(patientOutcomes.recordedAt));
+  return result;
+}
+
+/**
+ * Cache evidence from medical literature
+ */
+export async function cacheEvidence(data: InsertEvidenceCache) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db.insert(evidenceCache).values(data);
+  return result;
+}
+
+/**
+ * Get cached evidence by query hash
+ */
+export async function getCachedEvidence(queryHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db
+    .select()
+    .from(evidenceCache)
+    .where(eq(evidenceCache.queryHash, queryHash))
+    .limit(1);
+  return result[0] || null;
+}
+
+/**
+ * Update evidence cache usage
+ */
+export async function updateEvidenceCacheUsage(queryHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+  const result = await db
+    .update(evidenceCache)
+    .set({ 
+      timesReferenced: sql`${evidenceCache.timesReferenced} + 1`,
+      lastReferenced: new Date()
+    })
+    .where(eq(evidenceCache.queryHash, queryHash));
   return result;
 }

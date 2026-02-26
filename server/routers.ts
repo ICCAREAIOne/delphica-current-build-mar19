@@ -2948,5 +2948,213 @@ export const appRouter = router({
         };
       }),
   }),
+
+  // ========================================
+  // CAUSAL BRAIN INTELLIGENCE HUB
+  // ========================================
+  causalBrain: router({
+    /**
+     * Generate treatment recommendations for a clinical session
+     */
+    generateRecommendations: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        // Get session and patient data
+        const session = await db.getClinicalSessionById(input.sessionId);
+        if (!session) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' });
+        }
+
+        const patient = await db.getPatientById(session.patientId);
+        if (!patient) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+        }
+
+        // Get diagnoses
+        const diagnoses = await db.getDiagnosisEntriesBySession(input.sessionId);
+        if (diagnoses.length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'No diagnoses found for session' });
+        }
+
+        // Calculate patient age
+        const age = Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+        // Build patient context
+        const patientContext = {
+          age,
+          gender: patient.gender,
+          allergies: patient.allergies as string[] || [],
+          chronicConditions: patient.chronicConditions as string[] || [],
+          currentMedications: patient.currentMedications as string[] || [],
+          symptoms: diagnoses.flatMap(d => d.symptoms as string[] || []),
+          diagnosisCode: diagnoses[0].diagnosisCode || undefined,
+          diagnosisDescription: diagnoses[0].diagnosisName,
+        };
+
+        // Generate recommendations
+        const causalBrain = await import('./causalBrain');
+        const recommendations = await causalBrain.generateTreatmentRecommendations(patientContext, 3);
+
+        // Save recommendations to database
+        const savedRecommendations = [];
+        for (const rec of recommendations) {
+          const result = await db.createTreatmentRecommendation({
+            sessionId: input.sessionId,
+            patientId: session.patientId,
+            treatmentName: rec.treatmentName,
+            treatmentType: rec.treatmentType,
+            confidenceScore: rec.confidenceScore.toString(),
+            reasoning: rec.reasoning,
+            evidenceSources: rec.evidenceSources,
+            indicatedFor: rec.indicatedFor,
+            contraindications: rec.contraindications,
+            expectedOutcome: rec.expectedOutcome,
+            alternativeTreatments: rec.alternativeTreatments,
+            suggestedDosage: rec.suggestedDosage,
+            suggestedFrequency: rec.suggestedFrequency,
+            suggestedDuration: rec.suggestedDuration,
+            status: 'pending',
+          });
+          savedRecommendations.push(result);
+        }
+
+        return {
+          recommendations: savedRecommendations,
+          patientContext,
+        };
+      }),
+
+    /**
+     * Get treatment recommendations for a session
+     */
+    getRecommendations: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const recommendations = await db.getTreatmentRecommendationsBySession(input.sessionId);
+        return recommendations;
+      }),
+
+    /**
+     * Update recommendation status (accept/reject/modify)
+     */
+    updateRecommendationStatus: protectedProcedure
+      .input(z.object({
+        recommendationId: z.number(),
+        status: z.enum(['pending', 'accepted', 'rejected', 'modified']),
+        feedback: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.updateTreatmentRecommendationStatus(
+          input.recommendationId,
+          input.status,
+          input.feedback,
+          ctx.user.id
+        );
+        return result;
+      }),
+
+    /**
+     * Perform causal analysis on treatment effectiveness
+     */
+    performCausalAnalysis: protectedProcedure
+      .input(z.object({
+        diagnosisCode: z.string(),
+        treatmentCode: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        // Get historical outcomes for this diagnosis-treatment pair
+        // In production, this would query actual patient outcomes
+        const historicalData = [
+          { patientId: 1, outcome: 'improved', outcomeValue: 0.8, confounders: { age: 45, gender: 'male' } },
+          { patientId: 2, outcome: 'improved', outcomeValue: 0.7, confounders: { age: 52, gender: 'female' } },
+          { patientId: 3, outcome: 'stable', outcomeValue: 0.5, confounders: { age: 38, gender: 'male' } },
+        ];
+
+        // Perform causal analysis
+        const causalBrain = await import('./causalBrain');
+        const analysis = await causalBrain.performCausalAnalysis(
+          input.diagnosisCode,
+          input.treatmentCode,
+          historicalData
+        );
+
+        // Save analysis to database
+        await db.createCausalAnalysis({
+          diagnosisCode: analysis.diagnosisCode,
+          treatmentCode: analysis.treatmentCode,
+          effectSize: analysis.effectSize.toString(),
+          confidenceInterval: analysis.confidenceInterval,
+          pValue: analysis.pValue.toString(),
+          sampleSize: analysis.sampleSize,
+          methodology: analysis.methodology,
+          confounders: analysis.confounders,
+          analysisNotes: analysis.analysisNotes,
+          outcomeType: analysis.outcomeType,
+          outcomeValue: analysis.outcomeValue.toString(),
+        });
+
+        return analysis;
+      }),
+
+    /**
+     * Record a patient outcome
+     */
+    recordOutcome: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        sessionId: z.number().optional(),
+        recommendationId: z.number().optional(),
+        outcomeType: z.string(),
+        outcomeDescription: z.string(),
+        severity: z.enum(['mild', 'moderate', 'severe', 'critical']).optional(),
+        measurementType: z.string().optional(),
+        measurementValue: z.string().optional(),
+        measurementUnit: z.string().optional(),
+        timeFromTreatment: z.number().optional(),
+        isExpected: z.boolean().optional(),
+        likelyRelatedToTreatment: z.boolean().optional(),
+        attributionConfidence: z.number().optional(),
+        requiresIntervention: z.boolean().optional(),
+        interventionTaken: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const outcomeData = {
+          patientId: input.patientId,
+          sessionId: input.sessionId,
+          recommendationId: input.recommendationId,
+          outcomeType: input.outcomeType,
+          outcomeDescription: input.outcomeDescription,
+          severity: input.severity,
+          measurementType: input.measurementType,
+          measurementValue: input.measurementValue,
+          measurementUnit: input.measurementUnit,
+          timeFromTreatment: input.timeFromTreatment,
+          isExpected: input.isExpected,
+          likelyRelatedToTreatment: input.likelyRelatedToTreatment,
+          attributionConfidence: input.attributionConfidence?.toString(),
+          requiresIntervention: input.requiresIntervention,
+          interventionTaken: input.interventionTaken,
+          recordedBy: ctx.user.id,
+        };
+        const result = await db.recordPatientOutcome(outcomeData);
+        return result;
+      }),
+
+    /**
+     * Get patient outcomes
+     */
+    getPatientOutcomes: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        const outcomes = await db.getPatientOutcomes(input.patientId);
+        return outcomes;
+      }),
+  }),
 });
 export type AppRouter = typeof appRouter;

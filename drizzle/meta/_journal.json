@@ -148,6 +148,13 @@
       "when": 1772028579125,
       "tag": "0020_sour_madame_web",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1772067243951,
+      "tag": "0021_regular_manta",
+      "breakpoints": true
     }
   ]
 }
