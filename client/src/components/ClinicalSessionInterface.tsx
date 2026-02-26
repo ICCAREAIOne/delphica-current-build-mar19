@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Pill, Activity, CheckCircle2, XCircle } from 'lucide-react';
+import { TreatmentRecommendations } from './TreatmentRecommendations';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface ClinicalSessionInterfaceProps {
@@ -287,6 +288,17 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* AI Treatment Recommendations */}
+      {activeSession && activeSessionId && (
+        <TreatmentRecommendations 
+          sessionId={activeSessionId} 
+          onRecommendationAccepted={() => {
+            refetchTreatments();
+            refetchSession();
+          }}
+        />
       )}
 
       {/* Complete Session Button */}

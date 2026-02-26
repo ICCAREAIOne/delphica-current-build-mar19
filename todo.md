@@ -964,3 +964,15 @@
 - [ ] Create bridge between clinical sessions and billing claims
 - [x] Write unit tests for semantic mapping (14 tests - 11 passing)
 - [ ] Test end-to-end workflow: clinical entry → codes → billing
+
+
+## Treatment Recommendations UI
+- [x] Design recommendation card layout with evidence citations
+- [x] Create TreatmentRecommendations component
+- [x] Integrate into ClinicalSessionInterface
+- [x] Add "Generate Recommendations" button
+- [x] Display confidence scores and reasoning
+- [x] Show evidence sources with links
+- [x] Implement accept/reject/modify controls
+- [x] Add feedback textarea for physician notes
+- [ ] Test recommendation display and interactions
