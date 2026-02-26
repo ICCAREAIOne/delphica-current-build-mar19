@@ -77,7 +77,13 @@ import {
   outcomeFeedback,
   InsertOutcomeFeedback,
   diseaseRiskPredictions,
-  InsertDiseaseRiskPrediction
+  InsertDiseaseRiskPrediction,
+  lifestyleAssessments,
+  InsertLifestyleAssessment,
+  familyHistories,
+  InsertFamilyHistory,
+  biomarkers,
+  InsertBiomarker
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -4026,4 +4032,203 @@ export async function getRiskPredictionStats(physicianId: number) {
     pendingCount: pending.length,
     explorationRate: predictions.length > 0 ? (explored.length / predictions.length) * 100 : 0,
   };
+}
+
+
+// ==================== Enhanced DAO Protocol - Lifestyle Assessment ====================
+
+export async function createLifestyleAssessment(data: InsertLifestyleAssessment) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(lifestyleAssessments).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+export async function getLifestyleAssessmentsByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(lifestyleAssessments)
+    .where(eq(lifestyleAssessments.patientId, patientId))
+    .orderBy(desc(lifestyleAssessments.assessmentDate));
+}
+
+export async function getLatestLifestyleAssessment(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db
+    .select()
+    .from(lifestyleAssessments)
+    .where(eq(lifestyleAssessments.patientId, patientId))
+    .orderBy(desc(lifestyleAssessments.assessmentDate))
+    .limit(1);
+  
+  return result[0] || null;
+}
+
+export async function updateLifestyleAssessment(assessmentId: number, data: Partial<InsertLifestyleAssessment>) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  await db
+    .update(lifestyleAssessments)
+    .set(data)
+    .where(eq(lifestyleAssessments.id, assessmentId));
+}
+
+export async function deleteLifestyleAssessment(assessmentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  await db
+    .delete(lifestyleAssessments)
+    .where(eq(lifestyleAssessments.id, assessmentId));
+}
+
+// ==================== Enhanced DAO Protocol - Family History ====================
+
+export async function createFamilyHistory(data: InsertFamilyHistory) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(familyHistories).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+export async function getFamilyHistoriesByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(familyHistories)
+    .where(eq(familyHistories.patientId, patientId))
+    .orderBy(desc(familyHistories.recordedAt));
+}
+
+export async function getFamilyHistoriesByCondition(patientId: number, condition: string) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(familyHistories)
+    .where(
+      and(
+        eq(familyHistories.patientId, patientId),
+        eq(familyHistories.condition, condition)
+      )
+    );
+}
+
+export async function updateFamilyHistory(historyId: number, data: Partial<InsertFamilyHistory>) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  await db
+    .update(familyHistories)
+    .set(data)
+    .where(eq(familyHistories.id, historyId));
+}
+
+export async function deleteFamilyHistory(historyId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  await db
+    .delete(familyHistories)
+    .where(eq(familyHistories.id, historyId));
+}
+
+// ==================== Enhanced DAO Protocol - Biomarkers ====================
+
+export async function createBiomarker(data: InsertBiomarker) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const result = await db.insert(biomarkers).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+export async function getBiomarkersByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(biomarkers)
+    .where(eq(biomarkers.patientId, patientId))
+    .orderBy(desc(biomarkers.measurementDate));
+}
+
+export async function getBiomarkersByType(patientId: number, biomarkerType: any) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(biomarkers)
+    .where(
+      and(
+        eq(biomarkers.patientId, patientId),
+        eq(biomarkers.biomarkerType, biomarkerType)
+      )
+    )
+    .orderBy(desc(biomarkers.measurementDate));
+}
+
+export async function getAbnormalBiomarkers(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(biomarkers)
+    .where(
+      and(
+        eq(biomarkers.patientId, patientId),
+        eq(biomarkers.isAbnormal, true)
+      )
+    )
+    .orderBy(desc(biomarkers.measurementDate));
+}
+
+export async function updateBiomarker(biomarkerId: number, data: Partial<InsertBiomarker>) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  await db
+    .update(biomarkers)
+    .set(data)
+    .where(eq(biomarkers.id, biomarkerId));
+}
+
+export async function deleteBiomarker(biomarkerId: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  await db
+    .delete(biomarkers)
+    .where(eq(biomarkers.id, biomarkerId));
+}
+
+export async function getBiomarkerTrends(patientId: number, biomarkerType: any, limit: number = 10) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  return await db
+    .select()
+    .from(biomarkers)
+    .where(
+      and(
+        eq(biomarkers.patientId, patientId),
+        eq(biomarkers.biomarkerType, biomarkerType)
+      )
+    )
+    .orderBy(desc(biomarkers.measurementDate))
+    .limit(limit);
 }

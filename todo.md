@@ -1078,3 +1078,23 @@
 - [x] Update FRAMEWORK_ARCHITECTURE.md documentation
 - [x] Replace dashboard framework image with new dual-Delphi version
 - [x] Update component descriptions to reflect integrated workflow
+
+
+## Enhanced DAO Protocol Module (Delphi-2M Data Capture)
+- [x] Design database schema for lifestyle assessment data (28 fields)
+- [x] Design database schema for family history tracking (17 fields)
+- [x] Design database schema for biomarker tracking (16 fields, 38 biomarker types)
+- [x] Create database helpers for lifestyle data CRUD operations (5 functions)
+- [x] Create database helpers for family history CRUD operations (5 functions)
+- [x] Create database helpers for biomarker tracking CRUD operations (7 functions)
+- [x] Implement tRPC procedures for lifestyle assessment (5 endpoints)
+- [x] Implement tRPC procedures for family history management (5 endpoints)
+- [x] Implement tRPC procedures for biomarker tracking (5 endpoints)
+- [x] Build lifestyle assessment form UI (smoking, alcohol, exercise, diet, sleep, stress)
+- [x] Build family history form UI (15 relationship types, alive/deceased tracking)
+- [x] Build biomarker tracking dashboard (abnormal alerts, trend indicators, 5 categories)
+- [x] Build biomarker data entry form (manual lab result input with reference ranges)
+- [x] Integrate enhanced data with Delphi-2M risk prediction pipeline
+- [x] Create data aggregation service for Delphi-2M input format (14 risk factors, risk score calculation)
+- [x] Write unit tests for enhanced DAO Protocol (14 tests passing)
+- [x] Test complete data capture workflow

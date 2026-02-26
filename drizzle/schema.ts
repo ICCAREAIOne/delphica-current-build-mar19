@@ -1830,3 +1830,164 @@ export const diseaseRiskPredictions = mysqlTable("disease_risk_predictions", {
 
 export type DiseaseRiskPrediction = typeof diseaseRiskPredictions.$inferSelect;
 export type InsertDiseaseRiskPrediction = typeof diseaseRiskPredictions.$inferInsert;
+
+
+/**
+ * Lifestyle Assessment - captures behavioral and environmental risk factors for Delphi-2M
+ */
+export const lifestyleAssessments = mysqlTable("lifestyle_assessments", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  assessmentDate: timestamp("assessmentDate").notNull(),
+  
+  // Smoking
+  smokingStatus: mysqlEnum("smokingStatus", ["never", "former", "current"]).notNull(),
+  cigarettesPerDay: int("cigarettesPerDay"), // For current smokers
+  yearsSmoked: int("yearsSmoked"), // Total years of smoking
+  quitDate: date("quitDate"), // For former smokers
+  
+  // Alcohol
+  alcoholConsumption: mysqlEnum("alcoholConsumption", ["none", "occasional", "moderate", "heavy"]).notNull(),
+  drinksPerWeek: int("drinksPerWeek"),
+  bingeDrinking: boolean("bingeDrinking").default(false),
+  
+  // Physical Activity
+  exerciseFrequency: mysqlEnum("exerciseFrequency", ["sedentary", "light", "moderate", "vigorous"]).notNull(),
+  minutesPerWeek: int("minutesPerWeek"), // Total exercise minutes per week
+  exerciseTypes: json("exerciseTypes").$type<string[]>(), // ["walking", "running", "swimming", etc.]
+  
+  // Diet
+  dietQuality: mysqlEnum("dietQuality", ["poor", "fair", "good", "excellent"]).notNull(),
+  fruitsVegetablesPerDay: int("fruitsVegetablesPerDay"), // Servings
+  fastFoodFrequency: mysqlEnum("fastFoodFrequency", ["never", "rarely", "weekly", "daily"]),
+  sodaConsumption: mysqlEnum("sodaConsumption", ["none", "occasional", "daily", "multiple_daily"]),
+  
+  // Sleep
+  sleepHoursPerNight: decimal("sleepHoursPerNight", { precision: 3, scale: 1 }),
+  sleepQuality: mysqlEnum("sleepQuality", ["poor", "fair", "good", "excellent"]).notNull(),
+  sleepDisorders: json("sleepDisorders").$type<string[]>(), // ["insomnia", "sleep_apnea", etc.]
+  
+  // Stress & Mental Health
+  stressLevel: mysqlEnum("stressLevel", ["low", "moderate", "high", "severe"]).notNull(),
+  mentalHealthConditions: json("mentalHealthConditions").$type<string[]>(), // ["anxiety", "depression", etc.]
+  
+  // Environmental Exposures
+  occupationalHazards: json("occupationalHazards").$type<string[]>(), // ["asbestos", "chemicals", etc.]
+  environmentalExposures: json("environmentalExposures").$type<string[]>(), // ["air_pollution", "secondhand_smoke", etc.]
+  
+  // Notes
+  additionalNotes: text("additionalNotes"),
+  assessedBy: int("assessedBy").references(() => users.id), // Physician who conducted assessment
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type LifestyleAssessment = typeof lifestyleAssessments.$inferSelect;
+export type InsertLifestyleAssessment = typeof lifestyleAssessments.$inferInsert;
+
+/**
+ * Family History - tracks hereditary disease patterns for genetic risk assessment
+ */
+export const familyHistories = mysqlTable("family_histories", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  
+  // Relationship
+  relationship: mysqlEnum("relationship", [
+    "mother", "father", "sister", "brother", 
+    "maternal_grandmother", "maternal_grandfather",
+    "paternal_grandmother", "paternal_grandfather",
+    "maternal_aunt", "maternal_uncle",
+    "paternal_aunt", "paternal_uncle",
+    "daughter", "son", "other"
+  ]).notNull(),
+  relationshipOther: varchar("relationshipOther", { length: 128 }), // If "other" selected
+  
+  // Condition Information
+  condition: varchar("condition", { length: 255 }).notNull(), // Disease name
+  icdCode: varchar("icdCode", { length: 16 }), // ICD-10 code if available
+  ageAtDiagnosis: int("ageAtDiagnosis"), // Age when relative was diagnosed
+  currentAge: int("currentAge"), // Current age of relative (if alive)
+  ageAtDeath: int("ageAtDeath"), // Age at death (if deceased)
+  causeOfDeath: varchar("causeOfDeath", { length: 255 }), // If deceased
+  
+  // Status
+  isAlive: boolean("isAlive").default(true).notNull(),
+  isConfirmed: boolean("isConfirmed").default(false), // Medical records confirmed vs. patient report
+  
+  // Additional Context
+  notes: text("notes"),
+  recordedBy: int("recordedBy").references(() => users.id), // Physician who recorded this entry
+  recordedAt: timestamp("recordedAt").defaultNow().notNull(),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FamilyHistory = typeof familyHistories.$inferSelect;
+export type InsertFamilyHistory = typeof familyHistories.$inferInsert;
+
+/**
+ * Biomarkers - tracks lab results and vital signs over time for trend analysis
+ */
+export const biomarkers = mysqlTable("biomarkers", {
+  id: int("id").autoincrement().primaryKey(),
+  patientId: int("patientId").notNull().references(() => patients.id),
+  measurementDate: timestamp("measurementDate").notNull(),
+  
+  // Biomarker Type
+  biomarkerType: mysqlEnum("biomarkerType", [
+    // Vital Signs
+    "blood_pressure_systolic", "blood_pressure_diastolic", "heart_rate", "temperature", "respiratory_rate",
+    "oxygen_saturation", "weight", "height", "bmi", "waist_circumference",
+    
+    // Lipid Panel
+    "total_cholesterol", "ldl_cholesterol", "hdl_cholesterol", "triglycerides",
+    
+    // Metabolic Panel
+    "glucose_fasting", "glucose_random", "hba1c", "insulin",
+    
+    // Kidney Function
+    "creatinine", "bun", "egfr",
+    
+    // Liver Function
+    "alt", "ast", "alkaline_phosphatase", "bilirubin",
+    
+    // Thyroid
+    "tsh", "t3", "t4",
+    
+    // Inflammation
+    "crp", "esr",
+    
+    // Blood Count
+    "wbc", "rbc", "hemoglobin", "hematocrit", "platelets",
+    
+    // Other
+    "vitamin_d", "b12", "psa", "other"
+  ]).notNull(),
+  biomarkerName: varchar("biomarkerName", { length: 255 }), // If "other" selected
+  
+  // Measurement Value
+  value: decimal("value", { precision: 10, scale: 3 }).notNull(),
+  unit: varchar("unit", { length: 32 }).notNull(), // "mg/dL", "mmol/L", "mmHg", etc.
+  
+  // Reference Range
+  referenceRangeLow: decimal("referenceRangeLow", { precision: 10, scale: 3 }),
+  referenceRangeHigh: decimal("referenceRangeHigh", { precision: 10, scale: 3 }),
+  isAbnormal: boolean("isAbnormal").default(false),
+  
+  // Source & Context
+  source: mysqlEnum("source", ["lab_test", "vital_signs", "home_monitoring", "wearable_device"]).notNull(),
+  labOrderId: varchar("labOrderId", { length: 128 }), // External lab order reference
+  notes: text("notes"),
+  
+  // Data Entry
+  enteredBy: int("enteredBy").references(() => users.id), // Who entered this data
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Biomarker = typeof biomarkers.$inferSelect;
+export type InsertBiomarker = typeof biomarkers.$inferInsert;

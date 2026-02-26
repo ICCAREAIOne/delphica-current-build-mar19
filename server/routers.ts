@@ -3918,6 +3918,83 @@ Provide a score (0-100) and reasoning for each scenario.`;
    */
   riskPredictions: router({
     /**
+     * Aggregate patient data for Delphi-2M risk prediction
+     * Compiles lifestyle, family history, biomarkers, and clinical data
+     */
+    aggregatePatientData: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        // Get lifestyle assessment
+        const lifestyleData = await db.getLatestLifestyleAssessment(input.patientId);
+        
+        // Get family history
+        const familyHistory = await db.getFamilyHistoriesByPatient(input.patientId);
+        
+        // Get biomarkers
+        const biomarkers = await db.getBiomarkersByPatient(input.patientId);
+        
+        // Get clinical sessions for medical history
+        const clinicalSessions = await db.getClinicalSessionsByPatient(input.patientId);
+        
+        // Calculate risk factors from data
+        const riskFactors = {
+          // Lifestyle risk factors
+          smoking: lifestyleData?.smokingStatus === 'current',
+          heavyAlcohol: lifestyleData?.alcoholConsumption === 'heavy',
+          sedentary: lifestyleData?.exerciseFrequency === 'sedentary',
+          poorDiet: lifestyleData?.dietQuality === 'poor',
+          inadequateSleep: lifestyleData?.sleepHoursPerNight ? parseFloat(lifestyleData.sleepHoursPerNight) < 6 : false,
+          highStress: lifestyleData?.stressLevel === 'high' || lifestyleData?.stressLevel === 'severe',
+          
+          // Family history risk factors
+          familyHistoryDiabetes: familyHistory?.some((h: any) => h.condition.toLowerCase().includes('diabetes')),
+          familyHistoryHeartDisease: familyHistory?.some((h: any) => 
+            h.condition.toLowerCase().includes('heart') || 
+            h.condition.toLowerCase().includes('cardiac') ||
+            h.condition.toLowerCase().includes('coronary')
+          ),
+          familyHistoryCancer: familyHistory?.some((h: any) => h.condition.toLowerCase().includes('cancer')),
+          familyHistoryStroke: familyHistory?.some((h: any) => h.condition.toLowerCase().includes('stroke')),
+          
+          // Biomarker risk factors
+          highCholesterol: biomarkers?.some((b: any) => 
+            b.biomarkerType === 'total_cholesterol' && parseFloat(b.value) > 200
+          ),
+          highBloodPressure: biomarkers?.some((b: any) => 
+            b.biomarkerType === 'blood_pressure_systolic' && parseFloat(b.value) > 130
+          ),
+          highGlucose: biomarkers?.some((b: any) => 
+            (b.biomarkerType === 'glucose_fasting' && parseFloat(b.value) > 100) ||
+            (b.biomarkerType === 'hba1c' && parseFloat(b.value) > 5.7)
+          ),
+          obesity: biomarkers?.some((b: any) => 
+            b.biomarkerType === 'bmi' && parseFloat(b.value) > 30
+          ),
+        };
+        
+        // Calculate overall risk score (0-100)
+        const riskScore = Object.values(riskFactors).filter(Boolean).length * 5;
+        
+        return {
+          patientId: input.patientId,
+          lifestyleData,
+          familyHistory,
+          biomarkers: biomarkers?.slice(0, 50), // Latest 50 biomarkers
+          clinicalHistory: clinicalSessions?.slice(0, 20), // Latest 20 sessions
+          riskFactors,
+          riskScore,
+          dataCompleteness: {
+            hasLifestyleData: !!lifestyleData,
+            hasFamilyHistory: (familyHistory?.length || 0) > 0,
+            hasBiomarkers: (biomarkers?.length || 0) > 0,
+            hasClinicalHistory: (clinicalSessions?.length || 0) > 0,
+          },
+        };
+      }),
+
+    /**
      * Import risk predictions (simulated Delphi-2M data)
      */
     importPredictions: protectedProcedure
@@ -4239,6 +4316,236 @@ Return ONLY valid JSON in this exact format:
       .query(async ({ input }) => {
         const trends = await db.getCollaborationTrends(input);
         return trends;
+      }),
+  }),
+
+  /**
+   * Enhanced DAO Protocol - Lifestyle, Family History, Biomarkers
+   */
+  enhancedDAO: router({    
+    // ============ Lifestyle Assessment ============
+    createLifestyleAssessment: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        assessmentDate: z.date(),
+        smokingStatus: z.enum(['never', 'former', 'current']),
+        cigarettesPerDay: z.number().optional(),
+        yearsSmoked: z.number().optional(),
+        quitDate: z.date().optional(),
+        alcoholConsumption: z.enum(['none', 'occasional', 'moderate', 'heavy']),
+        drinksPerWeek: z.number().optional(),
+        bingeDrinking: z.boolean().optional(),
+        exerciseFrequency: z.enum(['sedentary', 'light', 'moderate', 'vigorous']),
+        minutesPerWeek: z.number().optional(),
+        exerciseTypes: z.array(z.string()).optional(),
+        dietQuality: z.enum(['poor', 'fair', 'good', 'excellent']),
+        fruitsVegetablesPerDay: z.number().optional(),
+        fastFoodFrequency: z.enum(['never', 'rarely', 'weekly', 'daily']).optional(),
+        sodaConsumption: z.enum(['none', 'occasional', 'daily', 'multiple_daily']).optional(),
+        sleepHoursPerNight: z.string().optional(),
+        sleepQuality: z.enum(['poor', 'fair', 'good', 'excellent']),
+        sleepDisorders: z.array(z.string()).optional(),
+        stressLevel: z.enum(['low', 'moderate', 'high', 'severe']),
+        mentalHealthConditions: z.array(z.string()).optional(),
+        occupationalHazards: z.array(z.string()).optional(),
+        environmentalExposures: z.array(z.string()).optional(),
+        additionalNotes: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const assessmentId = await db.createLifestyleAssessment({
+          ...input,
+          assessedBy: ctx.user.id,
+        });
+        return { assessmentId };
+      }),
+
+    getLifestyleAssessments: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getLifestyleAssessmentsByPatient(input.patientId);
+      }),
+
+    getLatestLifestyleAssessment: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getLatestLifestyleAssessment(input.patientId);
+      }),
+
+    updateLifestyleAssessment: protectedProcedure
+      .input(z.object({
+        assessmentId: z.number(),
+        data: z.object({
+          smokingStatus: z.enum(['never', 'former', 'current']).optional(),
+          cigarettesPerDay: z.number().optional(),
+          alcoholConsumption: z.enum(['none', 'occasional', 'moderate', 'heavy']).optional(),
+          exerciseFrequency: z.enum(['sedentary', 'light', 'moderate', 'vigorous']).optional(),
+          dietQuality: z.enum(['poor', 'fair', 'good', 'excellent']).optional(),
+          sleepQuality: z.enum(['poor', 'fair', 'good', 'excellent']).optional(),
+          stressLevel: z.enum(['low', 'moderate', 'high', 'severe']).optional(),
+          additionalNotes: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateLifestyleAssessment(input.assessmentId, input.data);
+        return { success: true };
+      }),
+
+    deleteLifestyleAssessment: protectedProcedure
+      .input(z.object({ assessmentId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteLifestyleAssessment(input.assessmentId);
+        return { success: true };
+      }),
+
+    // ============ Family History ============
+    createFamilyHistory: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        relationship: z.enum([
+          'mother', 'father', 'sister', 'brother',
+          'maternal_grandmother', 'maternal_grandfather',
+          'paternal_grandmother', 'paternal_grandfather',
+          'maternal_aunt', 'maternal_uncle',
+          'paternal_aunt', 'paternal_uncle',
+          'daughter', 'son', 'other'
+        ]),
+        relationshipOther: z.string().optional(),
+        condition: z.string(),
+        icdCode: z.string().optional(),
+        ageAtDiagnosis: z.number().optional(),
+        currentAge: z.number().optional(),
+        ageAtDeath: z.number().optional(),
+        causeOfDeath: z.string().optional(),
+        isAlive: z.boolean().optional(),
+        isConfirmed: z.boolean().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const historyId = await db.createFamilyHistory({
+          ...input,
+          recordedBy: ctx.user.id,
+          recordedAt: new Date(),
+        });
+        return { historyId };
+      }),
+
+    getFamilyHistories: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getFamilyHistoriesByPatient(input.patientId);
+      }),
+
+    getFamilyHistoriesByCondition: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        condition: z.string(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getFamilyHistoriesByCondition(input.patientId, input.condition);
+      }),
+
+    updateFamilyHistory: protectedProcedure
+      .input(z.object({
+        historyId: z.number(),
+        data: z.object({
+          condition: z.string().optional(),
+          ageAtDiagnosis: z.number().optional(),
+          currentAge: z.number().optional(),
+          isAlive: z.boolean().optional(),
+          isConfirmed: z.boolean().optional(),
+          notes: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateFamilyHistory(input.historyId, input.data);
+        return { success: true };
+      }),
+
+    deleteFamilyHistory: protectedProcedure
+      .input(z.object({ historyId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteFamilyHistory(input.historyId);
+        return { success: true };
+      }),
+
+    // ============ Biomarkers ============
+    createBiomarker: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        measurementDate: z.date(),
+        biomarkerType: z.enum(['blood_pressure_systolic', 'blood_pressure_diastolic', 'heart_rate', 'temperature', 'respiratory_rate', 'oxygen_saturation', 'weight', 'height', 'bmi', 'waist_circumference', 'total_cholesterol', 'ldl_cholesterol', 'hdl_cholesterol', 'triglycerides', 'glucose_fasting', 'glucose_random', 'hba1c', 'insulin', 'creatinine', 'bun', 'egfr', 'alt', 'ast', 'alkaline_phosphatase', 'bilirubin', 'tsh', 't3', 't4', 'crp', 'esr', 'wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'vitamin_d', 'b12', 'psa', 'other']),
+        biomarkerName: z.string().optional(),
+        value: z.string(),
+        unit: z.string(),
+        referenceRangeLow: z.string().optional(),
+        referenceRangeHigh: z.string().optional(),
+        isAbnormal: z.boolean().optional(),
+        source: z.enum(['lab_test', 'vital_signs', 'home_monitoring', 'wearable_device']),
+        labOrderId: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const biomarkerId = await db.createBiomarker({
+          ...input,
+          enteredBy: ctx.user.id,
+        });
+        return { biomarkerId };
+      }),
+
+    getBiomarkers: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getBiomarkersByPatient(input.patientId);
+      }),
+
+    getBiomarkersByType: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        biomarkerType: z.string(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getBiomarkersByType(input.patientId, input.biomarkerType);
+      }),
+
+    getAbnormalBiomarkers: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getAbnormalBiomarkers(input.patientId);
+      }),
+
+    getBiomarkerTrends: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        biomarkerType: z.string(),
+        limit: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getBiomarkerTrends(
+          input.patientId,
+          input.biomarkerType,
+          input.limit
+        );
+      }),
+
+    updateBiomarker: protectedProcedure
+      .input(z.object({
+        biomarkerId: z.number(),
+        data: z.object({
+          value: z.string().optional(),
+          isAbnormal: z.boolean().optional(),
+          notes: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateBiomarker(input.biomarkerId, input.data);
+        return { success: true };
+      }),
+
+    deleteBiomarker: protectedProcedure
+      .input(z.object({ biomarkerId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteBiomarker(input.biomarkerId);
+        return { success: true };
       }),
   }),
 });
