@@ -28,6 +28,7 @@ import PatientPortalDemo from "./pages/PatientPortalDemo";
 import PatientPortal from "./pages/PatientPortal";
 import PhysicianReviewDashboard from "./pages/PhysicianReviewDashboard";
 import { SubscriptionManagement } from "./pages/SubscriptionManagement";
+import Analytics from "./pages/Analytics";
 
 function Router() {
   return (
@@ -39,7 +40,8 @@ function Router() {
       <Route path={"/patients/:id"} component={PatientDetail} />
       <Route path={"/patients/:patientId/encounters/new"} component={NewEncounter} />
       <Route path={"/new-encounter-with-protocol/:protocolId"} component={NewEncounterWithProtocol} />
-      <Route path={"/analytics"} component={OutcomeAnalytics} />
+      <Route path={"/analytics"} component={Analytics} />
+      <Route path={"/outcome-analytics"} component={OutcomeAnalytics} />
       <Route path={"/settings/notifications"} component={NotificationSettings} />
       <Route path={"/library"} component={ClinicalLibrary} />
       <Route path={"/library/author"} component={ProtocolAuthor} />

@@ -3075,3 +3075,338 @@ export async function getActiveParticipants(sessionId: number) {
   
   return participants;
 }
+
+
+// ============================================================================
+// Analytics & Dashboard Helpers
+// ============================================================================
+
+/**
+ * Get recommendation accuracy metrics
+ */
+export async function getRecommendationAccuracyMetrics(params: {
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const conditions = [];
+  if (params.startDate) {
+    conditions.push(gte(treatmentRecommendations.createdAt, params.startDate));
+  }
+  if (params.endDate) {
+    conditions.push(lte(treatmentRecommendations.createdAt, params.endDate));
+  }
+  
+  const recommendations = await db
+    .select()
+    .from(treatmentRecommendations)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+  
+  const total = recommendations.length;
+  const accepted = recommendations.filter(r => r.status === 'accepted').length;
+  const rejected = recommendations.filter(r => r.status === 'rejected').length;
+  const modified = recommendations.filter(r => r.status === 'modified').length;
+  const pending = recommendations.filter(r => r.status === 'pending').length;
+  
+  return {
+    total,
+    accepted,
+    rejected,
+    modified,
+    pending,
+    acceptanceRate: total > 0 ? (accepted / total) * 100 : 0,
+    modificationRate: total > 0 ? (modified / total) * 100 : 0,
+    rejectionRate: total > 0 ? (rejected / total) * 100 : 0,
+  };
+}
+
+/**
+ * Get collaboration metrics
+ */
+export async function getCollaborationMetrics(params: {
+  physicianId?: number;
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  // Get session participation
+  const participantConditions = [];
+  if (params.physicianId) {
+    participantConditions.push(eq(sessionParticipants.physicianId, params.physicianId));
+  }
+  if (params.startDate) {
+    participantConditions.push(gte(sessionParticipants.joinedAt, params.startDate));
+  }
+  if (params.endDate) {
+    participantConditions.push(lte(sessionParticipants.joinedAt, params.endDate));
+  }
+  
+  const participants = await db
+    .select()
+    .from(sessionParticipants)
+    .where(participantConditions.length > 0 ? and(...participantConditions) : undefined);
+  
+  // Get comments
+  const commentConditions = [];
+  if (params.physicianId) {
+    commentConditions.push(eq(sessionComments.physicianId, params.physicianId));
+  }
+  if (params.startDate) {
+    commentConditions.push(gte(sessionComments.createdAt, params.startDate));
+  }
+  if (params.endDate) {
+    commentConditions.push(lte(sessionComments.createdAt, params.endDate));
+  }
+  
+  const comments = await db
+    .select()
+    .from(sessionComments)
+    .where(commentConditions.length > 0 ? and(...commentConditions) : undefined);
+  
+  // Get unique sessions
+  const uniqueSessions = new Set(participants.map(p => p.sessionId)).size;
+  
+  return {
+    totalSessions: uniqueSessions,
+    totalParticipations: participants.length,
+    totalComments: comments.length,
+    averageCommentsPerSession: uniqueSessions > 0 ? comments.length / uniqueSessions : 0,
+    averageParticipantsPerSession: uniqueSessions > 0 ? participants.length / uniqueSessions : 0,
+  };
+}
+
+/**
+ * Get policy learning metrics
+ */
+export async function getPolicyLearningMetrics(params: {
+  diagnosisCode?: string;
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const conditions = [];
+  if (params.diagnosisCode) {
+    conditions.push(eq(causalAnalyses.diagnosisCode, params.diagnosisCode));
+  }
+  if (params.startDate) {
+    conditions.push(gte(causalAnalyses.analyzedAt, params.startDate));
+  }
+  if (params.endDate) {
+    conditions.push(lte(causalAnalyses.analyzedAt, params.endDate));
+  }
+  
+  const analyses = await db
+    .select()
+    .from(causalAnalyses)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(asc(causalAnalyses.analyzedAt));
+  
+  // Calculate effect size trend (as proxy for confidence)
+  const effectTrend = analyses.map(a => ({
+    date: a.analyzedAt,
+    effectSize: a.effectSize ? parseFloat(a.effectSize) : 0,
+    diagnosisCode: a.diagnosisCode,
+    pValue: a.pValue ? parseFloat(a.pValue) : null,
+  }));
+  
+  const avgEffectSize = analyses.length > 0
+    ? analyses.reduce((sum, a) => sum + (a.effectSize ? parseFloat(a.effectSize) : 0), 0) / analyses.length
+    : 0;
+  
+  return {
+    totalAnalyses: analyses.length,
+    averageEffectSize: avgEffectSize,
+    effectTrend,
+    uniqueDiagnoses: new Set(analyses.map(a => a.diagnosisCode)).size,
+  };
+}
+
+/**
+ * Get outcome tracking metrics
+ */
+export async function getOutcomeMetrics(params: {
+  physicianId?: number;
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const conditions = [];
+  if (params.startDate) {
+    conditions.push(gte(patientOutcomes.recordedAt, params.startDate));
+  }
+  if (params.endDate) {
+    conditions.push(lte(patientOutcomes.recordedAt, params.endDate));
+  }
+  
+  const outcomes = await db
+    .select()
+    .from(patientOutcomes)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+  
+  const successful = outcomes.filter(o => o.outcomeType.includes('improvement')).length;
+  const adverse = outcomes.filter(o => o.outcomeType === 'adverse_event').length;
+  const noChange = outcomes.filter(o => o.outcomeType === 'no_change').length;
+  
+  return {
+    totalOutcomes: outcomes.length,
+    successful,
+    adverse,
+    noChange,
+    successRate: outcomes.length > 0 ? (successful / outcomes.length) * 100 : 0,
+    adverseRate: outcomes.length > 0 ? (adverse / outcomes.length) * 100 : 0,
+  };
+}
+
+/**
+ * Get recommendation trends over time
+ */
+export async function getRecommendationTrends(params: {
+  startDate: Date;
+  endDate: Date;
+  interval: 'day' | 'week' | 'month';
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const conditions = [];
+  conditions.push(gte(treatmentRecommendations.createdAt, params.startDate));
+  conditions.push(lte(treatmentRecommendations.createdAt, params.endDate));
+  
+  const recommendations = await db
+    .select()
+    .from(treatmentRecommendations)
+    .where(and(...conditions))
+    .orderBy(asc(treatmentRecommendations.createdAt));
+  
+  // Group by interval
+  const grouped = new Map<string, { accepted: number; rejected: number; modified: number; total: number }>();
+  
+  recommendations.forEach(rec => {
+    let key: string;
+    const date = new Date(rec.createdAt);
+    
+    if (params.interval === 'day') {
+      key = date.toISOString().split('T')[0];
+    } else if (params.interval === 'week') {
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      key = weekStart.toISOString().split('T')[0];
+    } else {
+      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+    
+    if (!grouped.has(key)) {
+      grouped.set(key, { accepted: 0, rejected: 0, modified: 0, total: 0 });
+    }
+    
+    const stats = grouped.get(key)!;
+    stats.total++;
+    if (rec.status === 'accepted') stats.accepted++;
+    if (rec.status === 'rejected') stats.rejected++;
+    if (rec.status === 'modified') stats.modified++;
+  });
+  
+  return Array.from(grouped.entries()).map(([date, stats]) => ({
+    date,
+    ...stats,
+    acceptanceRate: stats.total > 0 ? (stats.accepted / stats.total) * 100 : 0,
+  }));
+}
+
+/**
+ * Get collaboration activity over time
+ */
+export async function getCollaborationTrends(params: {
+  startDate: Date;
+  endDate: Date;
+  interval: 'day' | 'week' | 'month';
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database connection failed');
+  
+  const comments = await db
+    .select()
+    .from(sessionComments)
+    .where(
+      and(
+        gte(sessionComments.createdAt, params.startDate),
+        lte(sessionComments.createdAt, params.endDate)
+      )
+    )
+    .orderBy(asc(sessionComments.createdAt));
+  
+  const participants = await db
+    .select()
+    .from(sessionParticipants)
+    .where(
+      and(
+        gte(sessionParticipants.joinedAt, params.startDate),
+        lte(sessionParticipants.joinedAt, params.endDate)
+      )
+    )
+    .orderBy(asc(sessionParticipants.joinedAt));
+  
+  // Group by interval
+  const grouped = new Map<string, { comments: number; participants: number; sessions: Set<number> }>();
+  
+  comments.forEach(comment => {
+    const date = new Date(comment.createdAt);
+    let key: string;
+    
+    if (params.interval === 'day') {
+      key = date.toISOString().split('T')[0];
+    } else if (params.interval === 'week') {
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      key = weekStart.toISOString().split('T')[0];
+    } else {
+      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+    
+    if (!grouped.has(key)) {
+      grouped.set(key, { comments: 0, participants: 0, sessions: new Set() });
+    }
+    
+    const stats = grouped.get(key)!;
+    stats.comments++;
+    stats.sessions.add(comment.sessionId);
+  });
+  
+  participants.forEach(participant => {
+    const date = new Date(participant.joinedAt);
+    let key: string;
+    
+    if (params.interval === 'day') {
+      key = date.toISOString().split('T')[0];
+    } else if (params.interval === 'week') {
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      key = weekStart.toISOString().split('T')[0];
+    } else {
+      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+    
+    if (!grouped.has(key)) {
+      grouped.set(key, { comments: 0, participants: 0, sessions: new Set() });
+    }
+    
+    const stats = grouped.get(key)!;
+    stats.participants++;
+    stats.sessions.add(participant.sessionId);
+  });
+  
+  return Array.from(grouped.entries()).map(([date, stats]) => ({
+    date,
+    comments: stats.comments,
+    participants: stats.participants,
+    activeSessions: stats.sessions.size,
+  }));
+}

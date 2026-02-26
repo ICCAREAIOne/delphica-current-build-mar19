@@ -3337,5 +3337,93 @@ export const appRouter = router({
         return activities;
       }),
   }),
+
+  /**
+   * Analytics router for dashboard metrics
+   */
+  analytics: router({
+    /**
+     * Get recommendation accuracy metrics
+     */
+    getRecommendationAccuracy: protectedProcedure
+      .input(z.object({
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      }))
+      .query(async ({ input }) => {
+        const metrics = await db.getRecommendationAccuracyMetrics(input);
+        return metrics;
+      }),
+
+    /**
+     * Get collaboration metrics
+     */
+    getCollaborationMetrics: protectedProcedure
+      .input(z.object({
+        physicianId: z.number().optional(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      }))
+      .query(async ({ input }) => {
+        const metrics = await db.getCollaborationMetrics(input);
+        return metrics;
+      }),
+
+    /**
+     * Get policy learning metrics
+     */
+    getPolicyLearningMetrics: protectedProcedure
+      .input(z.object({
+        diagnosisCode: z.string().optional(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      }))
+      .query(async ({ input }) => {
+        const metrics = await db.getPolicyLearningMetrics(input);
+        return metrics;
+      }),
+
+    /**
+     * Get outcome metrics
+     */
+    getOutcomeMetrics: protectedProcedure
+      .input(z.object({
+        physicianId: z.number().optional(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      }))
+      .query(async ({ input }) => {
+        const metrics = await db.getOutcomeMetrics(input);
+        return metrics;
+      }),
+
+    /**
+     * Get recommendation trends over time
+     */
+    getRecommendationTrends: protectedProcedure
+      .input(z.object({
+        startDate: z.date(),
+        endDate: z.date(),
+        interval: z.enum(['day', 'week', 'month']),
+      }))
+      .query(async ({ input }) => {
+        const trends = await db.getRecommendationTrends(input);
+        return trends;
+      }),
+
+    /**
+     * Get collaboration trends over time
+     */
+    getCollaborationTrends: protectedProcedure
+      .input(z.object({
+        startDate: z.date(),
+        endDate: z.date(),
+        interval: z.enum(['day', 'week', 'month']),
+      }))
+      .query(async ({ input }) => {
+        const trends = await db.getCollaborationTrends(input);
+        return trends;
+      }),
+  }),
 });
 export type AppRouter = typeof appRouter;
