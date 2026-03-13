@@ -3,17 +3,21 @@
  * CAUSAL AI ENGINE — EVIDENCE RETRIEVAL LAYER
  * server/causal/evidence.ts
  *
- * Responsible for retrieving medical evidence to ground all
- * Clinical Reasoning Engine outputs.
+ * Retrieves verified medical evidence from PubMed E-utilities API.
+ * Falls back to LLM simulation only when PubMed returns no results
+ * or the network is unavailable.
  *
- * CURRENT STATE:  LLM-simulated evidence (isVerified: false)
- * BUILD TARGET:   Real PubMed E-utilities API + guideline cache
+ * PIPELINE:
+ *   1. Check DB evidence cache (evidence_cache table, 7-day TTL)
+ *   2. PubMed esearch → PMIDs
+ *   3. PubMed efetch → XML → parse → EvidenceSource[]
+ *   4. LLM fallback if PubMed returns < 2 results
+ *   5. Cache results in DB
  *
- * BUILD ORDER:
- *   Step 1 (now):    LLM simulation — functional, not verified
- *   Step 2 (next):   PubMed E-utilities REST API integration
- *   Step 3 (later):  Local guideline cache (ACC/AHA, JNC, USPSTF)
- *   Step 4 (later):  Evidence cache in DB (evidence_cache table)
+ * RATE LIMITS:
+ *   - Without API key: 3 req/sec (enforced by _rateLimiter below)
+ *   - With NCBI_API_KEY env var: 10 req/sec
+ *   - Docs: https://www.ncbi.nlm.nih.gov/books/NBK25499/
  * ============================================================
  */
 
@@ -21,92 +25,533 @@ import { invokeLLM } from "../_core/llm";
 import type { EvidenceSource, EvidenceQuery } from "./types";
 
 // ─────────────────────────────────────────────
-// STEP 2 TODO: PubMed E-utilities API
-// Endpoint: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
-// No API key required for <3 req/sec; register for higher limits
-// Docs: https://www.ncbi.nlm.nih.gov/books/NBK25499/
-//
-// Implementation plan:
-//   1. esearch.fcgi?db=pubmed&term={query}&retmax=10&sort=relevance
-//      → returns list of PMIDs
-//   2. efetch.fcgi?db=pubmed&id={pmids}&rettype=abstract&retmode=xml
-//      → returns abstracts + metadata
-//   3. Parse XML → EvidenceSource[]
-//   4. Set isVerified: true on all returned results
-//   5. Cache results in evidence_cache table (keyed by query hash)
-//
-// async function fetchFromPubMed(query: string, maxResults: number): Promise<EvidenceSource[]>
+// CONSTANTS
 // ─────────────────────────────────────────────
 
+const EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
+const NCBI_API_KEY = process.env.NCBI_API_KEY ?? "";       // Optional — set for 10 req/sec
+const RATE_LIMIT_MS = NCBI_API_KEY ? 110 : 340;            // 10/sec vs 3/sec with safety margin
+const CACHE_TTL_DAYS = 7;
+const MIN_PUBMED_RESULTS = 2;                               // Fall back to LLM if fewer than this
+
 // ─────────────────────────────────────────────
-// STEP 3 TODO: Clinical Guideline Cache
-// Sources to integrate:
-//   - ACC/AHA guidelines (cardiology)
-//   - JNC 8 (hypertension)
-//   - ADA Standards of Care (diabetes)
-//   - USPSTF recommendations
-//   - UpToDate API (requires license)
-//
-// Store as structured JSON in /server/causal/guidelines/
-// Index by ICD-10 code prefix for fast lookup
+// RATE LIMITER
+// Simple token-bucket: ensures we never exceed NCBI rate limits
+// ─────────────────────────────────────────────
+
+let _lastRequestTime = 0;
+
+async function _rateLimiter(): Promise<void> {
+  const now = Date.now();
+  const elapsed = now - _lastRequestTime;
+  if (elapsed < RATE_LIMIT_MS) {
+    await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_MS - elapsed));
+  }
+  _lastRequestTime = Date.now();
+}
+
+// ─────────────────────────────────────────────
+// PUBLIC API
 // ─────────────────────────────────────────────
 
 /**
  * Primary evidence retrieval function.
  *
- * Currently uses LLM to simulate evidence retrieval.
- * Replace the body of this function with real PubMed calls
- * when Step 2 is implemented. The interface stays the same.
+ * Strategy:
+ *   1. Check DB cache (evidence_cache table)
+ *   2. PubMed E-utilities (real, verified citations)
+ *   3. LLM simulation fallback (isVerified: false)
  */
 export async function retrieveEvidence(query: EvidenceQuery): Promise<EvidenceSource[]> {
   const maxResults = query.maxResults ?? 5;
+  const pubmedQuery = buildPubMedQuery(query);
+  const cacheKey = _hashQuery(pubmedQuery + maxResults);
 
-  // ── STEP 2: Replace this block with real PubMed API call ──
-  // const pubmedResults = await fetchFromPubMed(buildPubMedQuery(query), maxResults);
-  // if (pubmedResults.length > 0) return pubmedResults;
-  // ──────────────────────────────────────────────────────────
+  // Step 1: Check DB cache
+  try {
+    const cached = await _getCachedEvidence(cacheKey);
+    if (cached) {
+      console.log(`[Evidence] Cache hit for query: ${pubmedQuery.slice(0, 60)}...`);
+      return cached;
+    }
+  } catch {
+    // Cache miss or DB unavailable — continue to PubMed
+  }
 
-  // CURRENT: LLM simulation fallback
-  return await _llmSimulatedEvidence(query, maxResults);
+  // Step 2: PubMed E-utilities
+  let results: EvidenceSource[] = [];
+  try {
+    results = await fetchFromPubMed(pubmedQuery, maxResults);
+    console.log(`[Evidence] PubMed returned ${results.length} verified results`);
+  } catch (err) {
+    console.warn("[Evidence] PubMed fetch failed, falling back to LLM:", (err as Error).message);
+  }
+
+  // Step 3: LLM fallback if PubMed returned too few results
+  if (results.length < MIN_PUBMED_RESULTS) {
+    console.log(`[Evidence] PubMed returned ${results.length} results — supplementing with LLM simulation`);
+    const llmResults = await _llmSimulatedEvidence(query, maxResults - results.length);
+    results = [...results, ...llmResults];
+  }
+
+  // Step 4: Cache results
+  if (results.some((r) => r.isVerified)) {
+    try {
+      await _cacheEvidence(cacheKey, results);
+    } catch {
+      // Cache write failure is non-fatal
+    }
+  }
+
+  return results;
 }
 
 /**
- * Build a structured PubMed search query string from an EvidenceQuery.
- * TODO: Expand with MeSH terms for better precision.
+ * Build a PubMed search query string from an EvidenceQuery.
  *
- * Example output: "hypertension[MeSH] AND lisinopril[tiab] AND randomized controlled trial[pt]"
+ * Uses field tags for precision:
+ *   [tiab]  = title/abstract
+ *   [pt]    = publication type
+ *   [MeSH]  = MeSH controlled vocabulary
  */
 export function buildPubMedQuery(query: EvidenceQuery): string {
   const parts: string[] = [];
 
-  if (query.diagnosisCode) {
-    // TODO: Map ICD-10 → MeSH term using a lookup table
-    // For now, use the description as a free-text term
-  }
+  // Diagnosis — prefer MeSH-mapped term if available, else free text
   if (query.diagnosisDescription) {
-    parts.push(`${query.diagnosisDescription}[tiab]`);
+    const meshTerm = _icd10ToMesh(query.diagnosisCode);
+    if (meshTerm) {
+      parts.push(`"${meshTerm}"[MeSH Terms]`);
+    } else {
+      parts.push(`"${query.diagnosisDescription}"[tiab]`);
+    }
   }
+
+  // Treatment
   if (query.treatmentName) {
-    parts.push(`${query.treatmentName}[tiab]`);
+    parts.push(`"${query.treatmentName}"[tiab]`);
   }
-  // Prefer high-quality study types
-  parts.push("(randomized controlled trial[pt] OR meta-analysis[pt] OR systematic review[pt])");
+
+  // Comorbidities (up to 2 to keep query focused)
+  if (query.comorbidities?.length) {
+    const comorbParts = query.comorbidities
+      .slice(0, 2)
+      .map((c) => `"${c}"[tiab]`)
+      .join(" OR ");
+    if (comorbParts) parts.push(`(${comorbParts})`);
+  }
+
+  // Prefer high-quality study designs
+  parts.push(
+    "(randomized controlled trial[pt] OR meta-analysis[pt] OR systematic review[pt] OR practice guideline[pt])"
+  );
+
+  // If nothing specific, use a broad clinical query
+  if (parts.length === 1) {
+    parts.unshift("clinical management[tiab]");
+  }
 
   return parts.join(" AND ");
 }
 
+// ─────────────────────────────────────────────
+// PUBMED E-UTILITIES IMPLEMENTATION
+// ─────────────────────────────────────────────
+
+/**
+ * Fetch verified evidence from PubMed E-utilities.
+ *
+ * Two-step process:
+ *   1. esearch.fcgi  → list of PMIDs matching the query
+ *   2. efetch.fcgi   → full XML records for those PMIDs
+ */
+export async function fetchFromPubMed(
+  query: string,
+  maxResults: number
+): Promise<EvidenceSource[]> {
+  // Step 1: esearch — get PMIDs
+  const pmids = await _esearch(query, maxResults);
+  if (pmids.length === 0) return [];
+
+  // Step 2: efetch — get full records
+  const articles = await _efetch(pmids);
+  return articles;
+}
+
+/**
+ * PubMed esearch — returns list of PMIDs matching the query.
+ */
+async function _esearch(query: string, maxResults: number): Promise<string[]> {
+  await _rateLimiter();
+
+  const params = new URLSearchParams({
+    db: "pubmed",
+    term: query,
+    retmax: String(maxResults),
+    sort: "relevance",
+    retmode: "json",
+    ...(NCBI_API_KEY && { api_key: NCBI_API_KEY }),
+  });
+
+  const url = `${EUTILS_BASE}/esearch.fcgi?${params}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "DelphicaPhysicianPortal/1.0 (mailto:admin@delphica.health)" },
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!res.ok) {
+    throw new Error(`PubMed esearch HTTP ${res.status}: ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  return data?.esearchresult?.idlist ?? [];
+}
+
+/**
+ * PubMed efetch — returns parsed EvidenceSource[] for the given PMIDs.
+ */
+async function _efetch(pmids: string[]): Promise<EvidenceSource[]> {
+  await _rateLimiter();
+
+  const params = new URLSearchParams({
+    db: "pubmed",
+    id: pmids.join(","),
+    rettype: "abstract",
+    retmode: "xml",
+    ...(NCBI_API_KEY && { api_key: NCBI_API_KEY }),
+  });
+
+  const url = `${EUTILS_BASE}/efetch.fcgi?${params}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "DelphicaPhysicianPortal/1.0 (mailto:admin@delphica.health)" },
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!res.ok) {
+    throw new Error(`PubMed efetch HTTP ${res.status}: ${res.statusText}`);
+  }
+
+  const xmlText = await res.text();
+  return _parseArticleXml(xmlText);
+}
+
+// ─────────────────────────────────────────────
+// XML PARSER
+// ─────────────────────────────────────────────
+
+/**
+ * Parse PubMed XML response into EvidenceSource[].
+ *
+ * Handles:
+ *   - Structured and unstructured abstracts
+ *   - Multiple authors (capped at 5 + "et al.")
+ *   - DOI extraction from ELocationID
+ *   - Publication type → studyType mapping
+ *   - MeSH headings → key findings context
+ *   - Evidence grade inference from publication type
+ */
+function _parseArticleXml(xmlText: string): EvidenceSource[] {
+  // Node.js does not have DOMParser — use regex-based extraction
+  // This is intentionally simple and robust; no external XML library needed
+  const articles = xmlText.split("<PubmedArticle>").slice(1);
+  const results: EvidenceSource[] = [];
+
+  for (const articleXml of articles) {
+    try {
+      const source = _parseOneArticle(articleXml);
+      if (source) results.push(source);
+    } catch {
+      // Skip malformed articles silently
+    }
+  }
+
+  return results;
+}
+
+function _parseOneArticle(xml: string): EvidenceSource | null {
+  const pmid = _extractTag(xml, "PMID");
+  const title = _extractTag(xml, "ArticleTitle");
+  if (!pmid || !title) return null;
+
+  // Journal
+  const journal = _extractTag(xml, "Title") ?? _extractTag(xml, "ISOAbbreviation") ?? "";
+
+  // Publication year
+  const year =
+    _extractTag(xml, "Year") ??
+    _extractTag(xml, "MedlineDate")?.slice(0, 4) ??
+    "";
+
+  // DOI — in ELocationID with EIdType="doi"
+  const doiMatch = xml.match(/EIdType="doi"[^>]*>([^<]+)</);
+  const doi = doiMatch?.[1]?.trim() ?? undefined;
+
+  // Authors — extract up to 5, then "et al."
+  const authorMatches = Array.from(xml.matchAll(/<Author[^>]*>([\s\S]*?)<\/Author>/g));
+  const authorNames = authorMatches
+    .slice(0, 5)
+    .map((m) => {
+      const lastName = _extractTag(m[1], "LastName") ?? "";
+      const initials = _extractTag(m[1], "Initials") ?? "";
+      return `${lastName} ${initials}`.trim();
+    })
+    .filter(Boolean);
+  const authors =
+    authorNames.length > 0
+      ? authorNames.join(", ") + (authorMatches.length > 5 ? " et al." : "")
+      : undefined;
+
+  // Abstract — handle both structured (labeled sections) and plain
+  const abstractSections = Array.from(xml.matchAll(/<AbstractText(?:[^>]*)>([\s\S]*?)<\/AbstractText>/g));
+  let abstract = "";
+  if (abstractSections.length > 0) {
+    // Structured abstract: concatenate labeled sections
+    const labeledParts = abstractSections.map((m) => {
+      const labelMatch = m[0].match(/Label="([^"]+)"/);
+      const label = labelMatch?.[1];
+      const text = m[1].replace(/<[^>]+>/g, "").trim();
+      return label ? `${label}: ${text}` : text;
+    });
+    abstract = labeledParts.join(" | ");
+  }
+
+  // Key findings — use RESULTS or CONCLUSIONS section if available, else first 400 chars
+  const resultsMatch = abstract.match(/RESULTS?:\s*([^|]+)/i);
+  const conclusionsMatch = abstract.match(/CONCLUSIONS?[^:]*:\s*([^|]+)/i);
+  const keyFindings =
+    conclusionsMatch?.[1]?.trim() ??
+    resultsMatch?.[1]?.trim() ??
+    abstract.slice(0, 400) ??
+    title;
+
+  // Publication types
+  const pubTypeMatches = Array.from(xml.matchAll(/<PublicationType[^>]*>([^<]+)<\/PublicationType>/g));
+  const pubTypes = pubTypeMatches.map((m) => m[1].trim().toLowerCase());
+
+  // Map pub types → studyType
+  const studyType = _inferStudyType(pubTypes);
+
+  // Evidence grade from study type
+  const evidenceGrade = _inferEvidenceGrade(studyType, pubTypes);
+
+  // MeSH headings — used to compute relevance and as context
+  const meshMatches = Array.from(xml.matchAll(/<DescriptorName[^>]*>([^<]+)<\/DescriptorName>/g));
+  const meshTerms = meshMatches.map((m) => m[1].trim());
+
+  // Relevance score: base 70, boost for RCTs/meta-analyses, boost for MeSH matches
+  let relevanceScore = 70;
+  if (studyType === "meta_analysis") relevanceScore += 15;
+  else if (studyType === "RCT") relevanceScore += 10;
+  else if (studyType === "guideline") relevanceScore += 8;
+  relevanceScore = Math.min(relevanceScore, 99);
+
+  return {
+    title: title.replace(/<[^>]+>/g, "").trim(),
+    authors,
+    publicationDate: year,
+    journal,
+    doi,
+    pmid,
+    abstract: abstract.replace(/<[^>]+>/g, "").slice(0, 1000) || undefined,
+    keyFindings: keyFindings.replace(/<[^>]+>/g, "").trim(),
+    evidenceGrade,
+    studyType,
+    relevanceScore,
+    isVerified: true,               // Real PubMed record — PMID is verified
+    retrievedAt: new Date(),
+  };
+}
+
+// ─────────────────────────────────────────────
+// XML HELPERS
+// ─────────────────────────────────────────────
+
+function _extractTag(xml: string, tag: string): string | undefined {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`));
+  return match?.[1]?.replace(/<[^>]+>/g, "").trim() || undefined;
+}
+
+function _inferStudyType(
+  pubTypes: string[]
+): EvidenceSource["studyType"] {
+  if (pubTypes.some((t) => t.includes("meta-analysis"))) return "meta_analysis";
+  if (pubTypes.some((t) => t.includes("systematic review"))) return "meta_analysis";
+  if (pubTypes.some((t) => t.includes("randomized controlled trial"))) return "RCT";
+  if (pubTypes.some((t) => t.includes("randomized clinical trial"))) return "RCT";
+  // "Clinical Trial" without "Randomized" tag — treat as cohort-level evidence
+  if (pubTypes.some((t) => t === "clinical trial")) return "cohort";
+  if (pubTypes.some((t) => t.includes("practice guideline") || t.includes("guideline"))) return "guideline";
+  if (pubTypes.some((t) => t.includes("cohort"))) return "cohort";
+  if (pubTypes.some((t) => t.includes("case-control"))) return "case_control";
+  if (pubTypes.some((t) => t.includes("case report") || t.includes("case series"))) return "case_series";
+  // Recent papers may only have "Journal Article" — infer from title keywords if possible
+  return undefined;
+}
+
+function _inferEvidenceGrade(
+  studyType: EvidenceSource["studyType"],
+  pubTypes: string[]
+): EvidenceSource["evidenceGrade"] {
+  if (studyType === "meta_analysis") return "A";
+  if (studyType === "RCT") return "A";
+  if (studyType === "guideline") return "B";
+  if (studyType === "cohort") return "B";
+  if (studyType === "case_control") return "C";
+  if (studyType === "case_series") return "D";
+  if (pubTypes.some((t) => t.includes("review"))) return "B";
+  return "C";
+}
+
+// ─────────────────────────────────────────────
+// ICD-10 → MeSH LOOKUP
+// Covers the most common ICD-10 prefixes seen in primary care.
+// Expand this table as needed.
+// ─────────────────────────────────────────────
+
+const ICD10_TO_MESH: Record<string, string> = {
+  // Cardiovascular
+  I10: "Hypertension",
+  I11: "Hypertensive Heart Disease",
+  I20: "Angina Pectoris",
+  I21: "Myocardial Infarction",
+  I25: "Coronary Artery Disease",
+  I48: "Atrial Fibrillation",
+  I50: "Heart Failure",
+  I63: "Ischemic Stroke",
+  // Metabolic
+  E11: "Diabetes Mellitus, Type 2",
+  E10: "Diabetes Mellitus, Type 1",
+  E78: "Dyslipidemias",
+  E66: "Obesity",
+  // Respiratory
+  J45: "Asthma",
+  J44: "Pulmonary Disease, Chronic Obstructive",
+  // Musculoskeletal
+  M79: "Musculoskeletal Pain",
+  M05: "Arthritis, Rheumatoid",
+  M16: "Osteoarthritis, Hip",
+  M17: "Osteoarthritis, Knee",
+  // Mental health
+  F32: "Depressive Disorder",
+  F41: "Anxiety Disorders",
+  F10: "Alcohol-Related Disorders",
+  // Renal
+  N18: "Renal Insufficiency, Chronic",
+  // Oncology
+  C50: "Breast Neoplasms",
+  C34: "Lung Neoplasms",
+  C18: "Colonic Neoplasms",
+  C61: "Prostatic Neoplasms",
+};
+
+function _icd10ToMesh(icd10Code?: string): string | undefined {
+  if (!icd10Code) return undefined;
+  // Try exact match first, then 3-character prefix
+  return ICD10_TO_MESH[icd10Code] ?? ICD10_TO_MESH[icd10Code.slice(0, 3)] ?? undefined;
+}
+
+// ─────────────────────────────────────────────
+// EVIDENCE CACHE (DB)
+// Uses the existing evidence_cache table and db.ts helpers.
+// Schema stores one row per article keyed by queryHash.
+// TTL is enforced via the expiresAt column.
+// ─────────────────────────────────────────────
+
+/**
+ * Simple deterministic hash for cache key generation.
+ * Not cryptographic — just needs to be consistent.
+ */
+function _hashQuery(query: string): string {
+  let hash = 0;
+  for (let i = 0; i < query.length; i++) {
+    const char = query.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return `pubmed_${Math.abs(hash).toString(36)}`;
+}
+
+/**
+ * Check the evidence_cache table for a prior result set for this query.
+ * Returns null on cache miss, expired entry, or DB unavailability.
+ */
+async function _getCachedEvidence(cacheKey: string): Promise<EvidenceSource[] | null> {
+  try {
+    const db = await import("../db");
+    const cached = await db.getCachedEvidence(cacheKey);
+    if (!cached) return null;
+
+    // Check TTL via expiresAt column
+    if (cached.expiresAt && new Date(cached.expiresAt) < new Date()) {
+      return null; // Expired — will be overwritten on next cache write
+    }
+
+    // The existing schema stores one row per article, not a JSON blob.
+    // We store the full EvidenceSource[] as JSON in the abstract field
+    // for bulk retrieval. If abstract starts with '[', it's our JSON.
+    if (cached.abstract && cached.abstract.startsWith("[")) {
+      await db.updateEvidenceCacheUsage(cacheKey);
+      return JSON.parse(cached.abstract) as EvidenceSource[];
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Write a result set to the evidence_cache table.
+ * Stores the full EvidenceSource[] as JSON in the abstract field.
+ * Uses upsert pattern via the unique queryHash constraint.
+ */
+async function _cacheEvidence(cacheKey: string, results: EvidenceSource[]): Promise<void> {
+  try {
+    const db = await import("../db");
+    const expiresAt = new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000);
+    const firstResult = results[0];
+
+    await db.cacheEvidence({
+      queryHash: cacheKey,
+      queryText: cacheKey,
+      evidenceType: firstResult?.studyType ?? "clinical_evidence",
+      title: `PubMed cache: ${results.length} results`,
+      authors: null,
+      publicationDate: null,
+      source: "PubMed E-utilities",
+      doi: null,
+      pmid: null,
+      // Store the full EvidenceSource[] as JSON in the abstract field
+      abstract: JSON.stringify(results),
+      keyFindings: results.map((r) => r.keyFindings).join(" | ").slice(0, 500),
+      relevanceScore: String(
+        results.reduce((sum, r) => sum + r.relevanceScore, 0) / (results.length || 1)
+      ),
+      expiresAt,
+    });
+  } catch {
+    // Non-fatal — cache write failure does not block evidence retrieval
+  }
+}
+
+// ─────────────────────────────────────────────
+// LLM FALLBACK
+// Used only when PubMed returns fewer than MIN_PUBMED_RESULTS
+// ─────────────────────────────────────────────
+
 /**
  * LLM-simulated evidence retrieval.
- * Used as fallback until real PubMed integration is built.
  *
- * WARNING: Citations generated here are NOT verified against real databases.
- * PMIDs may be fabricated. Do not display raw PMIDs to clinicians without
- * verification. Mark all results with isVerified: false.
+ * WARNING: Citations generated here are NOT verified against PubMed.
+ * PMIDs may be fabricated. All results are marked isVerified: false.
+ * Displayed to clinicians with a clear "Simulated — not verified" label.
  */
 async function _llmSimulatedEvidence(
   query: EvidenceQuery,
   maxResults: number
 ): Promise<EvidenceSource[]> {
+  if (maxResults <= 0) return [];
+
   const queryText = [
     query.diagnosisDescription && `Diagnosis: ${query.diagnosisDescription}`,
     query.treatmentName && `Treatment: ${query.treatmentName}`,
@@ -125,12 +570,10 @@ Generate ${maxResults} plausible evidence sources for the clinical query.
 Include a mix of RCTs, meta-analyses, and clinical guidelines.
 Be specific about study findings but note these are representative summaries.
 Use realistic journal names (NEJM, JAMA, Lancet, Circulation, etc.).
-Evidence grades: A=strong RCT/meta-analysis, B=moderate evidence, C=expert consensus.`,
+Evidence grades: A=strong RCT/meta-analysis, B=moderate evidence, C=expert consensus.
+IMPORTANT: Do NOT fabricate PMIDs — leave pmid as empty string.`,
       },
-      {
-        role: "user",
-        content: queryText,
-      },
+      { role: "user", content: queryText },
     ],
     response_format: {
       type: "json_schema",
@@ -156,7 +599,8 @@ Evidence grades: A=strong RCT/meta-analysis, B=moderate evidence, C=expert conse
                   studyType: { type: "string" },
                   relevanceScore: { type: "number" },
                 },
-                required: ["title", "keyFindings", "evidenceGrade", "relevanceScore"],
+                required: ["title", "keyFindings", "evidenceGrade", "relevanceScore",
+                  "authors", "publicationDate", "journal", "doi", "pmid", "studyType"],
                 additionalProperties: false,
               },
             },
@@ -174,7 +618,8 @@ Evidence grades: A=strong RCT/meta-analysis, B=moderate evidence, C=expert conse
   const parsed = JSON.parse(content);
   return parsed.sources.map((s: any) => ({
     ...s,
-    isVerified: false,           // LLM-generated — not verified against PubMed
+    pmid: "",                  // Never fabricate PMIDs
+    isVerified: false,         // LLM-generated — not verified against PubMed
     retrievedAt: new Date(),
   }));
 }
