@@ -75,6 +75,54 @@ The financial model incorporates **three distinct revenue streams** to capture b
 
 **Enterprise Licensing Revenue** reflects annual contracts with health systems for organization-wide deployment. Licenses grow from 1 in Month 4 to 41 by Month 36, with average annual fees of $150,000. This revenue stream provides predictable, high-margin income and validates the platform's value at the health system level.
 
+### Sales Cycle Analysis by Market Segment
+
+Understanding the **sales cycle length and conversion dynamics** for each market segment is critical for accurate revenue forecasting, sales capacity planning, and cash flow management. The sales cycle varies dramatically across segments, from 39 days for solo practitioners to 330 days for health system enterprise licenses, directly impacting sales team productivity and revenue timing.
+
+![Sales Cycle Funnel by Segment](https://files.manuscdn.com/user_upload_by_module/session_file/310519663160662498/pMGTDnofBnPLSoVY.png)
+
+#### Solo/Small Practice (1-5 physicians) - Essential Tier
+
+The **shortest sales cycle at 39 days** (1.3 months) reflects the simpler decision-making process with typically one decision-maker (practice owner). The sales process includes six stages: lead generation (7 days), initial contact (3 days), demo/presentation (5 days), trial period (14 days), proposal/negotiation (7 days), and contract signing (3 days). Overall conversion rate of 25.44% from initial lead to closed deal requires 8 sales touches across the cycle.
+
+Average deal size of $14,970 (5 physicians × $299/month × 12 months + $7,500 implementation) enables each sales representative to close 2.8 deals per year, generating $42,223 in annual revenue per rep. This segment requires high-volume, low-touch sales motions with emphasis on digital marketing, automated demos, and self-service onboarding to achieve profitability.
+
+**Key success factors**: Fast response time to inbound leads, streamlined trial activation, transparent pricing, minimal customization requirements, and strong physician peer testimonials to overcome skepticism.
+
+#### Mid-sized Practice (5-20 physicians) - Professional Tier
+
+The **82-day sales cycle** (2.7 months) reflects increased complexity with 3 decision-makers (managing partner, clinical lead, practice administrator) and eight distinct stages. The process includes lead generation (10 days), initial contact (5 days), discovery call (7 days), demo/presentation (10 days), trial period (21 days), proposal/negotiation (14 days), committee review (10 days), and contract signing (5 days). Overall conversion rate of 12.45% requires 15 sales touches.
+
+Average deal size of $77,380 (13 physicians × $499/month × 12 months + $17,500 implementation) allows each sales representative to close 1.3 deals per year, generating $103,802 in annual revenue per rep. This segment represents the **sweet spot** for the business model, balancing deal size, sales cycle length, and conversion rates to optimize sales productivity.
+
+**Key success factors**: Comprehensive needs discovery, customized ROI analysis showing time savings and revenue impact, successful pilot with 2-3 physicians before full practice rollout, addressing workflow integration concerns, and demonstrating peer practice success stories.
+
+#### Large Practice/Hospital (20+ physicians) - Enterprise Tier
+
+The **167-day sales cycle** (5.6 months) involves 7 decision-makers across clinical, administrative, IT, and executive leadership. The ten-stage process includes lead generation (14 days), initial contact (7 days), discovery call (10 days), needs assessment (14 days), demo/presentation (14 days), pilot program (45 days), proposal/negotiation (21 days), committee review (21 days), legal/procurement (14 days), and contract signing (7 days). Overall conversion rate of 5.42% requires 25 sales touches.
+
+Average deal size of $302,300 (30 physicians × $799/month × 12 months + $62,500 implementation) enables each sales representative to close 0.7 deals per year, generating $199,119 in annual revenue per rep. Despite the longest cycle and lowest conversion rate, this segment delivers the **highest revenue per rep**, justifying dedicated enterprise account executives.
+
+**Key success factors**: Executive sponsorship from CMO or VP of Medical Affairs, successful 45-day pilot with measurable outcomes (time savings, coding accuracy, physician satisfaction), comprehensive security and compliance documentation, integration with existing EHR and clinical systems, and clear change management plan.
+
+#### Health System Enterprise License
+
+The **330-day sales cycle** (11.0 months) represents the most complex sale with 12 decision-makers spanning clinical leadership, IT, legal, procurement, finance, and C-suite executives. The eleven-stage process includes lead generation (21 days), executive briefing (14 days), discovery/needs assessment (21 days), RFP response (30 days), demo/presentation (14 days), pilot program (90 days), business case development (21 days), proposal/negotiation (30 days), committee approvals (45 days), legal/procurement (30 days), and contract signing (14 days). Overall conversion rate of 2.05% requires 40 sales touches.
+
+Average deal size of $150,000 (annual enterprise license) allows each sales representative to close 0.3 deals per year, generating $50,000 in annual revenue per rep. This segment requires **dedicated enterprise sales specialists** with deep healthcare system relationships and experience navigating complex organizational buying processes. The 90-day pilot program is critical, requiring demonstrated clinical value, physician adoption, and measurable ROI before full system commitment.
+
+**Key success factors**: Existing relationships with health system executives, participation in RFP process, successful pilot with measurable outcomes across multiple specialties, comprehensive business case showing 3-year ROI, integration with Epic/Cerner and other enterprise systems, and alignment with health system strategic priorities (quality improvement, physician retention, value-based care).
+
+![Sales Capacity Requirements](https://files.manuscdn.com/user_upload_by_module/session_file/310519663160662498/vRMRVMRdjzFtwkNL.png)
+
+#### Sales Capacity Implications
+
+The dramatic variation in sales cycle length and revenue per rep across segments requires **specialized sales teams** with different skills, compensation structures, and support requirements. Solo/small practice sales benefit from inside sales representatives with high activity levels, while health system enterprise sales require senior account executives with deep industry relationships and consultative selling skills.
+
+**Sales team structure** should allocate resources based on revenue potential and cycle length: 40% of sales capacity to mid-sized practices (highest revenue per rep, moderate cycle), 30% to large practices (high revenue per rep, longer cycle), 20% to solo/small practices (lowest revenue per rep, shortest cycle), and 10% to health system enterprise (specialized role, longest cycle but strategic value).
+
+**Revenue timing** in the financial model accounts for these sales cycles, with revenue recognition delayed by the average cycle length for each segment. Month 1 revenue reflects deals that entered the sales funnel in prior months, while new leads generated in Month 1 convert to revenue in future months based on segment-specific cycle lengths. This creates a **J-curve effect** where early months show lower revenue as the sales pipeline builds, followed by accelerating revenue as multiple cohorts of leads progress through their respective sales cycles.
+
 ---
 
 ## Revenue Projections
