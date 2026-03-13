@@ -2994,11 +2994,22 @@ export const appRouter = router({
           diagnosisDescription: diagnoses[0].diagnosisName,
         };
 
-        // Generate recommendations
+        // Retrieve real PubMed evidence via the causal module (isVerified:true)
+        // Falls back to LLM-generated evidence if PubMed returns < 2 results
+        const causalModule = await import('./causal');
+        const pubmedEvidence = await causalModule.getEvidence({
+          diagnosisCode: patientContext.diagnosisCode,
+          diagnosisDescription: patientContext.diagnosisDescription,
+          patientAge: patientContext.age,
+          comorbidities: patientContext.chronicConditions,
+          maxResults: 5,
+        });
+
+        // Generate LLM-based treatment recommendations
         const causalBrain = await import('./causalBrain');
         const recommendations = await causalBrain.generateTreatmentRecommendations(patientContext, 3);
 
-        // Save recommendations to database
+        // Save recommendations to database with full EvidenceSource objects
         const savedRecommendations = [];
         for (const rec of recommendations) {
           const result = await db.createTreatmentRecommendation({
@@ -3008,7 +3019,20 @@ export const appRouter = router({
             treatmentType: rec.treatmentType,
             confidenceScore: rec.confidenceScore.toString(),
             reasoning: rec.reasoning,
-            evidenceSources: rec.evidenceSources,
+            // Store full EvidenceSource objects — UI uses isVerified to show PubMed badge
+            evidenceSources: pubmedEvidence.map((e: import('./causal').EvidenceSource) => ({
+              title: e.title,
+              authors: e.authors,
+              publicationDate: e.publicationDate,
+              journal: e.journal,
+              doi: e.doi,
+              pmid: e.pmid,
+              keyFindings: e.keyFindings,
+              evidenceGrade: e.evidenceGrade,
+              studyType: e.studyType,
+              relevanceScore: e.relevanceScore,
+              isVerified: e.isVerified,
+            })),
             indicatedFor: rec.indicatedFor,
             contraindications: rec.contraindications,
             expectedOutcome: rec.expectedOutcome,

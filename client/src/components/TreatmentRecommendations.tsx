@@ -15,7 +15,10 @@ import {
   Sparkles,
   TrendingUp,
   Clock,
-  Pill
+  Pill,
+  BookOpen,
+  FlaskConical,
+  ShieldCheck
 } from 'lucide-react';
 import {
   Dialog,
@@ -284,15 +287,94 @@ export function TreatmentRecommendations({ sessionId, onRecommendationAccepted }
                 {rec.evidenceSources && rec.evidenceSources.length > 0 && (
                   <div>
                     <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <ExternalLink className="h-4 w-4 text-cyan-600" />
+                      <BookOpen className="h-4 w-4 text-cyan-600" />
                       Evidence Sources
                     </h4>
-                    <ul className="text-sm space-y-1">
-                      {rec.evidenceSources.map((source: string, i: number) => (
-                        <li key={i} className="text-cyan-600 hover:underline cursor-pointer">
-                          • {source}
-                        </li>
-                      ))}
+                    <ul className="text-sm space-y-2">
+                      {rec.evidenceSources.map((source: any, i: number) => {
+                        // Handle both legacy string format and new EvidenceSource object format
+                        if (typeof source === 'string') {
+                          return (
+                            <li key={i} className="flex items-start gap-2">
+                              <Badge className="mt-0.5 shrink-0 bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                                <FlaskConical className="h-3 w-3 mr-1" />
+                                Simulated
+                              </Badge>
+                              <span className="text-muted-foreground">{source}</span>
+                            </li>
+                          );
+                        }
+                        const isVerified = source.isVerified === true;
+                        return (
+                          <li key={i} className={`rounded-lg p-2 border ${
+                            isVerified ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                          }`}>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <span className="text-sm font-medium text-foreground leading-snug">
+                                {source.title}
+                              </span>
+                              {isVerified ? (
+                                <Badge className="shrink-0 bg-green-100 text-green-800 border-green-300 text-xs">
+                                  <ShieldCheck className="h-3 w-3 mr-1" />
+                                  PubMed Verified
+                                </Badge>
+                              ) : (
+                                <Badge className="shrink-0 bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                                  <FlaskConical className="h-3 w-3 mr-1" />
+                                  Simulated
+                                </Badge>
+                              )}
+                            </div>
+                            {source.authors && (
+                              <p className="text-xs text-muted-foreground">{source.authors}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {source.journal && (
+                                <span className="text-xs text-muted-foreground italic">{source.journal}</span>
+                              )}
+                              {source.publicationDate && (
+                                <span className="text-xs text-muted-foreground">({source.publicationDate})</span>
+                              )}
+                              {source.studyType && (
+                                <Badge variant="outline" className="text-xs py-0">{source.studyType.replace(/_/g, ' ')}</Badge>
+                              )}
+                              {source.evidenceGrade && (
+                                <Badge variant="outline" className={`text-xs py-0 ${
+                                  source.evidenceGrade === 'A' ? 'border-green-400 text-green-700' :
+                                  source.evidenceGrade === 'B' ? 'border-blue-400 text-blue-700' :
+                                  source.evidenceGrade === 'C' ? 'border-yellow-400 text-yellow-700' :
+                                  'border-gray-400 text-gray-600'
+                                }`}>Grade {source.evidenceGrade}</Badge>
+                              )}
+                            </div>
+                            {source.keyFindings && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{source.keyFindings}</p>
+                            )}
+                            {isVerified && source.pmid && (
+                              <a
+                                href={`https://pubmed.ncbi.nlm.nih.gov/${source.pmid}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-cyan-600 hover:underline mt-1"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                PMID {source.pmid}
+                              </a>
+                            )}
+                            {isVerified && source.doi && !source.pmid && (
+                              <a
+                                href={`https://doi.org/${source.doi}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-cyan-600 hover:underline mt-1"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                DOI: {source.doi}
+                              </a>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}

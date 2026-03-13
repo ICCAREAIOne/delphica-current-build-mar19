@@ -1423,7 +1423,19 @@ export const treatmentRecommendations = mysqlTable("treatment_recommendations", 
   // AI analysis
   confidenceScore: decimal("confidenceScore", { precision: 5, scale: 2 }).notNull(), // 0-100
   reasoning: text("reasoning").notNull(), // AI explanation
-  evidenceSources: json("evidenceSources").$type<string[]>(), // Citations
+  evidenceSources: json("evidenceSources").$type<Array<{
+    title: string;
+    authors?: string;
+    publicationDate?: string;
+    journal?: string;
+    doi?: string;
+    pmid?: string;
+    keyFindings?: string;
+    evidenceGrade?: string;
+    studyType?: string;
+    relevanceScore: number;
+    isVerified: boolean;
+  }>>(), // Full EvidenceSource objects — isVerified=true means real PubMed citation
   
   // Clinical context
   indicatedFor: text("indicatedFor"), // Conditions this treats
