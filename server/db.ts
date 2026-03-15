@@ -1533,7 +1533,7 @@ export async function createProtocolDelivery(data: {
 
   const { protocolDeliveries } = await import("../drizzle/schema");
 
-  const [delivery] = await database.insert(protocolDeliveries).values({
+  const deliveryResult = await database.insert(protocolDeliveries).values({
     userId: data.userId,
     carePlanId: data.carePlanId,
     protocolName: data.protocolName,
@@ -1543,9 +1543,10 @@ export async function createProtocolDelivery(data: {
     pdfGenerated: data.pdfGenerated,
     errorMessage: data.errorMessage,
     sentAt: data.sentAt,
-  });
+  }) as any;
 
-  return delivery;
+  const deliveryId = Number(deliveryResult?.insertId ?? deliveryResult?.[0]?.insertId ?? 0);
+  return { id: deliveryId };
 }
 
 export async function getProtocolDeliveriesByUser(userId: number) {
@@ -1590,7 +1591,7 @@ export async function createProtocolAudit(data: {
 
   const { protocolCustomizationAudit } = await import("../drizzle/schema");
 
-  const [audit] = await database.insert(protocolCustomizationAudit).values({
+  const auditResult = await database.insert(protocolCustomizationAudit).values({
     protocolDeliveryId: data.protocolDeliveryId,
     carePlanId: data.carePlanId,
     physicianId: data.physicianId,
@@ -1600,9 +1601,10 @@ export async function createProtocolAudit(data: {
     changesSummary: data.changesSummary,
     customizationReason: data.customizationReason,
     allergenConflictsResolved: data.allergenConflictsResolved,
-  });
+  }) as any;
 
-  return audit;
+  const auditId = Number(auditResult?.insertId ?? auditResult?.[0]?.insertId ?? 0);
+  return { id: auditId, customizationReason: data.customizationReason };
 }
 
 export async function getProtocolAuditByDeliveryId(deliveryId: number) {
@@ -1649,7 +1651,7 @@ export async function createProtocolTemplate(data: {
 
   const { protocolTemplates } = await import("../drizzle/schema");
 
-  const [template] = await database.insert(protocolTemplates).values({
+  const tplResult = await database.insert(protocolTemplates).values({
     createdBy: data.createdBy,
     name: data.name,
     description: data.description,
@@ -1659,9 +1661,11 @@ export async function createProtocolTemplate(data: {
     isPublic: data.isPublic || false,
     isDefault: data.isDefault || false,
     usageCount: 0,
-  });
+  }) as any;
 
-  return template;
+  const tplId = Number(tplResult?.insertId ?? tplResult?.[0]?.insertId ?? 0);
+  const [inserted] = await database.select().from(protocolTemplates).where(eq(protocolTemplates.id, tplId));
+  return inserted;
 }
 
 export async function getAllProtocolTemplates(physicianId?: number) {
@@ -4698,4 +4702,13 @@ export async function getTreatmentPoliciesByDiagnosis(
     .from(treatmentPolicy)
     .where(eq(treatmentPolicy.diagnosisCode, diagnosisCode))
     .orderBy(desc(treatmentPolicy.confidenceScore));
+}
+
+export async function getAllTreatmentPolicies(): Promise<TreatmentPolicy[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(treatmentPolicy)
+    .orderBy(treatmentPolicy.diagnosisCode, desc(treatmentPolicy.confidenceScore));
 }

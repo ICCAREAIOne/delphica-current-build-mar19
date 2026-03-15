@@ -1701,9 +1701,9 @@ export const appRouter = router({
               }
               
               // Assign code to protocol
-              if (delivery?.insertId) {
+              if (delivery?.id) {
                 await db.assignMedicalCodeToProtocol({
-                  protocolDeliveryId: delivery.insertId as number,
+                  protocolDeliveryId: delivery.id as number,
                   carePlanId: input.carePlanId,
                   medicalCodeId: codeId,
                   codeType: 'ICD10',
@@ -1734,9 +1734,9 @@ export const appRouter = router({
                 }) as number;
               }
               
-              if (delivery?.insertId) {
+              if (delivery?.id) {
                 await db.assignMedicalCodeToProtocol({
-                  protocolDeliveryId: delivery.insertId as number,
+                  protocolDeliveryId: delivery.id as number,
                   carePlanId: input.carePlanId,
                   medicalCodeId: codeId,
                   codeType: 'CPT',
@@ -1766,9 +1766,9 @@ export const appRouter = router({
                 }) as number;
               }
               
-              if (delivery?.insertId) {
+              if (delivery?.id) {
                 await db.assignMedicalCodeToProtocol({
-                  protocolDeliveryId: delivery.insertId as number,
+                  protocolDeliveryId: delivery.id as number,
                   carePlanId: input.carePlanId,
                   medicalCodeId: codeId,
                   codeType: 'SNOMED',
@@ -1858,7 +1858,7 @@ export const appRouter = router({
             });
 
             await db.createProtocolAudit({
-              protocolDeliveryId: delivery.insertId as number,
+              protocolDeliveryId: delivery.id as number,
               carePlanId: input.carePlanId,
               physicianId: ctx.user.id,
               patientId: input.userId,
@@ -3068,6 +3068,26 @@ export const appRouter = router({
      * Used by the Treatment Recommendations UI to overlay real-world confidence
      * on top of the AI-generated scores.
      */
+    getAllPolicies: protectedProcedure
+      .query(async () => {
+        const policies = await db.getAllTreatmentPolicies();
+        return policies.map((p) => ({
+          id: p.id,
+          treatmentCode: p.treatmentCode,
+          treatmentName: p.treatmentName,
+          diagnosisCode: p.diagnosisCode,
+          ageGroup: p.ageGroup,
+          genderGroup: p.genderGroup,
+          confidenceScore: Number(p.confidenceScore),
+          alpha: Number(p.alpha),
+          beta: Number(p.beta),
+          totalObservations: p.totalObservations,
+          successCount: p.successCount,
+          failureCount: p.failureCount,
+          updatedAt: p.updatedAt,
+        }));
+      }),
+
     getPoliciesForDiagnosis: protectedProcedure
       .input(z.object({
         diagnosisCode: z.string(),

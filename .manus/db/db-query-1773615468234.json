@@ -1,0 +1,70 @@
+{
+  "query": "SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_NAME = 'treatment_policy' ORDER BY ORDINAL_POSITION;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34DkbYAaF6MBWwK.96fd8e3f3a28 --database 6XDPcfqtDX3GCRKvFSNyjg --execute SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_NAME = 'treatment_policy' ORDER BY ORDINAL_POSITION;",
+  "rows": [
+    {
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int"
+    },
+    {
+      "COLUMN_NAME": "treatmentCode",
+      "COLUMN_TYPE": "varchar(64)"
+    },
+    {
+      "COLUMN_NAME": "treatmentName",
+      "COLUMN_TYPE": "varchar(255)"
+    },
+    {
+      "COLUMN_NAME": "diagnosisCode",
+      "COLUMN_TYPE": "varchar(32)"
+    },
+    {
+      "COLUMN_NAME": "ageGroup",
+      "COLUMN_TYPE": "enum('under_40','40_to_65','over_65','all')"
+    },
+    {
+      "COLUMN_NAME": "genderGroup",
+      "COLUMN_TYPE": "enum('male','female','other','all')"
+    },
+    {
+      "COLUMN_NAME": "alpha",
+      "COLUMN_TYPE": "decimal(12,4)"
+    },
+    {
+      "COLUMN_NAME": "beta",
+      "COLUMN_TYPE": "decimal(12,4)"
+    },
+    {
+      "COLUMN_NAME": "confidenceScore",
+      "COLUMN_TYPE": "decimal(5,4)"
+    },
+    {
+      "COLUMN_NAME": "totalObservations",
+      "COLUMN_TYPE": "int"
+    },
+    {
+      "COLUMN_NAME": "successCount",
+      "COLUMN_TYPE": "int"
+    },
+    {
+      "COLUMN_NAME": "failureCount",
+      "COLUMN_TYPE": "int"
+    },
+    {
+      "COLUMN_NAME": "lastUpdatedBy",
+      "COLUMN_TYPE": "int"
+    },
+    {
+      "COLUMN_NAME": "updatedAt",
+      "COLUMN_TYPE": "timestamp"
+    },
+    {
+      "COLUMN_NAME": "createdAt",
+      "COLUMN_TYPE": "timestamp"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\tCOLUMN_TYPE\nid\tint\ntreatmentCode\tvarchar(64)\ntreatmentName\tvarchar(255)\ndiagnosisCode\tvarchar(32)\nageGroup\tenum('under_40','40_to_65','over_65','all')\ngenderGroup\tenum('male','female','other','all')\nalpha\tdecimal(12,4)\nbeta\tdecimal(12,4)\nconfidenceScore\tdecimal(5,4)\ntotalObservations\tint\nsuccessCount\tint\nfailureCount\tint\nlastUpdatedBy\tint\nupdatedAt\ttimestamp\ncreatedAt\ttimestamp\n",
+  "stderr": "",
+  "execution_time_ms": 416
+}

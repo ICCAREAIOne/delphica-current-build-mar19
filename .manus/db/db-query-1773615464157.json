@@ -1,0 +1,130 @@
+{
+  "query": "DESCRIBE treatment_policy;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 34DkbYAaF6MBWwK.96fd8e3f3a28 --database 6XDPcfqtDX3GCRKvFSNyjg --execute DESCRIBE treatment_policy;",
+  "rows": [
+    {
+      "Field": "id",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": "NULL",
+      "Extra": "auto_increment"
+    },
+    {
+      "Field": "treatmentCode",
+      "Type": "varchar(64)",
+      "Null": "NO",
+      "Key": "MUL",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "treatmentName",
+      "Type": "varchar(255)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "diagnosisCode",
+      "Type": "varchar(32)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "ageGroup",
+      "Type": "enum('under_40','40_to_65','over_65','all')",
+      "Null": "NO",
+      "Key": "",
+      "Default": "all",
+      "Extra": ""
+    },
+    {
+      "Field": "genderGroup",
+      "Type": "enum('male','female','other','all')",
+      "Null": "NO",
+      "Key": "",
+      "Default": "all",
+      "Extra": ""
+    },
+    {
+      "Field": "alpha",
+      "Type": "decimal(12,4)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "7.0000",
+      "Extra": ""
+    },
+    {
+      "Field": "beta",
+      "Type": "decimal(12,4)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "3.0000",
+      "Extra": ""
+    },
+    {
+      "Field": "confidenceScore",
+      "Type": "decimal(5,4)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "0.7000",
+      "Extra": ""
+    },
+    {
+      "Field": "totalObservations",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "",
+      "Default": "0",
+      "Extra": ""
+    },
+    {
+      "Field": "successCount",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "",
+      "Default": "0",
+      "Extra": ""
+    },
+    {
+      "Field": "failureCount",
+      "Type": "int",
+      "Null": "NO",
+      "Key": "",
+      "Default": "0",
+      "Extra": ""
+    },
+    {
+      "Field": "lastUpdatedBy",
+      "Type": "int",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "updatedAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    },
+    {
+      "Field": "createdAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\nid\tint\tNO\tPRI\tNULL\tauto_increment\ntreatmentCode\tvarchar(64)\tNO\tMUL\tNULL\t\ntreatmentName\tvarchar(255)\tNO\t\tNULL\t\ndiagnosisCode\tvarchar(32)\tNO\t\tNULL\t\nageGroup\tenum('under_40','40_to_65','over_65','all')\tNO\t\tall\t\ngenderGroup\tenum('male','female','other','all')\tNO\t\tall\t\nalpha\tdecimal(12,4)\tNO\t\t7.0000\t\nbeta\tdecimal(12,4)\tNO\t\t3.0000\t\nconfidenceScore\tdecimal(5,4)\tNO\t\t0.7000\t\ntotalObservations\tint\tNO\t\t0\t\nsuccessCount\tint\tNO\t\t0\t\nfailureCount\tint\tNO\t\t0\t\nlastUpdatedBy\tint\tYES\t\tNULL\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\n",
+  "stderr": "",
+  "execution_time_ms": 418
+}

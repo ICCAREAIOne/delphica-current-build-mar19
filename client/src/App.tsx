@@ -31,6 +31,7 @@ import { SubscriptionManagement } from "./pages/SubscriptionManagement";
 import Analytics from "./pages/Analytics";
 import { PeerComparison } from "./pages/PeerComparison";
 import RiskPredictions from "./pages/RiskPredictions";
+import PolicyDashboard from "./pages/PolicyDashboard";
 
 function Router() {
   return (
@@ -61,7 +62,9 @@ function Router() {
       <Route path={"/patient-portal-demo"} component={PatientPortalDemo} />
        <Route path={"patient-portal"} component={PatientPortal} />
       <Route path={"/physician-review"} component={PhysicianReviewDashboard} />
-      <Route path={"/subscription"} component={SubscriptionManagement} />      <Route path={"/404"} component={NotFound} />
+      <Route path={"/subscription"} component={SubscriptionManagement} />
+      <Route path={"/policy"} component={PolicyDashboard} />
+      <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
