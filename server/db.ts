@@ -83,7 +83,13 @@ import {
   familyHistories,
   InsertFamilyHistory,
   biomarkers,
-  InsertBiomarker
+  InsertBiomarker,
+  causalKnowledgeBase,
+  InsertCausalKnowledgeBase,
+  delphiScenarioTemplates,
+  InsertDelphiScenarioTemplate,
+  evidenceCacheEngineTags,
+  InsertEvidenceCacheEngineTag
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -2856,8 +2862,8 @@ export async function getOutcomesByRecommendation(recommendationId: number) {
 export async function cacheEvidence(data: InsertEvidenceCache) {
   const db = await getDb();
   if (!db) throw new Error('Database not initialized');
-  const result = await db.insert(evidenceCache).values(data);
-  return result;
+  const result = await db.insert(evidenceCache).values(data) as any;
+  return Number(result[0]?.insertId ?? 0);
 }
 
 /**
@@ -4230,5 +4236,285 @@ export async function getBiomarkerTrends(patientId: number, biomarkerType: any, 
       )
     )
     .orderBy(desc(biomarkers.measurementDate))
+    .limit(limit);
+}
+
+// ============================================================
+// CAUSAL KNOWLEDGE BASE — DB Helpers
+// ============================================================
+
+/**
+ * Retrieve curated clinical guidelines for a given ICD-10 condition code.
+ * Used by causal/inference.ts to seed Bayesian priors.
+ */
+export async function getCausalKnowledgeByCondition(conditionCode: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(causalKnowledgeBase)
+    .where(
+      and(
+        eq(causalKnowledgeBase.conditionCode, conditionCode),
+        eq(causalKnowledgeBase.isActive, true)
+      )
+    )
+    .orderBy(desc(causalKnowledgeBase.evidenceGrade));
+}
+
+/**
+ * Retrieve a specific condition + treatment pair from the causal knowledge base.
+ * Returns the entry with Bayesian prior parameters (betaAlpha, betaBeta).
+ */
+export async function getCausalKnowledgeByTreatment(
+  conditionCode: string,
+  treatmentName: string
+) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(causalKnowledgeBase)
+    .where(
+      and(
+        eq(causalKnowledgeBase.conditionCode, conditionCode),
+        eq(causalKnowledgeBase.treatmentName, treatmentName),
+        eq(causalKnowledgeBase.isActive, true)
+      )
+    )
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Full-text search across causal knowledge base summaries and findings.
+ * Used by causal/evidence.ts to supplement PubMed results with curated guidelines.
+ */
+export async function searchCausalKnowledge(query: string, limit = 5) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(causalKnowledgeBase)
+    .where(
+      and(
+        eq(causalKnowledgeBase.isActive, true),
+        sql`(
+          ${causalKnowledgeBase.conditionName} LIKE ${`%${query}%`}
+          OR ${causalKnowledgeBase.treatmentName} LIKE ${`%${query}%`}
+          OR ${causalKnowledgeBase.summary} LIKE ${`%${query}%`}
+          OR ${causalKnowledgeBase.keyFindings} LIKE ${`%${query}%`}
+        )`
+      )
+    )
+    .orderBy(desc(causalKnowledgeBase.evidenceGrade))
+    .limit(limit);
+}
+
+/**
+ * Insert or update a causal knowledge base entry.
+ * Used by admin seeding scripts and physician approval workflows.
+ */
+export async function upsertCausalKnowledge(data: InsertCausalKnowledgeBase) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(causalKnowledgeBase).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+/**
+ * Update Bayesian prior parameters after a new outcome is recorded.
+ * Called by policy.ts after each treatment outcome observation.
+ */
+export async function updateCausalKnowledgePriors(
+  conditionCode: string,
+  treatmentName: string,
+  newAlpha: number,
+  newBeta: number,
+  observationCount: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(causalKnowledgeBase)
+    .set({
+      betaAlpha: newAlpha.toFixed(4),
+      betaBeta: newBeta.toFixed(4),
+      observationCount,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(causalKnowledgeBase.conditionCode, conditionCode),
+        eq(causalKnowledgeBase.treatmentName, treatmentName)
+      )
+    );
+}
+
+// ============================================================
+// DELPHI SCENARIO TEMPLATES — DB Helpers
+// ============================================================
+
+/**
+ * Find matching Delphi scenario templates for a given diagnosis.
+ * Matches on diagnosisCode first, then filters by comorbidity overlap and age range.
+ * Used by delphiSimulator.generateScenarios to avoid cold-start LLM generation.
+ */
+export async function getDelphiTemplatesByDiagnosis(
+  diagnosisCode: string,
+  patientAge?: number
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const baseQuery = db
+    .select()
+    .from(delphiScenarioTemplates)
+    .where(
+      and(
+        eq(delphiScenarioTemplates.diagnosisCode, diagnosisCode),
+        eq(delphiScenarioTemplates.isActive, true)
+      )
+    )
+    .orderBy(desc(delphiScenarioTemplates.usageCount));
+
+  const templates = await baseQuery;
+
+  // Post-filter by age range if provided
+  if (patientAge !== undefined) {
+    return templates.filter((t) => {
+      const minOk = t.ageRangeMin === null || patientAge >= (t.ageRangeMin ?? 0);
+      const maxOk = t.ageRangeMax === null || patientAge <= (t.ageRangeMax ?? 999);
+      return minOk && maxOk;
+    });
+  }
+
+  return templates;
+}
+
+/**
+ * Get a single Delphi scenario template by ID.
+ */
+export async function getDelphiTemplateById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(delphiScenarioTemplates)
+    .where(eq(delphiScenarioTemplates.id, id))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Save a new Delphi scenario template.
+ * Called when a physician approves a generated scenario for reuse.
+ */
+export async function createDelphiTemplate(data: InsertDelphiScenarioTemplate) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(delphiScenarioTemplates).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+/**
+ * Increment usage count and update success rate for a template.
+ * Called after a Delphi run completes and physician accepts/rejects the scenario.
+ */
+export async function updateDelphiTemplateUsage(
+  id: number,
+  wasAccepted: boolean
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Fetch current stats
+  const current = await getDelphiTemplateById(id);
+  if (!current) return;
+
+  const newCount = (current.usageCount ?? 0) + 1;
+  const currentRate = parseFloat(current.successRate ?? "0");
+  // Rolling average: new_rate = ((old_rate * (n-1)) + accepted) / n
+  const newRate = ((currentRate * (newCount - 1)) + (wasAccepted ? 100 : 0)) / newCount;
+
+  await db
+    .update(delphiScenarioTemplates)
+    .set({
+      usageCount: newCount,
+      successRate: newRate.toFixed(2),
+      updatedAt: new Date(),
+    })
+    .where(eq(delphiScenarioTemplates.id, id));
+}
+
+/**
+ * Physician-approve a Delphi template (marks isVerified = true).
+ */
+export async function approveDelphiTemplate(id: number, physicianId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(delphiScenarioTemplates)
+    .set({
+      isVerified: true,
+      verifiedByPhysicianId: physicianId,
+      verifiedAt: new Date(),
+    })
+    .where(eq(delphiScenarioTemplates.id, id));
+}
+
+// ============================================================
+// EVIDENCE CACHE ENGINE TAGS — DB Helpers
+// ============================================================
+
+/**
+ * Tag a cached evidence entry with the engine that retrieved it.
+ * Called by evidence.ts after caching a PubMed result.
+ */
+export async function tagEvidenceCacheEntry(data: InsertEvidenceCacheEngineTag) {
+  const db = await getDb();
+  if (!db) return;
+
+  // Upsert: if this cache entry is already tagged by this engine, skip
+  try {
+    await db.insert(evidenceCacheEngineTags).values(data);
+  } catch {
+    // Duplicate — ignore
+  }
+}
+
+/**
+ * Get all evidence cache entries tagged for a specific engine.
+ * Useful for analytics: "which articles has the causal engine used?"
+ */
+export async function getEvidenceByEngine(
+  engine: "causal" | "delphi" | "both",
+  limit = 50
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select({
+      tag: evidenceCacheEngineTags,
+      evidence: evidenceCache,
+    })
+    .from(evidenceCacheEngineTags)
+    .innerJoin(
+      evidenceCache,
+      eq(evidenceCacheEngineTags.evidenceCacheId, evidenceCache.id)
+    )
+    .where(eq(evidenceCacheEngineTags.engine, engine))
+    .orderBy(desc(evidenceCacheEngineTags.retrievedAt))
     .limit(limit);
 }

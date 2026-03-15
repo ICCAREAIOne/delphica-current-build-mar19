@@ -162,16 +162,37 @@ export async function performCausalAnalysis(
   };
   const evidence = await retrieveEvidence(evidenceQuery);
 
-  // Build knowledge base context if available
+  // Build knowledge base context from two sources:
+  //   1. causal_knowledge_base — curated clinical guidelines with Bayesian priors
+  //   2. knowledge_base — compound/supplement data (supplement store)
   let knowledgeContext = "";
   try {
     const db = await import("../db");
+
+    // Source 1: Causal knowledge base (clinical guidelines + treatment priors)
+    if (request.patientContext.diagnosisCode) {
+      const causalKB = await db.getCausalKnowledgeByCondition(
+        request.patientContext.diagnosisCode
+      );
+      if (causalKB.length > 0) {
+        knowledgeContext += `\n\nClinical Guidelines (Causal Knowledge Base):\n${causalKB
+          .map(
+            (entry: any) =>
+              `[Grade ${entry.evidenceGrade}] ${entry.treatmentName ?? entry.conditionName}` +
+              ` (${entry.guidelineSource ?? "curated"}): ${entry.summary}` +
+              (entry.keyFindings ? ` | Key: ${entry.keyFindings}` : "")
+          )
+          .join("\n")}`;
+      }
+    }
+
+    // Source 2: Supplement / compound knowledge base
     const relevantKnowledge = await db.getRelevantKnowledgeForCondition(
       request.patientContext.chiefComplaint,
       request.patientContext.symptoms
     );
     if (relevantKnowledge.length > 0) {
-      knowledgeContext = `\nRelevant Clinical Knowledge Base:\n${relevantKnowledge
+      knowledgeContext += `\n\nRelevant Compound Knowledge Base:\n${relevantKnowledge
         .map(
           (entry: any) =>
             `**${entry.compoundName}** (${entry.category}): ${entry.summary}`

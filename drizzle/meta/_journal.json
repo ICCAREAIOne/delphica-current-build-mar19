@@ -190,6 +190,13 @@
       "when": 1772095824694,
       "tag": "0026_serious_living_tribunal",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1773592489086,
+      "tag": "0027_modern_hulk",
+      "breakpoints": true
     }
   ]
 }

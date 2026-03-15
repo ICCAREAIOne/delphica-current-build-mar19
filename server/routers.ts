@@ -3398,6 +3398,61 @@ export const appRouter = router({
         // Get treatment recommendations from Causal Brain
         const recommendations = await db.getTreatmentRecommendationsBySession(input.sessionId);
 
+        const patientAge = Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+        // ── Template-first strategy ──────────────────────────────────────────
+        // Check delphi_scenario_templates before calling LLM.
+        // If verified templates exist for this diagnosis + age, use them directly.
+        // This eliminates cold-start LLM generation for common archetypes.
+        const matchingTemplates = await db.getDelphiTemplatesByDiagnosis(
+          input.diagnosisCode,
+          patientAge
+        );
+        const verifiedTemplates = matchingTemplates.filter((t: any) => t.isVerified);
+
+        if (verifiedTemplates.length >= input.numScenarios) {
+          // Enough verified templates — skip LLM entirely
+          const selectedTemplates = verifiedTemplates.slice(0, input.numScenarios);
+          const scenarioIds: number[] = [];
+          const scenariosFromTemplates: any[] = [];
+
+          for (const template of selectedTemplates) {
+            const firstOption = (template.treatmentOptions as any[])[0];
+            const scenarioId = await db.createSimulationScenario({
+              sessionId: input.sessionId,
+              physicianId: ctx.user.id,
+              patientId: patient.id,
+              scenarioName: template.templateName,
+              diagnosisCode: input.diagnosisCode,
+              treatmentCode: firstOption?.treatmentCode ?? 'TEMPLATE',
+              treatmentDescription: template.description,
+              patientAge,
+              patientGender: patient.gender,
+              comorbidities: patient.chronicConditions || [],
+              currentMedications: patient.currentMedications || [],
+              allergies: patient.allergies || [],
+              timeHorizon: 30,
+              simulationGoal: template.clinicalContext ?? template.description,
+              status: 'draft',
+            });
+            scenarioIds.push(scenarioId);
+            scenariosFromTemplates.push({
+              name: template.templateName,
+              treatmentCode: firstOption?.treatmentCode ?? 'TEMPLATE',
+              treatmentDescription: template.description,
+              timeHorizon: 30,
+              goal: template.clinicalContext ?? template.description,
+              fromTemplate: true,
+              templateId: template.id,
+            });
+            // Increment usage count (fire-and-forget)
+            db.updateDelphiTemplateUsage(template.id, true).catch(() => {});
+          }
+
+          return { scenarioIds, scenarios: scenariosFromTemplates, source: 'template' };
+        }
+        // ── End template-first strategy ──────────────────────────────────────
+
         // Generate scenarios using LLM
         const scenarioPrompt = `You are a medical AI assistant helping physicians explore treatment scenarios.
 

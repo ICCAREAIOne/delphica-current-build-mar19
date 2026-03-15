@@ -717,7 +717,7 @@ async function _cacheEvidence(cacheKey: string, results: EvidenceSource[]): Prom
     const expiresAt = new Date(Date.now() + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000);
     const firstResult = results[0];
 
-    await db.cacheEvidence({
+    const cacheId = await db.cacheEvidence({
       queryHash: cacheKey,
       queryText: cacheKey,
       evidenceType: firstResult?.studyType ?? "clinical_evidence",
@@ -735,6 +735,17 @@ async function _cacheEvidence(cacheKey: string, results: EvidenceSource[]): Prom
       ),
       expiresAt,
     });
+
+    // Tag this cache entry with the engine that retrieved it
+    if (cacheId) {
+      const avgRelevance = results.reduce((sum, r) => sum + r.relevanceScore, 0) / (results.length || 1);
+      await db.tagEvidenceCacheEntry({
+        evidenceCacheId: cacheId,
+        engine: "causal" as const,
+        engineRelevanceScore: String(avgRelevance.toFixed(2)),
+        queryContext: cacheKey.slice(0, 512),
+      }).catch(() => {}); // Non-fatal
+    }
   } catch {
     // Non-fatal — cache write failure does not block evidence retrieval
   }

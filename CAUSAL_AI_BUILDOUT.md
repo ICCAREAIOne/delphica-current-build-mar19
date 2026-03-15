@@ -160,3 +160,30 @@ server/causalBrain.ts ← DEPRECATED — kept for backward compat; migrate calle
 | `server/causal/index.ts` | Public API barrel | ✅ Complete |
 | `server/aiService.ts` | Delphi Simulator + DRB | ✅ Keep as-is |
 | `server/causalBrain.ts` | Legacy — migrate callers | ⚠️ Deprecated |
+
+---
+
+## Completed: Separate Knowledge Stores (Mar 15, 2026)
+
+Three new tables added to the schema, DB helpers written, and wired into the engines:
+
+### `causal_knowledge_base`
+- Curated clinical guidelines + Bayesian priors per condition/treatment pair
+- Key columns: `conditionCode` (ICD-10), `treatmentName`, `evidenceGrade` (A–I), `betaAlpha`/`betaBeta` (Beta distribution priors), `observationCount`, `guidelineSource`
+- **Wired into**: `causal/inference.ts` → `performCausalAnalysis()` — queries guidelines by ICD-10 code and injects as "Clinical Guidelines (Causal Knowledge Base)" into the LLM prompt
+- **DB helpers**: `getCausalKnowledgeByCondition()`, `getCausalKnowledgeByTreatment()`, `searchCausalKnowledge()`, `upsertCausalKnowledge()`, `updateCausalKnowledgePriors()`
+- **Next step**: Seed with ADA 2024, ACC/AHA 2023, USPSTF guidelines via admin seeding script
+
+### `delphi_scenario_templates`
+- Reusable scenario archetypes (e.g., "T2DM + CKD — Renal-Safe Options") with pre-computed treatment option trees
+- Key columns: `diagnosisCode`, `comorbidityProfile` (JSON), `ageRangeMin/Max`, `treatmentOptions` (JSON tree), `outcomeDistributions`, `usageCount`, `successRate`, `isVerified`
+- **Wired into**: `routers.ts` → `delphiSimulator.generateScenarios` — template-first strategy: checks for verified templates before calling LLM; skips LLM entirely when enough verified templates exist
+- **DB helpers**: `getDelphiTemplatesByDiagnosis()`, `createDelphiTemplate()`, `updateDelphiTemplateUsage()`, `approveDelphiTemplate()`
+- **Next step**: Build admin UI to approve LLM-generated scenarios as reusable templates; seed 10 common archetypes
+
+### `evidence_cache_engine_tags`
+- Join table tagging each `evidence_cache` entry with the engine that retrieved it (causal | delphi | both)
+- Key columns: `evidenceCacheId` (FK → evidence_cache), `engine`, `engineRelevanceScore`, `queryContext`
+- **Wired into**: `causal/evidence.ts` → `_cacheEvidence()` — tags every PubMed cache write as `engine: "causal"`
+- **DB helpers**: `tagEvidenceCacheEntry()`, `getEvidenceByEngine()`
+- **Next step**: Tag Delphi engine evidence retrievals as "delphi" when Delphi starts calling `retrieveEvidence()` directly

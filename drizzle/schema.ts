@@ -2003,3 +2003,156 @@ export const biomarkers = mysqlTable("biomarkers", {
 
 export type Biomarker = typeof biomarkers.$inferSelect;
 export type InsertBiomarker = typeof biomarkers.$inferInsert;
+
+// ============================================================
+// CAUSAL AI ENGINE — DEDICATED KNOWLEDGE STORES
+// Added: Separate knowledge bases for Causal Engine and Delphi
+// ============================================================
+
+/**
+ * Causal Knowledge Base
+ *
+ * Stores curated clinical guidelines, treatment protocols, and
+ * prior probability distributions used by the Causal Engine.
+ *
+ * Populated from:
+ *   - USPSTF / ACC / AHA / ADA clinical guidelines (manual curation)
+ *   - PubMed systematic reviews and meta-analyses (automated via evidence.ts)
+ *   - Physician-approved treatment priors (via admin UI)
+ *
+ * Used by:
+ *   - causal/inference.ts  → prior probabilities for Bayesian analysis
+ *   - causal/evidence.ts   → supplement PubMed results with curated guidelines
+ */
+export const causalKnowledgeBase = mysqlTable("causal_knowledge_base", {
+  id: int("id").autoincrement().primaryKey(),
+
+  // Classification
+  conditionCode: varchar("conditionCode", { length: 32 }).notNull(),      // ICD-10 code (e.g., "E11")
+  conditionName: varchar("conditionName", { length: 255 }).notNull(),     // "Type 2 Diabetes Mellitus"
+  treatmentCode: varchar("treatmentCode", { length: 64 }),                // CPT or custom code
+  treatmentName: varchar("treatmentName", { length: 255 }),               // "Metformin monotherapy"
+  guidelineSource: varchar("guidelineSource", { length: 128 }),           // "ADA 2024", "ACC/AHA 2023"
+  evidenceGrade: mysqlEnum("evidenceGrade", ["A", "B", "C", "D", "I"]).notNull().default("C"),
+  // Grade A = strong RCT evidence, I = insufficient evidence
+
+  // Content
+  summary: text("summary").notNull(),                                      // Clinical summary
+  mechanismOfAction: text("mechanismOfAction"),                            // Pharmacological mechanism
+  indicationsText: text("indicationsText"),                                // When to use
+  contraindicationsText: text("contraindicationsText"),                    // When NOT to use
+  keyFindings: text("keyFindings"),                                        // Key clinical findings
+
+  // Bayesian Priors — used by causal/inference.ts
+  // Prior probability that this treatment is effective for this condition
+  priorEfficacyMean: decimal("priorEfficacyMean", { precision: 5, scale: 4 }),   // 0.0000–1.0000
+  priorEfficacyVariance: decimal("priorEfficacyVariance", { precision: 5, scale: 4 }),
+  // Beta distribution parameters (alpha, beta) for Bayesian update
+  betaAlpha: decimal("betaAlpha", { precision: 8, scale: 4 }).default("1.0000"),
+  betaBeta: decimal("betaBeta", { precision: 8, scale: 4 }).default("1.0000"),
+  observationCount: int("observationCount").default(0),                    // n used to compute priors
+
+  // Source references
+  pmids: json("pmids").$type<string[]>(),                                  // PubMed IDs supporting this entry
+  dois: json("dois").$type<string[]>(),                                    // DOIs
+  guidelineUrl: text("guidelineUrl"),                                      // Link to full guideline
+
+  // Metadata
+  isActive: boolean("isActive").default(true).notNull(),
+  approvedByPhysicianId: int("approvedByPhysicianId").references(() => users.id),
+  approvedAt: timestamp("approvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CausalKnowledgeBase = typeof causalKnowledgeBase.$inferSelect;
+export type InsertCausalKnowledgeBase = typeof causalKnowledgeBase.$inferInsert;
+
+/**
+ * Delphi Scenario Templates
+ *
+ * Stores reusable scenario archetypes for the Delphi Simulator.
+ * Prevents the engine from generating scenarios from scratch on every run.
+ *
+ * Populated from:
+ *   - Common clinical archetypes (T2DM + CKD, HTN + AF, etc.)
+ *   - Physician-saved scenarios from past Delphi runs
+ *   - High-confidence LLM-generated scenarios that were physician-approved
+ *
+ * Used by:
+ *   - delphiSimulator.generateScenarios → check for matching template first
+ *   - delphiSimulator.runSimulation → seed simulation with template priors
+ */
+export const delphiScenarioTemplates = mysqlTable("delphi_scenario_templates", {
+  id: int("id").autoincrement().primaryKey(),
+
+  // Matching keys — used to find applicable templates
+  diagnosisCode: varchar("diagnosisCode", { length: 32 }).notNull(),       // ICD-10 (e.g., "E11")
+  diagnosisName: varchar("diagnosisName", { length: 255 }).notNull(),
+  comorbidityProfile: json("comorbidityProfile").$type<string[]>(),        // ["CKD", "HTN"] — for matching
+  ageRangeMin: int("ageRangeMin"),                                          // Patient age range (inclusive)
+  ageRangeMax: int("ageRangeMax"),
+
+  // Template content
+  templateName: varchar("templateName", { length: 255 }).notNull(),        // "T2DM + CKD — Renal-Safe Options"
+  description: text("description").notNull(),
+  clinicalContext: text("clinicalContext"),                                  // Narrative context for the scenario
+
+  // Pre-computed treatment option tree
+  treatmentOptions: json("treatmentOptions").$type<Array<{
+    treatmentName: string;
+    treatmentCode: string;
+    description: string;
+    predictedEfficacy: number;        // 0–1
+    predictedSafetyScore: number;     // 0–1
+    timeToEffect: string;             // "2–4 weeks"
+    risks: string[];
+    benefits: string[];
+    contraindications: string[];
+    evidenceGrade: string;            // "A" | "B" | "C"
+    guidelineSource: string;          // "ADA 2024"
+  }>>().notNull(),
+
+  // Outcome probability distributions (pre-computed from population data)
+  outcomeDistributions: json("outcomeDistributions").$type<Array<{
+    treatmentName: string;
+    outcomeType: string;              // "remission" | "improvement" | "stable" | "deterioration"
+    probability: number;              // 0–1
+    timeHorizon: number;              // days
+    confidenceInterval: [number, number];
+  }>>(),
+
+  // Quality metadata
+  usageCount: int("usageCount").default(0).notNull(),
+  successRate: decimal("successRate", { precision: 5, scale: 2 }),         // % of runs where physician accepted
+  isVerified: boolean("isVerified").default(false).notNull(),              // Physician-approved template
+  verifiedByPhysicianId: int("verifiedByPhysicianId").references(() => users.id),
+  verifiedAt: timestamp("verifiedAt"),
+  isActive: boolean("isActive").default(true).notNull(),
+
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type DelphiScenarioTemplate = typeof delphiScenarioTemplates.$inferSelect;
+export type InsertDelphiScenarioTemplate = typeof delphiScenarioTemplates.$inferInsert;
+
+/**
+ * Evidence Cache Engine Tags
+ *
+ * Links evidence_cache entries to the engine(s) that retrieved them.
+ * Allows per-engine relevance scoring and prevents cross-contamination.
+ *
+ * Separate join table rather than a column on evidence_cache so one
+ * cached article can be tagged by multiple engines independently.
+ */
+export const evidenceCacheEngineTags = mysqlTable("evidence_cache_engine_tags", {
+  id: int("id").autoincrement().primaryKey(),
+  evidenceCacheId: int("evidenceCacheId").notNull().references(() => evidenceCache.id, { onDelete: "cascade" }),
+  engine: mysqlEnum("engine", ["causal", "delphi", "both"]).notNull(),
+  // Per-engine relevance score (may differ from the base relevanceScore)
+  engineRelevanceScore: decimal("engineRelevanceScore", { precision: 5, scale: 2 }),
+  // The query context that triggered this retrieval
+  queryContext: varchar("queryContext", { length: 512 }),
+  retrievedAt: timestamp("retrievedAt").defaultNow().notNull(),
+});
+export type EvidenceCacheEngineTag = typeof evidenceCacheEngineTags.$inferSelect;
+export type InsertEvidenceCacheEngineTag = typeof evidenceCacheEngineTags.$inferInsert;
