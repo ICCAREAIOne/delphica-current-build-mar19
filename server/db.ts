@@ -89,7 +89,10 @@ import {
   delphiScenarioTemplates,
   InsertDelphiScenarioTemplate,
   evidenceCacheEngineTags,
-  InsertEvidenceCacheEngineTag
+  InsertEvidenceCacheEngineTag,
+  treatmentPolicy,
+  InsertTreatmentPolicy,
+  TreatmentPolicy
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -4517,4 +4520,182 @@ export async function getEvidenceByEngine(
     .where(eq(evidenceCacheEngineTags.engine, engine))
     .orderBy(desc(evidenceCacheEngineTags.retrievedAt))
     .limit(limit);
+}
+
+/**
+ * Get patient outcomes for a specific diagnosis + treatment pair.
+ *
+ * Joins patient_outcomes → treatment_recommendations → clinical_sessions → diagnosis_entries
+ * to find all recorded outcomes where the associated recommendation matched the given
+ * treatmentName (partial match) and the session had the given diagnosisCode.
+ *
+ * Returns structured historical data suitable for causal analysis.
+ */
+export async function getOutcomesByDiagnosisAndTreatment(
+  diagnosisCode: string,
+  treatmentName: string,
+  limit = 200
+): Promise<Array<{
+  patientId: number;
+  outcome: string;
+  outcomeValue: number;
+  confounders: { age: number; gender: string; comorbidities: string[] };
+  timeFromTreatment: number | null;
+  attributionConfidence: number | null;
+  likelyRelatedToTreatment: boolean | null;
+}>> {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Join path: patient_outcomes → treatment_recommendations → patients
+  // Filter by treatmentName (LIKE) and diagnosisCode via subquery on diagnosis_entries
+  const rows = await db.execute(sql`
+    SELECT
+      po.patientId,
+      po.outcomeType,
+      po.measurementValue,
+      po.timeFromTreatment,
+      po.attributionConfidence,
+      po.likelyRelatedToTreatment,
+      p.dateOfBirth,
+      p.gender,
+      p.chronicConditions,
+      tr.treatmentName
+    FROM patient_outcomes po
+    INNER JOIN treatment_recommendations tr ON po.recommendationId = tr.id
+    INNER JOIN patients p ON po.patientId = p.id
+    INNER JOIN clinical_sessions cs ON tr.sessionId = cs.id
+    INNER JOIN diagnosis_entries de ON de.sessionId = cs.id
+    WHERE de.diagnosisCode = ${diagnosisCode}
+      AND tr.treatmentName LIKE ${'%' + treatmentName + '%'}
+    ORDER BY po.recordedAt DESC
+    LIMIT ${limit}
+  `) as any;
+
+  const resultRows = Array.isArray(rows[0]) ? rows[0] : rows;
+
+  return resultRows.map((row: any) => {
+    const ageMs = Date.now() - new Date(row.dateOfBirth).getTime();
+    const age = Math.floor(ageMs / (365.25 * 24 * 60 * 60 * 1000));
+
+    // Map outcomeType to a normalised outcome label
+    const outcomeLabel = (() => {
+      const t = (row.outcomeType ?? '').toLowerCase();
+      if (t.includes('improv') || t.includes('resolved') || t.includes('better')) return 'improved';
+      if (t.includes('worsen') || t.includes('deteriorat') || t.includes('adverse')) return 'worsened';
+      return 'stable';
+    })();
+
+    // Convert measurementValue to a 0-1 numeric outcome score
+    const rawVal = parseFloat(row.measurementValue ?? '');
+    const outcomeValue = isNaN(rawVal)
+      ? (outcomeLabel === 'improved' ? 0.75 : outcomeLabel === 'worsened' ? 0.25 : 0.5)
+      : Math.min(1, Math.max(0, rawVal / 100));
+
+    return {
+      patientId: row.patientId,
+      outcome: outcomeLabel,
+      outcomeValue,
+      confounders: {
+        age,
+        gender: row.gender ?? 'unknown',
+        comorbidities: (() => {
+          try { return JSON.parse(row.chronicConditions ?? '[]'); } catch { return []; }
+        })(),
+      },
+      timeFromTreatment: row.timeFromTreatment ?? null,
+      attributionConfidence: row.attributionConfidence ? Number(row.attributionConfidence) : null,
+      likelyRelatedToTreatment: row.likelyRelatedToTreatment ?? null,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TREATMENT POLICY — Bayesian confidence persistence
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Get the treatment policy row for a specific scope.
+ * Returns null if no policy exists yet (first observation).
+ */
+export async function getTreatmentPolicy(
+  treatmentCode: string,
+  diagnosisCode: string,
+  ageGroup: 'under_40' | '40_to_65' | 'over_65' | 'all' = 'all',
+  genderGroup: 'male' | 'female' | 'other' | 'all' = 'all'
+): Promise<TreatmentPolicy | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(treatmentPolicy)
+    .where(
+      and(
+        eq(treatmentPolicy.treatmentCode, treatmentCode),
+        eq(treatmentPolicy.diagnosisCode, diagnosisCode),
+        eq(treatmentPolicy.ageGroup, ageGroup),
+        eq(treatmentPolicy.genderGroup, genderGroup)
+      )
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Upsert a treatment policy row with updated Bayesian parameters.
+ * Uses INSERT ... ON DUPLICATE KEY UPDATE for atomic upsert.
+ */
+export async function upsertTreatmentPolicy(data: {
+  treatmentCode: string;
+  treatmentName: string;
+  diagnosisCode: string;
+  ageGroup: 'under_40' | '40_to_65' | 'over_65' | 'all';
+  genderGroup: 'male' | 'female' | 'other' | 'all';
+  alpha: number;
+  beta: number;
+  confidenceScore: number;
+  totalObservations: number;
+  successCount: number;
+  failureCount: number;
+  lastUpdatedBy?: number;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error('Database not initialized');
+
+  await db.execute(sql`
+    INSERT INTO treatment_policy
+      (treatmentCode, treatmentName, diagnosisCode, ageGroup, genderGroup,
+       alpha, beta, confidenceScore, totalObservations, successCount, failureCount, lastUpdatedBy)
+    VALUES
+      (${data.treatmentCode}, ${data.treatmentName}, ${data.diagnosisCode},
+       ${data.ageGroup}, ${data.genderGroup},
+       ${data.alpha.toFixed(4)}, ${data.beta.toFixed(4)}, ${data.confidenceScore.toFixed(4)},
+       ${data.totalObservations}, ${data.successCount}, ${data.failureCount},
+       ${data.lastUpdatedBy ?? null})
+    ON DUPLICATE KEY UPDATE
+      alpha = VALUES(alpha),
+      beta = VALUES(beta),
+      confidenceScore = VALUES(confidenceScore),
+      totalObservations = VALUES(totalObservations),
+      successCount = VALUES(successCount),
+      failureCount = VALUES(failureCount),
+      lastUpdatedBy = VALUES(lastUpdatedBy),
+      updatedAt = CURRENT_TIMESTAMP
+  `);
+}
+
+/**
+ * Get all treatment policies for a given diagnosis code.
+ * Used to display confidence scores in the Treatment Recommendations UI.
+ */
+export async function getTreatmentPoliciesByDiagnosis(
+  diagnosisCode: string
+): Promise<TreatmentPolicy[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(treatmentPolicy)
+    .where(eq(treatmentPolicy.diagnosisCode, diagnosisCode))
+    .orderBy(desc(treatmentPolicy.confidenceScore));
 }

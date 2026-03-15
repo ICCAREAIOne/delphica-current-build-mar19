@@ -198,10 +198,11 @@ export async function recordOutcome(
  */
 export async function refreshTreatmentPolicy(
   treatmentCode: string,
-  outcomes: OutcomeRecord[],
-  previousConfidence: number
+  treatmentName: string,
+  diagnosisCode: string,
+  outcomes: OutcomeRecord[]
 ): Promise<PolicyUpdateResult> {
-  return updateTreatmentPolicy(treatmentCode, outcomes, previousConfidence);
+  return updateTreatmentPolicy(treatmentCode, treatmentName, diagnosisCode, outcomes);
 }
 
 // ─────────────────────────────────────────────

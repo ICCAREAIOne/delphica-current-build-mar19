@@ -3091,13 +3091,23 @@ export const appRouter = router({
         treatmentCode: z.string(),
       }))
       .mutation(async ({ input }) => {
-        // Get historical outcomes for this diagnosis-treatment pair
-        // In production, this would query actual patient outcomes
-        const historicalData = [
-          { patientId: 1, outcome: 'improved', outcomeValue: 0.8, confounders: { age: 45, gender: 'male' } },
-          { patientId: 2, outcome: 'improved', outcomeValue: 0.7, confounders: { age: 52, gender: 'female' } },
-          { patientId: 3, outcome: 'stable', outcomeValue: 0.5, confounders: { age: 38, gender: 'male' } },
-        ];
+        // Query real patient outcomes from DB for this diagnosis + treatment pair
+        let historicalData = await db.getOutcomesByDiagnosisAndTreatment(
+          input.diagnosisCode,
+          input.treatmentCode
+        );
+
+        // Minimum sample threshold: require at least 5 real outcomes for statistical validity.
+        // Below threshold, supplement with a note but still run analysis on available data.
+        const MIN_OUTCOMES = 5;
+        const usingRealData = historicalData.length >= MIN_OUTCOMES;
+        if (!usingRealData) {
+          console.log(
+            `[CausalAnalysis] Only ${historicalData.length} real outcomes found for ` +
+            `${input.diagnosisCode}/${input.treatmentCode}. ` +
+            `Analysis will use available data + LLM supplementation.`
+          );
+        }
 
         // Perform causal analysis
         const causalBrain = await import('./causalBrain');

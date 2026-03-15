@@ -2156,3 +2156,49 @@ export const evidenceCacheEngineTags = mysqlTable("evidence_cache_engine_tags", 
 });
 export type EvidenceCacheEngineTag = typeof evidenceCacheEngineTags.$inferSelect;
 export type InsertEvidenceCacheEngineTag = typeof evidenceCacheEngineTags.$inferInsert;
+
+/**
+ * Treatment Policy
+ *
+ * Stores per-treatment Bayesian Beta distribution parameters for confidence
+ * score persistence across sessions. One row per (treatmentCode × diagnosisCode
+ * × ageGroup × genderGroup) tuple.
+ *
+ * Beta(alpha, beta) represents the prior/posterior distribution over treatment
+ * success probability. Updated via Bayesian conjugate update each time a new
+ * patient outcome is recorded.
+ *
+ * Confidence score = alpha / (alpha + beta)
+ * Initial prior: Beta(7, 3) → 70% baseline confidence
+ */
+export const treatmentPolicy = mysqlTable("treatment_policy", {
+  id: int("id").autoincrement().primaryKey(),
+
+  // Scope keys — one row per subgroup
+  treatmentCode: varchar("treatmentCode", { length: 64 }).notNull(),
+  treatmentName: varchar("treatmentName", { length: 255 }).notNull(),
+  diagnosisCode: varchar("diagnosisCode", { length: 32 }).notNull(),
+
+  // Subgroup stratification
+  ageGroup: mysqlEnum("ageGroup", ["under_40", "40_to_65", "over_65", "all"]).default("all").notNull(),
+  genderGroup: mysqlEnum("genderGroup", ["male", "female", "other", "all"]).default("all").notNull(),
+
+  // Beta distribution parameters (Bayesian conjugate prior)
+  alpha: decimal("alpha", { precision: 12, scale: 4 }).notNull().default("7.0000"), // successes + prior
+  beta: decimal("beta", { precision: 12, scale: 4 }).notNull().default("3.0000"),   // failures + prior
+
+  // Derived confidence (cached for fast reads — recomputed on each update)
+  confidenceScore: decimal("confidenceScore", { precision: 5, scale: 4 }).notNull().default("0.7000"),
+
+  // Observation counts
+  totalObservations: int("totalObservations").notNull().default(0),
+  successCount: int("successCount").notNull().default(0),
+  failureCount: int("failureCount").notNull().default(0),
+
+  // Metadata
+  lastUpdatedBy: int("lastUpdatedBy").references(() => users.id),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type TreatmentPolicy = typeof treatmentPolicy.$inferSelect;
+export type InsertTreatmentPolicy = typeof treatmentPolicy.$inferInsert;
