@@ -224,22 +224,156 @@ export async function recordOutcomeAndUpdatePolicy(
   return { recorded: true, policyUpdated: false };
 }
 
-// ─────────────────────────────────────────────
-// STEP 3 TODO: Thompson Sampling (Contextual Bandit)
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP 3 (DONE): Thompson Sampling — Contextual Bandit
 //
-// For each patient context, select the treatment arm that
-// maximizes expected reward using Thompson Sampling:
-//
-//   1. For each candidate treatment, read Beta(α, β) from treatment_policy
-//   2. Sample θ_i ~ Beta(α_i, β_i) for each treatment i
+// Selects the treatment arm that maximises expected reward for a patient context.
+// Algorithm:
+//   1. For each candidate treatment, read Beta(α, β) from treatment_policy DB
+//   2. Sample θ_i ~ Beta(α_i, β_i) for each treatment i  (jstat.beta.sample)
 //   3. Select treatment with highest sampled θ
-//   4. This naturally balances exploration (uncertain treatments) vs
-//      exploitation (proven treatments)
+//   4. Naturally balances exploration (uncertain/new treatments) vs
+//      exploitation (proven high-confidence treatments)
 //
-// function thompsonSample(
-//   candidates: Array<{ treatmentCode: string; alpha: number; beta: number }>
-// ): string  // returns selected treatmentCode
-//
-// Requires: beta distribution sampler (use 'jstat' npm package or
-// implement via gamma distribution: Beta(a,b) = Gamma(a) / (Gamma(a) + Gamma(b)))
-// ─────────────────────────────────────────────
+// STEP 4 TODO: Subgroup-aware bandit — pass ageGroup + genderGroup so the
+// sampler reads the stratified Beta params rather than the 'all' aggregate.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import jStat from 'jstat';
+
+export interface TreatmentCandidate {
+  treatmentCode: string;
+  treatmentName: string;
+  /** Bayesian alpha parameter from treatment_policy (defaults to 7 if no data) */
+  alpha: number;
+  /** Bayesian beta parameter from treatment_policy (defaults to 3 if no data) */
+  beta: number;
+  /** Posterior mean confidence — alpha / (alpha + beta) */
+  posteriorMean: number;
+}
+
+export interface ThompsonSampleResult {
+  /** The selected treatment code */
+  selectedTreatmentCode: string;
+  /** The selected treatment name */
+  selectedTreatmentName: string;
+  /** The sampled θ value that won */
+  sampledTheta: number;
+  /** All candidates with their sampled θ values, sorted descending */
+  allSamples: Array<{
+    treatmentCode: string;
+    treatmentName: string;
+    sampledTheta: number;
+    posteriorMean: number;
+    alpha: number;
+    beta: number;
+  }>;
+  /** Whether this was an exploration pick (winner's posteriorMean < runner-up's) */
+  isExploration: boolean;
+}
+
+/**
+ * Thompson Sampling — select the best treatment arm for a patient context.
+ *
+ * Pure function — no DB calls. Caller is responsible for fetching Beta
+ * parameters from treatment_policy and passing them as TreatmentCandidate[].
+ *
+ * @param candidates  Treatment options with their Beta(α, β) parameters
+ * @param nSamples    Number of Monte Carlo samples per arm (default 1 for standard TS)
+ * @returns           Selected treatment + full sample breakdown
+ */
+export function thompsonSample(
+  candidates: TreatmentCandidate[],
+  nSamples: number = 1
+): ThompsonSampleResult {
+  if (candidates.length === 0) {
+    throw new Error('thompsonSample: at least one candidate required');
+  }
+  if (candidates.length === 1) {
+    const c = candidates[0];
+    return {
+      selectedTreatmentCode: c.treatmentCode,
+      selectedTreatmentName: c.treatmentName,
+      sampledTheta: c.posteriorMean,
+      allSamples: [{ ...c, sampledTheta: c.posteriorMean }],
+      isExploration: false,
+    };
+  }
+
+  // Sample θ_i ~ Beta(α_i, β_i) for each arm
+  // For nSamples > 1, take the mean of multiple draws (reduces variance for display)
+  const sampled = candidates.map((c) => {
+    let theta: number;
+    if (nSamples === 1) {
+      theta = jStat.beta.sample(c.alpha, c.beta);
+    } else {
+      let sum = 0;
+      for (let i = 0; i < nSamples; i++) {
+        sum += jStat.beta.sample(c.alpha, c.beta);
+      }
+      theta = sum / nSamples;
+    }
+    return {
+      treatmentCode: c.treatmentCode,
+      treatmentName: c.treatmentName,
+      sampledTheta: theta,
+      posteriorMean: c.posteriorMean,
+      alpha: c.alpha,
+      beta: c.beta,
+    };
+  });
+
+  // Sort descending by sampled θ
+  sampled.sort((a, b) => b.sampledTheta - a.sampledTheta);
+  const winner = sampled[0];
+  const runnerUp = sampled[1];
+
+  // Exploration: winner was chosen despite lower posterior mean than runner-up
+  const isExploration = winner.posteriorMean < runnerUp.posteriorMean;
+
+  return {
+    selectedTreatmentCode: winner.treatmentCode,
+    selectedTreatmentName: winner.treatmentName,
+    sampledTheta: winner.sampledTheta,
+    allSamples: sampled,
+    isExploration,
+  };
+}
+
+/**
+ * Fetch Beta parameters from treatment_policy DB and run Thompson Sampling.
+ *
+ * High-level helper that wires DB lookup + thompsonSample() together.
+ * Uses default Beta(7,3) prior for treatments with no recorded outcomes.
+ *
+ * @param diagnosisCode   ICD-10 code for the patient's primary diagnosis
+ * @param treatmentNames  Array of candidate treatment names to rank
+ */
+export async function selectBestTreatmentByThompson(
+  diagnosisCode: string,
+  treatmentCandidates: Array<{ treatmentCode: string; treatmentName: string }>
+): Promise<ThompsonSampleResult> {
+  const db = await import('../db');
+
+  // Fetch all persisted policies for this diagnosis
+  const policies = await db.getTreatmentPoliciesByDiagnosis(diagnosisCode);
+  const policyMap = new Map(
+    policies.map((p) => [p.treatmentCode, p])
+  );
+
+  // Build TreatmentCandidate[] — use DB params if available, else default prior
+  const candidates: TreatmentCandidate[] = treatmentCandidates.map((t) => {
+    const policy = policyMap.get(t.treatmentCode);
+    const alpha = policy ? Number(policy.alpha) : 7.0;
+    const beta  = policy ? Number(policy.beta)  : 3.0;
+    return {
+      treatmentCode: t.treatmentCode,
+      treatmentName: t.treatmentName,
+      alpha,
+      beta,
+      posteriorMean: alpha / (alpha + beta),
+    };
+  });
+
+  return thompsonSample(candidates);
+}

@@ -3064,6 +3064,51 @@ export const appRouter = router({
       }),
 
     /**
+     * Get persisted Bayesian confidence scores (treatment_policy) for a diagnosis.
+     * Used by the Treatment Recommendations UI to overlay real-world confidence
+     * on top of the AI-generated scores.
+     */
+    getPoliciesForDiagnosis: protectedProcedure
+      .input(z.object({
+        diagnosisCode: z.string(),
+      }))
+      .query(async ({ input }) => {
+        const policies = await db.getTreatmentPoliciesByDiagnosis(input.diagnosisCode);
+        return policies.map((p) => ({
+          treatmentCode: p.treatmentCode,
+          treatmentName: p.treatmentName,
+          confidenceScore: Number(p.confidenceScore),
+          alpha: Number(p.alpha),
+          beta: Number(p.beta),
+          totalObservations: p.totalObservations,
+          successCount: p.successCount,
+          failureCount: p.failureCount,
+          updatedAt: p.updatedAt,
+        }));
+      }),
+
+    /**
+     * Run Thompson Sampling to select the best treatment for a patient context.
+     * Returns the recommended treatment code + full sample breakdown.
+     */
+    selectBestTreatment: protectedProcedure
+      .input(z.object({
+        diagnosisCode: z.string(),
+        candidates: z.array(z.object({
+          treatmentCode: z.string(),
+          treatmentName: z.string(),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        const { selectBestTreatmentByThompson } = await import('./causal/policy');
+        const result = await selectBestTreatmentByThompson(
+          input.diagnosisCode,
+          input.candidates
+        );
+        return result;
+      }),
+
+    /**
      * Update recommendation status (accept/reject/modify)
      */
     updateRecommendationStatus: protectedProcedure
@@ -3176,6 +3221,85 @@ export const appRouter = router({
           recordedBy: ctx.user.id,
         };
         const result = await db.recordPatientOutcome(outcomeData);
+
+        // ── Subgroup-stratified policy update ──────────────────────────────
+        // Attempt to update treatment_policy with demographic stratification.
+        // Runs async after the outcome is saved — failures are logged, not thrown.
+        try {
+          // 1. Resolve patient demographics for subgroup assignment
+          const patient = await db.getPatientById(input.patientId);
+          let ageGroup: 'under_40' | '40_to_65' | 'over_65' | 'all' = 'all';
+          let genderGroup: 'male' | 'female' | 'other' | 'all' = 'all';
+
+          if (patient?.dateOfBirth) {
+            const ageYears = Math.floor(
+              (Date.now() - new Date(patient.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+            );
+            ageGroup = ageYears < 40 ? 'under_40' : ageYears <= 65 ? '40_to_65' : 'over_65';
+          }
+          if (patient?.gender === 'male' || patient?.gender === 'female' || patient?.gender === 'other') {
+            genderGroup = patient.gender;
+          }
+
+          // 2. Resolve treatment + diagnosis codes from the linked recommendation
+          let treatmentCode = 'unknown';
+          let treatmentName = input.outcomeType;
+          let diagnosisCode = 'unknown';
+
+          if (input.recommendationId) {
+            const recs = await db.getTreatmentRecommendationsBySession(input.sessionId ?? 0);
+            const rec = recs.find((r: any) => r.id === input.recommendationId);
+            if (rec) {
+              // treatmentCode is stored as treatmentName in the DB (no separate treatmentCode column)
+              treatmentCode = (rec as any).treatmentName ?? treatmentCode;
+              treatmentName = (rec as any).treatmentName ?? treatmentName;
+            }
+          }
+
+          // 3. Build OutcomeRecord for policy update (matches causal/types.ts OutcomeRecord interface)
+          const isSuccess = input.outcomeType === 'improvement' ||
+            (input.isExpected === true && input.likelyRelatedToTreatment === true);
+          const isAdverse = input.severity === 'severe' || input.severity === 'critical' ||
+            input.requiresIntervention === true;
+
+          const outcomeRecord = {
+            patientId: input.patientId,
+            sessionId: input.sessionId ?? 0,
+            treatmentCode,
+            diagnosisCode,
+            success: isSuccess,
+            adverseEvent: isAdverse,
+            outcomeDescription: input.outcomeDescription,
+            followUpDays: input.timeFromTreatment ?? 0,
+            recordedAt: new Date(),
+          };
+
+          // 4. Fetch all outcomes for this treatment to check threshold
+          const allOutcomes = await db.getOutcomesByDiagnosisAndTreatment(diagnosisCode, treatmentCode);
+          const { recordOutcomeAndUpdatePolicy } = await import('./causal/policy');
+          await recordOutcomeAndUpdatePolicy(
+            outcomeRecord,
+            allOutcomes.map((o: any) => ({
+              patientId: o.patientId,
+              sessionId: o.sessionId ?? 0,
+              treatmentCode,
+              diagnosisCode,
+              success: o.outcomeType === 'improvement',
+              adverseEvent: o.severity === 'severe' || o.severity === 'critical',
+              outcomeDescription: o.outcomeDescription ?? '',
+              followUpDays: o.timeFromTreatment ?? 0,
+              recordedAt: o.createdAt ?? new Date(),
+            })),
+            treatmentName,
+            diagnosisCode,
+            ageGroup,
+            genderGroup
+          );
+        } catch (policyErr) {
+          // Non-fatal — outcome is already saved, policy update failure should not block the response
+          console.error('[recordOutcome] Policy update failed (non-fatal):', policyErr);
+        }
+
         return result;
       }),
 

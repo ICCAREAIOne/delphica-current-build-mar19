@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,10 +32,12 @@ import { Label } from '@/components/ui/label';
 
 interface TreatmentRecommendationsProps {
   sessionId: number;
+  /** Primary ICD-10 diagnosis code — used to fetch persisted Bayesian confidence scores */
+  diagnosisCode?: string;
   onRecommendationAccepted?: () => void;
 }
 
-export function TreatmentRecommendations({ sessionId, onRecommendationAccepted }: TreatmentRecommendationsProps) {
+export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommendationAccepted }: TreatmentRecommendationsProps) {
   const { toast } = useToast();
   const [selectedRecommendation, setSelectedRecommendation] = useState<any | null>(null);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
@@ -44,6 +46,18 @@ export function TreatmentRecommendations({ sessionId, onRecommendationAccepted }
 
   // Fetch recommendations
   const { data: recommendations, isLoading, refetch } = trpc.causalBrain.getRecommendations.useQuery({ sessionId });
+
+  // Fetch persisted Bayesian confidence scores from treatment_policy table
+  const { data: policies } = trpc.causalBrain.getPoliciesForDiagnosis.useQuery(
+    { diagnosisCode: diagnosisCode ?? '' },
+    { enabled: !!diagnosisCode }
+  );
+
+  // Build a lookup map: treatmentCode -> policy data
+  const policyMap = useMemo(() => {
+    if (!policies) return new Map();
+    return new Map(policies.map((p: any) => [p.treatmentCode, p]));
+  }, [policies]);
 
   // Generate recommendations mutation
   const generateRecommendations = trpc.causalBrain.generateRecommendations.useMutation({
@@ -212,8 +226,29 @@ export function TreatmentRecommendations({ sessionId, onRecommendationAccepted }
                     </div>
                     <CardTitle className="text-lg">{rec.treatmentName}</CardTitle>
                   </div>
-                  <div className={`text-2xl font-bold ${getConfidenceColor(parseFloat(rec.confidenceScore))}`}>
-                    {(parseFloat(rec.confidenceScore) * 100).toFixed(0)}%
+                  <div className="text-right">
+                    <div className={`text-2xl font-bold ${getConfidenceColor(parseFloat(rec.confidenceScore))}`}>
+                      {(parseFloat(rec.confidenceScore) * 100).toFixed(0)}%
+                    </div>
+                    <div className="text-xs text-muted-foreground">AI estimate</div>
+                    {/* Real-world Bayesian confidence overlay */}
+                    {(() => {
+                      const policy = policyMap.get(rec.treatmentCode ?? rec.treatmentName);
+                      if (!policy) return null;
+                      const rwConf = (policy.confidenceScore * 100).toFixed(0);
+                      const nObs = policy.totalObservations;
+                      const isHigher = policy.confidenceScore > parseFloat(rec.confidenceScore);
+                      return (
+                        <div className="mt-1 text-right">
+                          <div className={`text-sm font-semibold ${isHigher ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            {rwConf}% real-world
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            n={nObs} outcomes · Beta({Number(policy.alpha).toFixed(1)},{Number(policy.beta).toFixed(1)})
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </CardHeader>
