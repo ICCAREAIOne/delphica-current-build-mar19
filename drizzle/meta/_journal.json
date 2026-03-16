@@ -204,6 +204,13 @@
       "when": 1773593644271,
       "tag": "0028_mushy_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1773626492253,
+      "tag": "0029_glorious_zaladane",
+      "breakpoints": true
     }
   ]
 }

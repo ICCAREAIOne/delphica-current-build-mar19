@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Brain, 
@@ -19,7 +20,9 @@ import {
   BookOpen,
   FlaskConical,
   ShieldCheck,
-  X
+  X,
+  Activity,
+  Target
 } from 'lucide-react';
 import {
   Dialog,
@@ -46,6 +49,12 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
   const [feedback, setFeedback] = useState('');
   const [bestTreatmentId, setBestTreatmentId] = useState<number | null>(null);
   const [thompsonLoading, setThompsonLoading] = useState(false);
+  const [showOutcomeDialog, setShowOutcomeDialog] = useState(false);
+  const [outcomeRec, setOutcomeRec] = useState<any | null>(null);
+  const [measuredValue, setMeasuredValue] = useState('');
+  const [baselineValue, setBaselineValue] = useState('');
+  const [outcomeType, setOutcomeType] = useState<'improvement' | 'stable' | 'deterioration'>('improvement');
+  const [outcomeNotes, setOutcomeNotes] = useState('');
 
   // Fetch recommendations
   const { data: recommendations, isLoading, refetch } = trpc.causalBrain.getRecommendations.useQuery({ sessionId });
@@ -55,6 +64,30 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
     { diagnosisCode: diagnosisCode ?? '' },
     { enabled: !!diagnosisCode }
   );
+
+  // Fetch formal outcome definition for this diagnosis (for outcome recording UI)
+  const { data: outcomeDef } = trpc.causalBrain.getOutcomeDefinition.useQuery(
+    { diagnosisCode: diagnosisCode ?? '' },
+    { enabled: !!diagnosisCode }
+  );
+
+  // Record outcome mutation
+  const recordOutcome = trpc.causalBrain.recordOutcome.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Outcome recorded',
+        description: 'Bayesian priors updated with new outcome data.',
+      });
+      setShowOutcomeDialog(false);
+      setOutcomeRec(null);
+      setMeasuredValue('');
+      setBaselineValue('');
+      setOutcomeNotes('');
+    },
+    onError: (error) => {
+      toast({ title: 'Error recording outcome', description: error.message, variant: 'destructive' });
+    },
+  });
 
   // Build a lookup map: treatmentCode -> policy data
   const policyMap = useMemo(() => {
@@ -140,6 +173,29 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
 
   const handleGenerateRecommendations = () => {
     generateRecommendations.mutate({ sessionId });
+  };
+
+  const handleOpenOutcomeDialog = (rec: any) => {
+    setOutcomeRec(rec);
+    setOutcomeType('improvement');
+    setMeasuredValue('');
+    setBaselineValue('');
+    setOutcomeNotes('');
+    setShowOutcomeDialog(true);
+  };
+
+  const handleSubmitOutcome = () => {
+    if (!outcomeRec) return;
+    recordOutcome.mutate({
+      patientId: outcomeRec.patientId ?? 0,
+      sessionId,
+      recommendationId: outcomeRec.id,
+      diagnosisCode: diagnosisCode,
+      outcomeType,
+      outcomeDescription: outcomeNotes || `${outcomeType} after ${outcomeRec.treatmentName}`,
+      measuredValue: measuredValue ? parseFloat(measuredValue) : undefined,
+      baselineValue: baselineValue ? parseFloat(baselineValue) : undefined,
+    });
   };
 
   const handleOpenFeedback = (recommendation: any, action: 'accepted' | 'rejected' | 'modified') => {
@@ -501,7 +557,7 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-2 pt-2 border-t">
+                <div className="flex flex-wrap gap-2 pt-2 border-t">
                   {rec.status === 'pending' ? (
                     <>
                       <Button
@@ -542,6 +598,17 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
                       {rec.status.charAt(0).toUpperCase() + rec.status.slice(1)}
                     </Badge>
                   )}
+                  {/* Record Outcome — always available once a recommendation exists */}
+                  <Button
+                    onClick={() => handleOpenOutcomeDialog(rec)}
+                    variant="outline"
+                    size="sm"
+                    className="border-cyan-400 text-cyan-700 hover:bg-cyan-50"
+                    title="Record measured outcome and update Bayesian priors"
+                  >
+                    <Activity className="h-3.5 w-3.5 mr-1.5" />
+                    Record Outcome
+                  </Button>
                 </div>
 
                 {/* Physician Feedback */}
@@ -556,6 +623,107 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
           ))}
         </CardContent>
       </Card>
+
+      {/* Record Outcome Dialog */}
+      <Dialog open={showOutcomeDialog} onOpenChange={setShowOutcomeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-cyan-600" />
+              Record Outcome
+            </DialogTitle>
+            <DialogDescription>
+              {outcomeRec?.treatmentName}
+              {outcomeDef && (
+                <span className="ml-2 text-xs font-medium text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded">
+                  Target: {outcomeDef.measurementInstrument} {outcomeDef.successOperator === 'lt' ? '<' : outcomeDef.successOperator === 'lte' ? '≤' : outcomeDef.successOperator === 'gt' ? '>' : outcomeDef.successOperator === 'gte' ? '≥' : outcomeDef.successOperator === 'drop_by' ? 'drop ≥' : 'reach'} {outcomeDef.successThreshold} {outcomeDef.measurementUnit ?? ''}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Outcome type */}
+            <div>
+              <Label className="text-sm font-medium">Outcome</Label>
+              <div className="flex gap-2 mt-1.5">
+                {(['improvement', 'stable', 'deterioration'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setOutcomeType(t)}
+                    className={`flex-1 py-1.5 rounded-md text-sm border transition-colors ${
+                      outcomeType === t
+                        ? t === 'improvement' ? 'bg-emerald-600 text-white border-emerald-600'
+                          : t === 'stable' ? 'bg-amber-500 text-white border-amber-500'
+                          : 'bg-red-600 text-white border-red-600'
+                        : 'border-muted text-muted-foreground hover:bg-muted/40'
+                    }`}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Measured value */}
+            {outcomeDef && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="measuredValue" className="text-sm">
+                    {outcomeDef.measurementInstrument} {outcomeDef.measurementUnit ? `(${outcomeDef.measurementUnit})` : ''}
+                  </Label>
+                  <Input
+                    id="measuredValue"
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 6.8"
+                    value={measuredValue}
+                    onChange={(e) => setMeasuredValue(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="baselineValue" className="text-sm">Baseline value</Label>
+                  <Input
+                    id="baselineValue"
+                    type="number"
+                    step="any"
+                    placeholder="pre-treatment"
+                    value={baselineValue}
+                    onChange={(e) => setBaselineValue(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="outcomeNotes" className="text-sm">Clinical notes (optional)</Label>
+              <Textarea
+                id="outcomeNotes"
+                value={outcomeNotes}
+                onChange={(e) => setOutcomeNotes(e.target.value)}
+                placeholder="Any relevant clinical observations..."
+                rows={3}
+                className="mt-1"
+              />
+            </div>
+            {outcomeDef && (
+              <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                <Target className="h-3 w-3 inline mr-1" />
+                Success criterion ({outcomeDef.guidelineSource}): {outcomeDef.measurementInstrument} {outcomeDef.successOperator === 'lt' ? '<' : outcomeDef.successOperator === 'lte' ? '≤' : outcomeDef.successOperator === 'gt' ? '>' : outcomeDef.successOperator === 'gte' ? '≥' : outcomeDef.successOperator === 'drop_by' ? 'drop ≥' : 'reach'} {outcomeDef.successThreshold} {outcomeDef.measurementUnit ?? ''} within {outcomeDef.timeHorizonDays} days · Grade {outcomeDef.evidenceGrade}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOutcomeDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitOutcome}
+              disabled={recordOutcome.isPending}
+              className="bg-cyan-600 hover:bg-cyan-700"
+            >
+              {recordOutcome.isPending ? 'Saving...' : 'Record & Update Priors'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Feedback Dialog */}
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>

@@ -2202,3 +2202,58 @@ export const treatmentPolicy = mysqlTable("treatment_policy", {
 });
 export type TreatmentPolicy = typeof treatmentPolicy.$inferSelect;
 export type InsertTreatmentPolicy = typeof treatmentPolicy.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OUTCOME DEFINITIONS
+// Maps diagnosis codes to validated clinical success criteria so the Bayesian
+// policy layer has a formal, reproducible definition of "success" per condition.
+// ─────────────────────────────────────────────────────────────────────────────
+export const outcomeDefinitions = mysqlTable("outcome_definitions", {
+  id:                     int("id").primaryKey().autoincrement(),
+  diagnosisCode:          varchar("diagnosisCode", { length: 20 }).notNull(),
+  conditionName:          varchar("conditionName", { length: 200 }).notNull(),
+  // What is being measured
+  measurementInstrument:  varchar("measurementInstrument", { length: 200 }).notNull(),
+  measurementUnit:        varchar("measurementUnit", { length: 50 }),
+  // Success threshold — operator + value
+  successOperator:        mysqlEnum("successOperator", ["lt", "lte", "gt", "gte", "drop_by", "reach"]).notNull(),
+  successThreshold:       decimal("successThreshold", { precision: 10, scale: 2 }).notNull(),
+  // Time horizon for measurement
+  timeHorizonDays:        int("timeHorizonDays").notNull(),
+  // Guideline source
+  guidelineSource:        varchar("guidelineSource", { length: 200 }).notNull(),
+  evidenceGrade:          mysqlEnum("evidenceGrade", ["A", "B", "C", "D"]).notNull(),
+  // Human-readable summary shown to physician
+  successCriteriaSummary: text("successCriteriaSummary").notNull(),
+  // Composite endpoint support
+  isComposite:            boolean("isComposite").default(false),
+  compositeGroupId:       varchar("compositeGroupId", { length: 50 }),
+  // Active flag
+  isActive:               boolean("isActive").default(true),
+  createdAt:              timestamp("createdAt").defaultNow(),
+  updatedAt:              timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+
+export type OutcomeDefinition = typeof outcomeDefinitions.$inferSelect;
+export type InsertOutcomeDefinition = typeof outcomeDefinitions.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POLICY CONFIDENCE HISTORY
+// Append-only log of confidence score snapshots after each Bayesian update.
+// Used to render sparkline trend charts on the Policy Dashboard.
+// ─────────────────────────────────────────────────────────────────────────────
+export const policyConfidenceHistory = mysqlTable("policy_confidence_history", {
+  id:             int("id").primaryKey().autoincrement(),
+  treatmentCode:  varchar("treatmentCode", { length: 100 }).notNull(),
+  diagnosisCode:  varchar("diagnosisCode", { length: 20 }).notNull(),
+  ageGroup:       mysqlEnum("ageGroup", ["under_40", "40_to_65", "over_65", "all"]).notNull().default("all"),
+  genderGroup:    mysqlEnum("genderGroup", ["male", "female", "other", "all"]).notNull().default("all"),
+  confidenceScore: decimal("confidenceScore", { precision: 5, scale: 4 }).notNull(),
+  alpha:          decimal("alpha", { precision: 10, scale: 4 }).notNull(),
+  beta:           decimal("beta", { precision: 10, scale: 4 }).notNull(),
+  totalObservations: int("totalObservations").notNull().default(0),
+  recordedAt:     timestamp("recordedAt").defaultNow(),
+});
+
+export type PolicyConfidenceHistory = typeof policyConfidenceHistory.$inferSelect;
+export type InsertPolicyConfidenceHistory = typeof policyConfidenceHistory.$inferInsert;

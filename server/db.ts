@@ -92,7 +92,11 @@ import {
   InsertEvidenceCacheEngineTag,
   treatmentPolicy,
   InsertTreatmentPolicy,
-  TreatmentPolicy
+  TreatmentPolicy,
+  outcomeDefinitions,
+  OutcomeDefinition,
+  policyConfidenceHistory,
+  InsertPolicyConfidenceHistory,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -4686,10 +4690,23 @@ export async function upsertTreatmentPolicy(data: {
       lastUpdatedBy = VALUES(lastUpdatedBy),
       updatedAt = CURRENT_TIMESTAMP
   `);
-}
 
+  // Append confidence snapshot for sparkline trend charts (fire-and-forget)
+  try {
+    await db.insert(policyConfidenceHistory).values({
+      treatmentCode: data.treatmentCode,
+      diagnosisCode: data.diagnosisCode,
+      ageGroup: data.ageGroup,
+      genderGroup: data.genderGroup,
+      confidenceScore: data.confidenceScore.toFixed(4) as any,
+      alpha: data.alpha.toFixed(4) as any,
+      beta: data.beta.toFixed(4) as any,
+      totalObservations: data.totalObservations,
+    });
+  } catch { /* non-fatal */ }
+}
 /**
- * Get all treatment policies for a given diagnosis code.
+ * Get all treatment policies for a given diagnosis code..
  * Used to display confidence scores in the Treatment Recommendations UI.
  */
 export async function getTreatmentPoliciesByDiagnosis(
@@ -4711,4 +4728,94 @@ export async function getAllTreatmentPolicies(): Promise<TreatmentPolicy[]> {
     .select()
     .from(treatmentPolicy)
     .orderBy(treatmentPolicy.diagnosisCode, desc(treatmentPolicy.confidenceScore));
+}
+
+// ============ Outcome Definitions ============
+
+/**
+ * Get the primary outcome definition for a diagnosis code.
+ * Returns the lowest displayOrder active definition.
+ */
+export async function getOutcomeDefinitionByDiagnosis(
+  diagnosisCode: string
+): Promise<OutcomeDefinition | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const results = await db
+    .select()
+    .from(outcomeDefinitions)
+    .where(and(eq(outcomeDefinitions.diagnosisCode, diagnosisCode), eq(outcomeDefinitions.isActive, true)))
+    .orderBy(asc(outcomeDefinitions.id))
+    .limit(1);
+  return results.length > 0 ? results[0] : undefined;
+}
+
+/**
+ * Get all active outcome definitions for a diagnosis code.
+ */
+export async function getAllOutcomeDefinitionsForDiagnosis(
+  diagnosisCode: string
+): Promise<OutcomeDefinition[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(outcomeDefinitions)
+    .where(and(eq(outcomeDefinitions.diagnosisCode, diagnosisCode), eq(outcomeDefinitions.isActive, true)))
+    .orderBy(asc(outcomeDefinitions.id));
+}
+
+/**
+ * Get all active outcome definitions (for policy dashboard).
+ */
+export async function getAllOutcomeDefinitions(): Promise<OutcomeDefinition[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(outcomeDefinitions)
+    .where(eq(outcomeDefinitions.isActive, true))
+    .orderBy(outcomeDefinitions.diagnosisCode, asc(outcomeDefinitions.id));
+}
+
+// ============ Policy Confidence History ============
+
+/**
+ * Record a confidence snapshot after a Bayesian update.
+ * Called automatically by upsertTreatmentPolicy.
+ */
+export async function recordPolicyConfidenceSnapshot(
+  data: InsertPolicyConfidenceHistory
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(policyConfidenceHistory).values(data);
+}
+
+/**
+ * Get the last N confidence snapshots for a treatment arm.
+ * Used to render sparkline trend charts.
+ */
+export async function getPolicyConfidenceHistory(
+  treatmentCode: string,
+  diagnosisCode: string,
+  ageGroup: string = 'all',
+  genderGroup: string = 'all',
+  limit: number = 10
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(policyConfidenceHistory)
+    .where(
+      and(
+        eq(policyConfidenceHistory.treatmentCode, treatmentCode),
+        eq(policyConfidenceHistory.diagnosisCode, diagnosisCode),
+        eq(policyConfidenceHistory.ageGroup, ageGroup as any),
+        eq(policyConfidenceHistory.genderGroup, genderGroup as any)
+      )
+    )
+    .orderBy(desc(policyConfidenceHistory.recordedAt))
+    .limit(limit);
 }

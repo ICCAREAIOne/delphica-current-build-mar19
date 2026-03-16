@@ -3208,12 +3208,17 @@ export const appRouter = router({
         patientId: z.number(),
         sessionId: z.number().optional(),
         recommendationId: z.number().optional(),
+        diagnosisCode: z.string().optional(),
         outcomeType: z.string(),
         outcomeDescription: z.string(),
         severity: z.enum(['mild', 'moderate', 'severe', 'critical']).optional(),
         measurementType: z.string().optional(),
         measurementValue: z.string().optional(),
         measurementUnit: z.string().optional(),
+        /** Numeric value of the primary outcome instrument (e.g., HbA1c = 6.8) */
+        measuredValue: z.number().optional(),
+        /** Baseline value before treatment started (for drop_by operator) */
+        baselineValue: z.number().optional(),
         timeFromTreatment: z.number().optional(),
         isExpected: z.boolean().optional(),
         likelyRelatedToTreatment: z.boolean().optional(),
@@ -3277,19 +3282,40 @@ export const appRouter = router({
           }
 
           // 3. Build OutcomeRecord for policy update (matches causal/types.ts OutcomeRecord interface)
-          const isSuccess = input.outcomeType === 'improvement' ||
-            (input.isExpected === true && input.likelyRelatedToTreatment === true);
           const isAdverse = input.severity === 'severe' || input.severity === 'critical' ||
             input.requiresIntervention === true;
+
+          // Fetch formal outcome definition to validate success classification
+          const effectiveDiagnosis = input.diagnosisCode ?? diagnosisCode;
+          const outcomeDef = await db.getOutcomeDefinitionByDiagnosis(effectiveDiagnosis);
+
+          // Determine success: prefer measuredValue + threshold if available
+          let isSuccess = input.outcomeType === 'improvement' ||
+            (input.isExpected === true && input.likelyRelatedToTreatment === true);
+          if (outcomeDef && input.measuredValue !== undefined) {
+            const v = input.measuredValue;
+            const t = Number(outcomeDef.successThreshold);
+            switch (outcomeDef.successOperator) {
+              case 'lt':      isSuccess = v < t;  break;
+              case 'lte':     isSuccess = v <= t; break;
+              case 'gt':      isSuccess = v > t;  break;
+              case 'gte':     isSuccess = v >= t; break;
+              case 'drop_by': isSuccess = input.baselineValue !== undefined
+                ? (input.baselineValue - v) >= t : isSuccess; break;
+              case 'reach':   isSuccess = v >= t; break;
+            }
+          }
 
           const outcomeRecord = {
             patientId: input.patientId,
             sessionId: input.sessionId ?? 0,
             treatmentCode,
-            diagnosisCode,
+            diagnosisCode: effectiveDiagnosis,
             success: isSuccess,
             adverseEvent: isAdverse,
             outcomeDescription: input.outcomeDescription,
+            measuredValue: input.measuredValue,
+            baselineValue: input.baselineValue,
             followUpDays: input.timeFromTreatment ?? 0,
             recordedAt: new Date(),
           };
@@ -3321,6 +3347,53 @@ export const appRouter = router({
         }
 
         return result;
+      }),
+
+    /**
+     * Get the formal outcome definition for a diagnosis code.
+     * Used by the outcome recording UI to show the physician what to measure.
+     */
+    getOutcomeDefinition: protectedProcedure
+      .input(z.object({ diagnosisCode: z.string() }))
+      .query(async ({ input }) => {
+        return await db.getOutcomeDefinitionByDiagnosis(input.diagnosisCode);
+      }),
+
+    /**
+     * Get all outcome definitions (for policy dashboard).
+     */
+    getAllOutcomeDefinitions: protectedProcedure
+      .query(async () => {
+        return await db.getAllOutcomeDefinitions();
+      }),
+
+    /**
+     * Get confidence score history for a treatment arm (for sparkline charts).
+     */
+    getPolicyHistory: protectedProcedure
+      .input(z.object({
+        treatmentCode: z.string(),
+        diagnosisCode: z.string(),
+        ageGroup: z.string().optional(),
+        genderGroup: z.string().optional(),
+        limit: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        const rows = await db.getPolicyConfidenceHistory(
+          input.treatmentCode,
+          input.diagnosisCode,
+          input.ageGroup ?? 'all',
+          input.genderGroup ?? 'all',
+          input.limit ?? 10
+        );
+        // Return in chronological order for sparkline rendering
+        return rows.reverse().map((r) => ({
+          confidenceScore: Number(r.confidenceScore),
+          alpha: Number(r.alpha),
+          beta: Number(r.beta),
+          totalObservations: r.totalObservations,
+          recordedAt: r.recordedAt,
+        }));
       }),
 
     /**

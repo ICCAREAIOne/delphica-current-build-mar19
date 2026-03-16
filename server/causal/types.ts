@@ -237,6 +237,10 @@ export interface OutcomeRecord {
   adverseEventDescription?: string;
   outcomeDescription: string;
   outcomeValue?: number;
+  /** Measured value of the primary outcome instrument (e.g., HbA1c = 6.8) */
+  measuredValue?: number;
+  /** Baseline value before treatment started (required for drop_by operator) */
+  baselineValue?: number;
   followUpDays: number;
   recordedAt: Date;
 }

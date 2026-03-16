@@ -49,6 +49,115 @@ function ConfidenceBar({ score }: { score: number }) {
   );
 }
 
+/**
+ * SVG sparkline — renders a confidence trend line from an array of 0–1 scores.
+ * Width: 80px, Height: 28px. No axes, just the trend line.
+ */
+function Sparkline({ scores, color }: { scores: number[]; color: string }) {
+  if (!scores || scores.length < 2) {
+    return <span className="text-xs text-muted-foreground italic">no data</span>;
+  }
+  const W = 80;
+  const H = 28;
+  const pad = 2;
+  const xs = scores.map((_, i) => pad + (i / (scores.length - 1)) * (W - 2 * pad));
+  const ys = scores.map((v) => H - pad - v * (H - 2 * pad));
+  const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const lastY = ys[ys.length - 1];
+  const lastX = xs[xs.length - 1];
+  return (
+    <svg width={W} height={H} className="overflow-visible shrink-0">
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lastX} cy={lastY} r="2.5" fill={color} />
+    </svg>
+  );
+}
+
+/**
+ * Inline sparkline loader — fetches history for a single treatment arm.
+ */
+function PolicySparkline({
+  treatmentCode,
+  diagnosisCode,
+  ageGroup,
+  genderGroup,
+  currentScore,
+}: {
+  treatmentCode: string;
+  diagnosisCode: string;
+  ageGroup: string;
+  genderGroup: string;
+  currentScore: number;
+}) {
+  const { data } = trpc.causalBrain.getPolicyHistory.useQuery(
+    { treatmentCode, diagnosisCode, ageGroup, genderGroup, limit: 10 },
+    { staleTime: 60_000 }
+  );
+  const scores = data ? data.map((r) => r.confidenceScore) : [currentScore];
+  const color = currentScore >= 0.65 ? "#10b981" : currentScore >= 0.45 ? "#f59e0b" : "#ef4444";
+  return <Sparkline scores={scores} color={color} />;
+}
+
+// ─── Outcome Definitions Panel ────────────────────────────────────────────────
+
+function OutcomeDefinitionsPanel() {
+  const { data: defs = [], isLoading } = trpc.causalBrain.getAllOutcomeDefinitions.useQuery(
+    undefined,
+    { staleTime: 300_000 }
+  );
+
+  const opLabel: Record<string, string> = {
+    lt: "<", lte: "≤", gt: ">", gte: "≥", drop_by: "drop ≥", reach: "reach",
+  };
+
+  if (isLoading) return <div className="text-muted-foreground text-sm py-8 text-center">Loading definitions…</div>;
+
+  return (
+    <div className="rounded-lg border overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b bg-muted/40">
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Code</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Condition</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Instrument</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Success Criterion</th>
+            <th className="text-right px-4 py-3 font-medium text-muted-foreground">Days</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Guideline</th>
+            <th className="text-center px-4 py-3 font-medium text-muted-foreground">Grade</th>
+          </tr>
+        </thead>
+        <tbody>
+          {defs.map((d) => (
+            <tr key={d.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+              <td className="px-4 py-3">
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{d.diagnosisCode}</span>
+              </td>
+              <td className="px-4 py-3 text-sm">{d.conditionName}</td>
+              <td className="px-4 py-3 text-sm">
+                {d.measurementInstrument}
+                {d.measurementUnit && <span className="text-muted-foreground ml-1">({d.measurementUnit})</span>}
+              </td>
+              <td className="px-4 py-3 text-sm font-mono">
+                {opLabel[d.successOperator] ?? d.successOperator} {d.successThreshold}
+              </td>
+              <td className="px-4 py-3 text-right text-sm">{d.timeHorizonDays}d</td>
+              <td className="px-4 py-3 text-xs text-muted-foreground">{d.guidelineSource}</td>
+              <td className="px-4 py-3 text-center">
+                <Badge variant="outline" className="text-xs font-mono">
+                  {d.evidenceGrade}
+                </Badge>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-xs text-muted-foreground px-4 py-2">
+        {defs.length} validated outcome definitions · ADA / ACC/AHA / GOLD / ACR / KDIGO / DSM-5 / GINA
+      </p>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PolicyDashboard() {
@@ -99,7 +208,7 @@ export default function PolicyDashboard() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Treatment Policy Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Bayesian Beta distribution confidence scores per treatment arm, stratified by diagnosis, age, and gender.
+            Bayesian Beta(α,β) confidence scores per treatment arm with 90-day trend sparklines, stratified by diagnosis, age, and gender.
           </p>
         </div>
 
@@ -172,104 +281,142 @@ export default function PolicyDashboard() {
         {/* Main Content */}
         {isLoading ? (
           <div className="text-muted-foreground text-sm py-12 text-center">Loading policy data…</div>
-        ) : filtered.length === 0 ? (
-          <div className="text-muted-foreground text-sm py-12 text-center">No policy data matches the current filters.</div>
         ) : (
           <Tabs defaultValue="table">
             <TabsList>
               <TabsTrigger value="table">Table View</TabsTrigger>
               <TabsTrigger value="grouped">By Diagnosis</TabsTrigger>
+              <TabsTrigger value="outcomes">Outcome Definitions</TabsTrigger>
             </TabsList>
 
-            {/* Flat Table */}
+            {/* Flat Table with Sparklines */}
             <TabsContent value="table" className="mt-4">
-              <div className="rounded-lg border overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40">
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Diagnosis</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Treatment</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Age</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Gender</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground w-40">Confidence</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">α</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">β</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">n</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">✓</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">✗</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((p) => (
-                      <tr key={p.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{p.diagnosisCode}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium">{p.treatmentName}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{p.treatmentCode}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{AGE_LABELS[p.ageGroup] ?? p.ageGroup}</td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{GENDER_LABELS[p.genderGroup] ?? p.genderGroup}</td>
-                        <td className="px-4 py-3">
-                          <ConfidenceBar score={p.confidenceScore} />
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">{p.alpha.toFixed(1)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">{p.beta.toFixed(1)}</td>
-                        <td className="px-4 py-3 text-right text-sm">{p.totalObservations}</td>
-                        <td className="px-4 py-3 text-right text-emerald-600 text-sm">{p.successCount}</td>
-                        <td className="px-4 py-3 text-right text-red-500 text-sm">{p.failureCount}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                α = Beta successes parameter · β = Beta failures parameter · n = total observations · ✓ = improved · ✗ = worsened
-              </p>
+              {filtered.length === 0 ? (
+                <div className="text-muted-foreground text-sm py-12 text-center">No policy data matches the current filters.</div>
+              ) : (
+                <>
+                  <div className="rounded-lg border overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          <th className="text-left px-4 py-3 font-medium text-muted-foreground">Diagnosis</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-foreground">Treatment</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-foreground">Age</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-foreground">Gender</th>
+                          <th className="text-left px-4 py-3 font-medium text-muted-foreground w-40">Confidence</th>
+                          <th className="text-center px-4 py-3 font-medium text-muted-foreground">Trend (90d)</th>
+                          <th className="text-right px-4 py-3 font-medium text-muted-foreground">α</th>
+                          <th className="text-right px-4 py-3 font-medium text-muted-foreground">β</th>
+                          <th className="text-right px-4 py-3 font-medium text-muted-foreground">n</th>
+                          <th className="text-right px-4 py-3 font-medium text-muted-foreground">✓</th>
+                          <th className="text-right px-4 py-3 font-medium text-muted-foreground">✗</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((p) => (
+                          <tr key={p.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-3">
+                              <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{p.diagnosisCode}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="font-medium">{p.treatmentName}</div>
+                              <div className="text-xs text-muted-foreground font-mono">{p.treatmentCode}</div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-muted-foreground">{AGE_LABELS[p.ageGroup] ?? p.ageGroup}</td>
+                            <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{GENDER_LABELS[p.genderGroup] ?? p.genderGroup}</td>
+                            <td className="px-4 py-3">
+                              <ConfidenceBar score={p.confidenceScore} />
+                            </td>
+                            <td className="px-4 py-3 flex justify-center">
+                              <PolicySparkline
+                                treatmentCode={p.treatmentCode}
+                                diagnosisCode={p.diagnosisCode}
+                                ageGroup={p.ageGroup}
+                                genderGroup={p.genderGroup}
+                                currentScore={p.confidenceScore}
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">{p.alpha.toFixed(1)}</td>
+                            <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">{p.beta.toFixed(1)}</td>
+                            <td className="px-4 py-3 text-right text-sm">{p.totalObservations}</td>
+                            <td className="px-4 py-3 text-right text-emerald-600 text-sm">{p.successCount}</td>
+                            <td className="px-4 py-3 text-right text-red-500 text-sm">{p.failureCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    α = Beta successes · β = Beta failures · n = total observations · ✓ = improved · ✗ = worsened · Trend = 90-day confidence trajectory
+                  </p>
+                </>
+              )}
             </TabsContent>
 
             {/* Grouped by Diagnosis */}
             <TabsContent value="grouped" className="mt-4 space-y-6">
-              {Object.entries(byDiagnosis).map(([code, rows]) => {
-                const avgConf = rows.reduce((s, r) => s + r.confidenceScore, 0) / rows.length;
-                const totalObs = rows.reduce((s, r) => s + (r.totalObservations ?? 0), 0);
-                return (
-                  <div key={code} className="rounded-lg border">
-                    <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-                      <div>
-                        <span className="font-semibold">{DIAGNOSIS_LABELS[code] ?? code}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{rows.length} arms · {totalObs} observations</span>
+              {filtered.length === 0 ? (
+                <div className="text-muted-foreground text-sm py-12 text-center">No policy data matches the current filters.</div>
+              ) : (
+                Object.entries(byDiagnosis).map(([code, rows]) => {
+                  const avgConf = rows.reduce((s, r) => s + r.confidenceScore, 0) / rows.length;
+                  const totalObs = rows.reduce((s, r) => s + (r.totalObservations ?? 0), 0);
+                  return (
+                    <div key={code} className="rounded-lg border">
+                      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+                        <div>
+                          <span className="font-semibold">{DIAGNOSIS_LABELS[code] ?? code}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{rows.length} arms · {totalObs} observations</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Avg confidence:</span>
+                          {confidenceBadge(avgConf)}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Avg confidence:</span>
-                        {confidenceBadge(avgConf)}
-                      </div>
-                    </div>
-                    <div className="divide-y">
-                      {rows.map((p) => (
-                        <div key={p.id} className="px-4 py-3 flex items-center gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">{p.treatmentName}</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {AGE_LABELS[p.ageGroup] ?? p.ageGroup} · {GENDER_LABELS[p.genderGroup] ?? p.genderGroup} · n={p.totalObservations}
+                      <div className="divide-y">
+                        {rows.map((p) => (
+                          <div key={p.id} className="px-4 py-3 flex items-center gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{p.treatmentName}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {AGE_LABELS[p.ageGroup] ?? p.ageGroup} · {GENDER_LABELS[p.genderGroup] ?? p.genderGroup} · n={p.totalObservations}
+                              </div>
+                            </div>
+                            <PolicySparkline
+                              treatmentCode={p.treatmentCode}
+                              diagnosisCode={p.diagnosisCode}
+                              ageGroup={p.ageGroup}
+                              genderGroup={p.genderGroup}
+                              currentScore={p.confidenceScore}
+                            />
+                            <div className="w-36 shrink-0">
+                              <ConfidenceBar score={p.confidenceScore} />
+                            </div>
+                            <div className="shrink-0">
+                              {confidenceBadge(p.confidenceScore)}
+                            </div>
+                            <div className="text-xs text-muted-foreground shrink-0 font-mono">
+                              α={p.alpha.toFixed(1)} β={p.beta.toFixed(1)}
                             </div>
                           </div>
-                          <div className="w-36 shrink-0">
-                            <ConfidenceBar score={p.confidenceScore} />
-                          </div>
-                          <div className="shrink-0">
-                            {confidenceBadge(p.confidenceScore)}
-                          </div>
-                          <div className="text-xs text-muted-foreground shrink-0 font-mono">
-                            α={p.alpha.toFixed(1)} β={p.beta.toFixed(1)}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
+            </TabsContent>
+
+            {/* Outcome Definitions */}
+            <TabsContent value="outcomes" className="mt-4">
+              <div className="mb-3">
+                <h2 className="font-semibold">Validated Outcome Definitions</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Formal success criteria per ICD-10 code used to classify outcomes before updating Bayesian priors.
+                  Sources: ADA 2024, ACC/AHA 2017–2022, GOLD 2024, ACR 2021, KDIGO 2022, DSM-5, GINA 2023.
+                </p>
+              </div>
+              <OutcomeDefinitionsPanel />
             </TabsContent>
           </Tabs>
         )}

@@ -79,14 +79,43 @@ export function bayesianConfidenceUpdate(
 /**
  * Classify an outcome as success or failure for the Beta update.
  *
- * Success = improved outcome with likely treatment attribution.
+ * When an OutcomeDefinition is provided, the raw measuredValue is validated
+ * against the formal threshold (ADA/ACC/AHA/GOLD/etc.) before classifying.
+ * This prevents epistemically hollow binary success flags from corrupting
+ * the Bayesian prior.
+ *
+ * Success = outcome meets the validated threshold for this diagnosis.
  * Failure = worsened outcome OR adverse event attributed to treatment.
  * Neutral = stable / unrelated — does not update the Beta params.
  */
-function classifyOutcome(outcome: OutcomeRecord): 'success' | 'failure' | 'neutral' {
+function classifyOutcome(
+  outcome: OutcomeRecord,
+  definition?: import('../../drizzle/schema').OutcomeDefinition
+): 'success' | 'failure' | 'neutral' {
   if (outcome.adverseEvent) return 'failure';
+
+  // If we have a formal definition AND a measured value, apply the threshold
+  if (definition && outcome.measuredValue !== undefined && outcome.measuredValue !== null) {
+    const v = outcome.measuredValue;
+    const t = Number(definition.successThreshold);
+    switch (definition.successOperator) {
+      case 'lt':      return v < t  ? 'success' : 'failure';
+      case 'lte':     return v <= t ? 'success' : 'failure';
+      case 'gt':      return v > t  ? 'success' : 'failure';
+      case 'gte':     return v >= t ? 'success' : 'failure';
+      case 'drop_by': {
+        // Requires baseline — if not provided, fall back to binary flag
+        if (outcome.baselineValue !== undefined && outcome.baselineValue !== null) {
+          return (outcome.baselineValue - v) >= t ? 'success' : 'failure';
+        }
+        break;
+      }
+      case 'reach':   return v >= t ? 'success' : 'failure';
+    }
+  }
+
+  // Fallback: use the binary success flag recorded by the physician
   if (outcome.success) return 'success';
-  // Stable outcomes that are not adverse events are neutral — don't update
   return 'neutral';
 }
 
@@ -133,8 +162,9 @@ export async function updateTreatmentPolicy(
   const priorBeta  = existing ? Number(existing.beta)  : 3.0;
   const previousConfidence = existing ? Number(existing.confidenceScore) : 0.7;
 
-  // ── 2. Count successes and failures from new outcomes ──
-  const classified = outcomes.map(classifyOutcome);
+  // ── 2. Fetch formal outcome definition and classify outcomes ──
+  const outcomeDef = await db.getOutcomeDefinitionByDiagnosis(diagnosisCode);
+  const classified = outcomes.map((o) => classifyOutcome(o, outcomeDef ?? undefined));
   const newSuccesses = classified.filter((c) => c === 'success').length;
   const newFailures  = classified.filter((c) => c === 'failure').length;
   // Neutral outcomes do not update Beta params

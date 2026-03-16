@@ -165,9 +165,26 @@ export async function performCausalAnalysis(
   // Build knowledge base context from two sources:
   //   1. causal_knowledge_base — curated clinical guidelines with Bayesian priors
   //   2. knowledge_base — compound/supplement data (supplement store)
+  //   3. outcome_definitions — formal validated outcome criteria per diagnosis
   let knowledgeContext = "";
   try {
     const db = await import("../db");
+
+    // Source 3: Formal outcome definition (ADA/ACC/AHA/GOLD validated criteria)
+    if (request.patientContext.diagnosisCode) {
+      const outcomeDef = await db.getOutcomeDefinitionByDiagnosis(request.patientContext.diagnosisCode);
+      if (outcomeDef) {
+        const opLabel: Record<string, string> = {
+          lt: '<', lte: '≤', gt: '>', gte: '≥', drop_by: 'drop by ≥', reach: 'reach'
+        };
+        knowledgeContext += `\n\nFormal Outcome Definition (${outcomeDef.guidelineSource}, Grade ${outcomeDef.evidenceGrade}):\n` +
+          `Condition: ${outcomeDef.conditionName}\n` +
+          `Measurement: ${outcomeDef.measurementInstrument}${outcomeDef.measurementUnit ? ' (' + outcomeDef.measurementUnit + ')' : ''}\n` +
+          `Success Criterion: ${opLabel[outcomeDef.successOperator] ?? outcomeDef.successOperator} ${outcomeDef.successThreshold} within ${outcomeDef.timeHorizonDays} days\n` +
+          `Summary: ${outcomeDef.successCriteriaSummary}\n` +
+          `IMPORTANT: Frame all treatment recommendations around achieving this validated outcome threshold.`;
+      }
+    }
 
     // Source 1: Causal knowledge base (clinical guidelines + treatment priors)
     if (request.patientContext.diagnosisCode) {
