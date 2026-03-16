@@ -4981,3 +4981,87 @@ export async function validateDiagnosisCode(code: string): Promise<{ valid: true
 }
 
 // ============ ICD-10-CM Validation Helpers ============
+
+// ============ Outcome Definition CRUD (with ICD-10 validation gate) ============
+
+export interface CreateOutcomeDefinitionInput {
+  diagnosisCode: string;
+  conditionName: string;
+  measurementInstrument: string;
+  measurementUnit?: string;
+  successOperator: string;
+  successThreshold: number;
+  timeHorizonDays: number;
+  guidelineSource: string;
+  evidenceGrade?: string;
+  successCriteriaSummary?: string;
+  isComposite?: boolean;
+  compositeGroupId?: string;
+}
+
+/**
+ * Create a new outcome definition.
+ * Validates the ICD-10-CM code against the reference table before inserting.
+ * Throws a descriptive error if the code is invalid, an encounter code, or non-billable.
+ */
+export async function createOutcomeDefinition(input: CreateOutcomeDefinitionInput): Promise<OutcomeDefinition> {
+  // ── ICD-10 gate ──────────────────────────────────────────────────────────────
+  const validation = await validateDiagnosisCode(input.diagnosisCode);
+  if (!validation.valid) {
+    throw new Error(
+      `ICD-10-CM validation failed for "${input.diagnosisCode}": ${validation.reason}` +
+      (validation.suggestions.length > 0
+        ? `. Suggested codes: ${validation.suggestions.slice(0, 3).join(', ')}`
+        : '')
+    );
+  }
+
+  // ── Specificity advisory (non-blocking, logged) ───────────────────────────
+  const desc = (validation.icd.longDesc ?? validation.icd.shortDesc ?? '').toLowerCase();
+  const isUnspecified = desc.includes('unspecified') || desc.includes(' nos');
+  if (isUnspecified) {
+    console.warn(
+      `[outcome_definitions] Inserting unspecified code "${input.diagnosisCode}" ` +
+      `("${validation.icd.shortDesc}"). Consider using a more specific subcode. ` +
+      `Proceeding as requested.`
+    );
+  }
+
+  // ── Insert ────────────────────────────────────────────────────────────────
+  const database = await getDb();
+  if (!database) throw new Error('Database unavailable');
+
+  const [result] = await database
+    .insert(outcomeDefinitions)
+    .values({
+      diagnosisCode: input.diagnosisCode,
+      conditionName: input.conditionName,
+      measurementInstrument: input.measurementInstrument,
+      measurementUnit: input.measurementUnit,
+      successOperator: input.successOperator as 'lt' | 'lte' | 'gt' | 'gte' | 'drop_by' | 'reach',
+      successThreshold: String(input.successThreshold),
+      timeHorizonDays: input.timeHorizonDays,
+      guidelineSource: input.guidelineSource,
+      evidenceGrade: (input.evidenceGrade ?? 'C') as 'A' | 'B' | 'C' | 'D',
+      successCriteriaSummary: input.successCriteriaSummary ?? '',
+      isComposite: input.isComposite ?? false,
+      compositeGroupId: input.compositeGroupId ?? null,
+      isActive: true,
+    });
+
+  const newId = (result as any).insertId as number;
+  const [row] = await database.select().from(outcomeDefinitions).where(eq(outcomeDefinitions.id, newId));
+  return row;
+}
+
+/**
+ * Deactivate (soft-delete) an outcome definition by ID.
+ */
+export async function deactivateOutcomeDefinition(id: number): Promise<void> {
+  const database = await getDb();
+  if (!database) throw new Error('Database unavailable');
+  await database
+    .update(outcomeDefinitions)
+    .set({ isActive: false })
+    .where(eq(outcomeDefinitions.id, id));
+}

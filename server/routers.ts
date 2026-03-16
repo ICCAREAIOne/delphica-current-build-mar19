@@ -6,6 +6,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
+import { runIcd10Refresh } from "./icd10Refresh";
 import * as aiService from "./aiService";
 import * as semanticProcessor from "./semanticProcessor";
 import * as qaAnalytics from "./qaAnalytics";
@@ -3404,6 +3405,17 @@ export const appRouter = router({
       .query(async () => {
         return await db.auditOutcomeDefinitionCodes();
       }),
+    /**
+     * Trigger the annual ICD-10-CM refresh job manually.
+     * Downloads the latest CMS flat file, upserts codes, audits outcome_definitions,
+     * and notifies the owner if any codes are now invalid.
+     * Set force=true to bypass the 11-month staleness check.
+     */
+    triggerIcd10Refresh: protectedProcedure
+      .input(z.object({ force: z.boolean().optional() }))
+      .mutation(async ({ input }) => {
+        return await runIcd10Refresh(input.force ?? false);
+      }),
 
     /**
      * Validate a single ICD-10-CM diagnosis code before inserting an outcome definition.
@@ -3430,6 +3442,41 @@ export const appRouter = router({
         };
       }),
 
+    /**
+     * Create a new outcome definition — validates ICD-10-CM code before insert.
+     * Rejects encounter codes, non-billable category codes, and codes not in CMS FY2025 tabular.
+     */
+    createOutcomeDefinition: protectedProcedure
+      .input(z.object({
+        diagnosisCode:          z.string().min(3).max(10),
+        conditionName:          z.string().min(3).max(200),
+        measurementInstrument:  z.string().min(2).max(200),
+        measurementUnit:        z.string().max(50).optional(),
+        successOperator:        z.enum(['lt', 'lte', 'gt', 'gte', 'drop_by', 'reach']),
+        successThreshold:       z.number(),
+        timeHorizonDays:        z.number().int().positive(),
+        guidelineSource:        z.string().min(3).max(200),
+        evidenceGrade:          z.enum(['A', 'B', 'C', 'D']).optional(),
+        successCriteriaSummary: z.string().optional(),
+        isComposite:            z.boolean().optional(),
+        compositeGroupId:       z.string().max(50).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          return await db.createOutcomeDefinition(input);
+        } catch (err: any) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: err.message });
+        }
+      }),
+    /**
+     * Deactivate (soft-delete) an outcome definition.
+     */
+    deactivateOutcomeDefinition: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        await db.deactivateOutcomeDefinition(input.id);
+        return { success: true };
+      }),
     /**
      * Get patient outcomes
      */
