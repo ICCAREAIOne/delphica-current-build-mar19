@@ -18,7 +18,8 @@ import {
   Pill,
   BookOpen,
   FlaskConical,
-  ShieldCheck
+  ShieldCheck,
+  X
 } from 'lucide-react';
 import {
   Dialog,
@@ -284,9 +285,16 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
                         {rec.treatmentType}
                       </Badge>
                       {bestTreatmentId === rec.id && (
-                        <Badge className="bg-amber-500 text-white text-xs flex items-center gap-1">
+                        <Badge className="bg-amber-500 text-white text-xs flex items-center gap-1 pr-1">
                           <Sparkles className="h-3 w-3" />
                           AI Recommended
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setBestTreatmentId(null); }}
+                            className="ml-1 rounded-full hover:bg-amber-600 p-0.5 transition-colors"
+                            title="Clear selection"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
                         </Badge>
                       )}
                     </div>
