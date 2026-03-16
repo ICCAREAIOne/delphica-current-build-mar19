@@ -4833,6 +4833,10 @@ export interface CodeAuditResult {
   icdLongDesc?: string;
   codeType?: string;
   suggestedCodes?: string[];
+  // Specificity warning — code is valid but unspecified/NOS; physician review recommended
+  specificityWarning?: boolean;
+  specificityNote?: string;
+  specificerCodes?: string[];
 }
 
 /**
@@ -4901,6 +4905,41 @@ export async function auditOutcomeDefinitionCodes(): Promise<CodeAuditResult[]> 
       else if (codeType === 'supplemental') status = 'supplemental';
       else if (icd.isBillable === 0) status = 'not_billable';
 
+      // ── Specificity pass ──────────────────────────────────────────────────
+      // A valid billable code may still be unspecified (e.g. N18.9, F32.9).
+      // Flag these for physician review; suggest more specific subcodes.
+      let specificityWarning = false;
+      let specificityNote: string | undefined;
+      let specificerCodes: string[] | undefined;
+
+      if (status === 'valid') {
+        const desc = (icd.longDesc ?? icd.shortDesc ?? '').toLowerCase();
+        const isUnspecified = desc.includes('unspecified') || desc.includes(' nos ') || desc.endsWith(' nos');
+
+        if (isUnspecified) {
+          specificityWarning = true;
+          specificityNote = `"${icd.shortDesc}" is an unspecified code. ` +
+            `Outcome thresholds may not be clinically appropriate across all subtypes. ` +
+            `Consider using a more specific subcode.`;
+          // Find sibling codes at the same category level that are more specific
+          const category = def.diagnosisCode.split('.')[0];
+          const siblings = await db
+            .select({ code: icd10Codes.code, shortDesc: icd10Codes.shortDesc })
+            .from(icd10Codes)
+            .where(
+              and(
+                like(icd10Codes.code, `${category}.%`),
+                eq(icd10Codes.isBillable, 1),
+                eq(icd10Codes.codeType, 'diagnosis')
+              )
+            )
+            .limit(5);
+          specificerCodes = siblings
+            .filter(s => s.code !== def.diagnosisCode)
+            .map(s => `${s.code} (${s.shortDesc})`);
+        }
+      }
+
       results.push({
         diagnosisCode: def.diagnosisCode,
         conditionName: def.conditionName,
@@ -4909,6 +4948,7 @@ export async function auditOutcomeDefinitionCodes(): Promise<CodeAuditResult[]> 
         icdShortDesc: icd.shortDesc,
         icdLongDesc: icd.longDesc,
         codeType,
+        ...(specificityWarning && { specificityWarning, specificityNote, specificerCodes }),
       });
     }
   }

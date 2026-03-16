@@ -175,8 +175,9 @@ function CodeAuditPanel() {
     { staleTime: 60_000 }
   );
 
-  const issues = results.filter((r) => r.status !== 'valid');
-  const valid  = results.filter((r) => r.status === 'valid');
+  const issues    = results.filter((r) => r.status !== 'valid');
+  const warnings  = results.filter((r) => r.status === 'valid' && r.specificityWarning);
+  const clean     = results.filter((r) => r.status === 'valid' && !r.specificityWarning);
 
   return (
     <div className="space-y-4">
@@ -205,11 +206,15 @@ function CodeAuditPanel() {
           {/* Summary */}
           <div className="flex gap-4 flex-wrap">
             <div className="rounded-lg border bg-emerald-50 px-4 py-3 min-w-32">
-              <p className="text-xs text-emerald-700 font-medium uppercase tracking-wide">Valid</p>
-              <p className="text-2xl font-bold text-emerald-800">{valid.length}</p>
+              <p className="text-xs text-emerald-700 font-medium uppercase tracking-wide">Valid &amp; Specific</p>
+              <p className="text-2xl font-bold text-emerald-800">{clean.length}</p>
+            </div>
+            <div className="rounded-lg border bg-amber-50 px-4 py-3 min-w-32">
+              <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Specificity Warnings</p>
+              <p className="text-2xl font-bold text-amber-800">{warnings.length}</p>
             </div>
             <div className="rounded-lg border bg-red-50 px-4 py-3 min-w-32">
-              <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Issues</p>
+              <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Errors</p>
               <p className="text-2xl font-bold text-red-800">{issues.length}</p>
             </div>
             <div className="rounded-lg border bg-muted px-4 py-3 min-w-32">
@@ -258,10 +263,51 @@ function CodeAuditPanel() {
             </div>
           )}
 
-          {/* Valid Codes Table */}
+          {/* Specificity Warnings Table */}
+          {warnings.length > 0 && (
+            <div className="rounded-lg border overflow-x-auto">
+              <div className="px-4 py-3 border-b bg-amber-50">
+                <p className="text-sm font-medium text-amber-800">
+                  ⚠ Specificity Warnings — Valid codes but unspecified/NOS ({warnings.length})
+                </p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  These codes are structurally valid and billable, but use "unspecified" subtypes.
+                  Outcome thresholds may not be clinically appropriate across all subtypes. Physician review recommended.
+                </p>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Code</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Condition</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">ICD-10-CM Description</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">More Specific Codes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {warnings.map((r) => (
+                    <tr key={r.outcomeDefId} className="border-b last:border-0 hover:bg-amber-50/50">
+                      <td className="px-4 py-2">
+                        <span className="font-mono text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">{r.diagnosisCode}</span>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{r.conditionName}</td>
+                      <td className="px-4 py-2 text-sm text-muted-foreground">{r.icdShortDesc}</td>
+                      <td className="px-4 py-2 text-xs text-muted-foreground">
+                        {r.specificerCodes && r.specificerCodes.length > 0
+                          ? r.specificerCodes.slice(0, 3).join(' · ')
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Valid & Specific Codes Table */}
           <div className="rounded-lg border overflow-x-auto">
             <div className="px-4 py-3 border-b bg-emerald-50">
-              <p className="text-sm font-medium text-emerald-800">✓ Valid Billable Diagnosis Codes</p>
+              <p className="text-sm font-medium text-emerald-800">✓ Valid &amp; Specific Billable Codes ({clean.length})</p>
             </div>
             <table className="w-full text-sm">
               <thead>
@@ -273,7 +319,7 @@ function CodeAuditPanel() {
                 </tr>
               </thead>
               <tbody>
-                {valid.map((r) => (
+                {clean.map((r) => (
                   <tr key={r.outcomeDefId} className="border-b last:border-0 hover:bg-muted/20">
                     <td className="px-4 py-2">
                       <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{r.diagnosisCode}</span>
@@ -290,7 +336,7 @@ function CodeAuditPanel() {
               </tbody>
             </table>
             <p className="text-xs text-muted-foreground px-4 py-2">
-              Source: CMS ICD-10-CM FY2025 tabular · {valid.length} valid codes · Validated at query time
+              Source: CMS ICD-10-CM FY2025 tabular · {clean.length} specific + {warnings.length} unspecified = {results.length} total · Validated at query time
             </p>
           </div>
         </>

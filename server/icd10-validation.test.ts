@@ -142,4 +142,53 @@ describe("auditOutcomeDefinitionCodes — full DB audit", () => {
     const valid = results.filter((r) => r.status === "valid");
     expect(valid.length).toBe(31);
   });
+
+  it("confirms M79.7 (Fibromyalgia) is valid — not M79.3 (Panniculitis)", async () => {
+    const results = await auditOutcomeDefinitionCodes();
+    // M79.3 must not appear at all
+    const panniculitis = results.find((r) => r.diagnosisCode === "M79.3");
+    expect(panniculitis).toBeUndefined();
+    // M79.7 must be valid
+    const fibro = results.find((r) => r.diagnosisCode === "M79.7");
+    expect(fibro).toBeDefined();
+    expect(fibro!.status).toBe("valid");
+    expect(fibro!.icdShortDesc?.toLowerCase()).toContain("fibromyalgia");
+  });
+
+  it("confirms M10.9 (Gout) is valid — not M79.x", async () => {
+    const results = await auditOutcomeDefinitionCodes();
+    const gout = results.find((r) => r.conditionName.toLowerCase().includes("gout"));
+    expect(gout).toBeDefined();
+    expect(gout!.diagnosisCode).toBe("M10.9");
+    expect(gout!.status).toBe("valid");
+  });
+
+  it("specificity pass: flags unspecified codes with specificityWarning=true", async () => {
+    const results = await auditOutcomeDefinitionCodes();
+    // N18.9 (CKD unspecified) should carry a specificity warning
+    const ckd = results.find((r) => r.diagnosisCode === "N18.9");
+    expect(ckd).toBeDefined();
+    expect(ckd!.status).toBe("valid");
+    expect(ckd!.specificityWarning).toBe(true);
+    expect(ckd!.specificityNote).toBeTruthy();
+    expect(ckd!.specificerCodes).toBeDefined();
+    expect(ckd!.specificerCodes!.length).toBeGreaterThan(0);
+  });
+
+  it("specificity pass: specific codes do NOT carry a warning", async () => {
+    const results = await auditOutcomeDefinitionCodes();
+    // I10 (Essential hypertension) is specific — no 'unspecified' in desc
+    const htn = results.find((r) => r.diagnosisCode === "I10");
+    expect(htn).toBeDefined();
+    expect(htn!.status).toBe("valid");
+    expect(htn!.specificityWarning).toBeFalsy();
+  });
+
+  it("specificity pass: counts match — 16 unspecified codes in current seed", async () => {
+    const results = await auditOutcomeDefinitionCodes();
+    const warned = results.filter((r) => r.specificityWarning === true);
+    // 16 codes have 'unspecified' in their ICD-10-CM long or short description
+    // (3 more than the 13 caught by short_desc alone — long_desc is more thorough)
+    expect(warned.length).toBe(16);
+  });
 });
