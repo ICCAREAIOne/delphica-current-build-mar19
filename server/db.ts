@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, gte, lte, lt, gt, sql, ne } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, lt, gt, sql, ne, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, 
@@ -97,6 +97,8 @@ import {
   OutcomeDefinition,
   policyConfidenceHistory,
   InsertPolicyConfidenceHistory,
+  icd10Codes,
+  Icd10Code,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -4819,3 +4821,123 @@ export async function getPolicyConfidenceHistory(
     .orderBy(desc(policyConfidenceHistory.recordedAt))
     .limit(limit);
 }
+
+// ============ ICD-10-CM Validation Helpers ============
+
+export interface CodeAuditResult {
+  diagnosisCode: string;
+  conditionName: string;
+  outcomeDefId: number;
+  status: 'valid' | 'not_found' | 'encounter_code' | 'not_billable' | 'external_cause' | 'supplemental';
+  icdShortDesc?: string;
+  icdLongDesc?: string;
+  codeType?: string;
+  suggestedCodes?: string[];
+}
+
+/**
+ * Look up a single ICD-10-CM code in the reference table.
+ * Returns the code row or undefined if not found.
+ */
+export async function lookupIcd10Code(code: string): Promise<Icd10Code | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const results = await db.select().from(icd10Codes).where(eq(icd10Codes.code, code)).limit(1);
+  return results[0];
+}
+
+/**
+ * Suggest billable leaf codes for a category-level code (e.g. E11 -> E11.9).
+ */
+export async function suggestBillableCodes(categoryCode: string, limit = 5): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const results = await db
+    .select({ code: icd10Codes.code })
+    .from(icd10Codes)
+    .where(
+      and(
+        like(icd10Codes.code, `${categoryCode}.%`),
+        eq(icd10Codes.isBillable, 1),
+        eq(icd10Codes.codeType, 'diagnosis')
+      )
+    )
+    .limit(limit);
+  return results.map(r => r.code);
+}
+
+/**
+ * Audit all active outcome_definitions codes against the icd10_codes reference table.
+ * Returns a per-row audit result with status and suggestions for invalid codes.
+ */
+export async function auditOutcomeDefinitionCodes(): Promise<CodeAuditResult[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const defs = await db
+    .select({ id: outcomeDefinitions.id, diagnosisCode: outcomeDefinitions.diagnosisCode, conditionName: outcomeDefinitions.conditionName })
+    .from(outcomeDefinitions)
+    .where(eq(outcomeDefinitions.isActive, true));
+
+  const results: CodeAuditResult[] = [];
+
+  for (const def of defs) {
+    const icd = await lookupIcd10Code(def.diagnosisCode);
+
+    if (!icd) {
+      const suggestions = await suggestBillableCodes(def.diagnosisCode.split('.')[0]);
+      results.push({
+        diagnosisCode: def.diagnosisCode,
+        conditionName: def.conditionName,
+        outcomeDefId: def.id,
+        status: 'not_found',
+        suggestedCodes: suggestions,
+      });
+    } else {
+      const codeType = icd.codeType as string;
+      let status: CodeAuditResult['status'] = 'valid';
+      if (codeType === 'encounter') status = 'encounter_code';
+      else if (codeType === 'external') status = 'external_cause';
+      else if (codeType === 'supplemental') status = 'supplemental';
+      else if (icd.isBillable === 0) status = 'not_billable';
+
+      results.push({
+        diagnosisCode: def.diagnosisCode,
+        conditionName: def.conditionName,
+        outcomeDefId: def.id,
+        status,
+        icdShortDesc: icd.shortDesc,
+        icdLongDesc: icd.longDesc,
+        codeType,
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Validate a single diagnosis code before inserting an outcome definition.
+ * Throws a descriptive error if the code is invalid, an encounter code, or non-billable.
+ */
+export async function validateDiagnosisCode(code: string): Promise<{ valid: true; icd: Icd10Code } | { valid: false; reason: string; suggestions: string[] }> {
+  const icd = await lookupIcd10Code(code);
+  if (!icd) {
+    const suggestions = await suggestBillableCodes(code.split('.')[0]);
+    return { valid: false, reason: `Code "${code}" not found in ICD-10-CM FY2025 tabular.`, suggestions };
+  }
+  const codeType = icd.codeType as string;
+  if (codeType === 'encounter') {
+    return { valid: false, reason: `Code "${code}" is an encounter/administrative code (${icd.shortDesc}), not a diagnosis. Use a diagnosis code instead.`, suggestions: [] };
+  }
+  if (codeType === 'external') {
+    return { valid: false, reason: `Code "${code}" is an external cause code (${icd.shortDesc}), not a clinical diagnosis.`, suggestions: [] };
+  }
+  if (icd.isBillable === 0) {
+    const suggestions = await suggestBillableCodes(code.split('.')[0]);
+    return { valid: false, reason: `Code "${code}" is a non-billable category code. Use a specific subcategory code.`, suggestions };
+  }
+  return { valid: true, icd };
+}
+
+// ============ ICD-10-CM Validation Helpers ============

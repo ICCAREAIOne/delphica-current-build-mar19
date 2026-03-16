@@ -211,6 +211,13 @@
       "when": 1773626492253,
       "tag": "0029_glorious_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1773654562330,
+      "tag": "0030_keen_swordsman",
+      "breakpoints": true
     }
   ]
 }

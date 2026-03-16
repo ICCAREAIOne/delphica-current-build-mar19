@@ -158,6 +158,147 @@ function OutcomeDefinitionsPanel() {
   );
 }
 
+// ─── ICD-10 Code Audit Panel ─────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  valid:         { label: 'Valid',          color: 'text-emerald-700', bg: 'bg-emerald-50' },
+  not_found:     { label: 'Not Found',      color: 'text-red-700',     bg: 'bg-red-50' },
+  encounter_code:{ label: 'Encounter Code', color: 'text-orange-700',  bg: 'bg-orange-50' },
+  not_billable:  { label: 'Non-Billable',   color: 'text-amber-700',   bg: 'bg-amber-50' },
+  external_cause:{ label: 'External Cause', color: 'text-purple-700',  bg: 'bg-purple-50' },
+  supplemental:  { label: 'Supplemental',   color: 'text-blue-700',    bg: 'bg-blue-50' },
+};
+
+function CodeAuditPanel() {
+  const { data: results = [], isLoading, refetch, isFetching } = trpc.causalBrain.auditOutcomeDefinitionCodes.useQuery(
+    undefined,
+    { staleTime: 60_000 }
+  );
+
+  const issues = results.filter((r) => r.status !== 'valid');
+  const valid  = results.filter((r) => r.status === 'valid');
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold">ICD-10-CM Code Audit</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Every <code className="text-xs bg-muted px-1 rounded">outcome_definitions.diagnosisCode</code> is validated
+            against the CMS FY2025 ICD-10-CM tabular (71,704 codes).
+            Flags non-billable category codes, encounter codes, and codes not in the tabular.
+          </p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="text-xs border rounded px-3 py-1.5 hover:bg-muted transition-colors disabled:opacity-50"
+        >
+          {isFetching ? 'Running…' : 'Re-run Audit'}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="text-muted-foreground text-sm py-8 text-center">Running audit…</div>
+      ) : (
+        <>
+          {/* Summary */}
+          <div className="flex gap-4 flex-wrap">
+            <div className="rounded-lg border bg-emerald-50 px-4 py-3 min-w-32">
+              <p className="text-xs text-emerald-700 font-medium uppercase tracking-wide">Valid</p>
+              <p className="text-2xl font-bold text-emerald-800">{valid.length}</p>
+            </div>
+            <div className="rounded-lg border bg-red-50 px-4 py-3 min-w-32">
+              <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Issues</p>
+              <p className="text-2xl font-bold text-red-800">{issues.length}</p>
+            </div>
+            <div className="rounded-lg border bg-muted px-4 py-3 min-w-32">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total</p>
+              <p className="text-2xl font-bold">{results.length}</p>
+            </div>
+          </div>
+
+          {/* Issues Table */}
+          {issues.length > 0 && (
+            <div className="rounded-lg border overflow-x-auto">
+              <div className="px-4 py-3 border-b bg-red-50">
+                <p className="text-sm font-medium text-red-800">⚠ Issues Requiring Attention</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Code</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Condition</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Issue</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Suggested Codes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {issues.map((r) => {
+                    const cfg = STATUS_CONFIG[r.status] ?? STATUS_CONFIG.not_found;
+                    return (
+                      <tr key={r.outcomeDefId} className="border-b last:border-0">
+                        <td className="px-4 py-2">
+                          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{r.diagnosisCode}</span>
+                        </td>
+                        <td className="px-4 py-2 text-sm">{r.conditionName}</td>
+                        <td className="px-4 py-2">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>
+                            {cfg.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-xs text-muted-foreground font-mono">
+                          {r.suggestedCodes?.join(', ') ?? '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Valid Codes Table */}
+          <div className="rounded-lg border overflow-x-auto">
+            <div className="px-4 py-3 border-b bg-emerald-50">
+              <p className="text-sm font-medium text-emerald-800">✓ Valid Billable Diagnosis Codes</p>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="text-left px-4 py-2 font-medium text-muted-foreground">Code</th>
+                  <th className="text-left px-4 py-2 font-medium text-muted-foreground">Condition (Outcome Def)</th>
+                  <th className="text-left px-4 py-2 font-medium text-muted-foreground">ICD-10-CM Description</th>
+                  <th className="text-left px-4 py-2 font-medium text-muted-foreground">Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {valid.map((r) => (
+                  <tr key={r.outcomeDefId} className="border-b last:border-0 hover:bg-muted/20">
+                    <td className="px-4 py-2">
+                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{r.diagnosisCode}</span>
+                    </td>
+                    <td className="px-4 py-2 text-sm">{r.conditionName}</td>
+                    <td className="px-4 py-2 text-sm text-muted-foreground">{r.icdShortDesc}</td>
+                    <td className="px-4 py-2">
+                      <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                        {r.codeType ?? 'diagnosis'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-muted-foreground px-4 py-2">
+              Source: CMS ICD-10-CM FY2025 tabular · {valid.length} valid codes · Validated at query time
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PolicyDashboard() {
@@ -287,6 +428,7 @@ export default function PolicyDashboard() {
               <TabsTrigger value="table">Table View</TabsTrigger>
               <TabsTrigger value="grouped">By Diagnosis</TabsTrigger>
               <TabsTrigger value="outcomes">Outcome Definitions</TabsTrigger>
+              <TabsTrigger value="audit">ICD-10 Audit</TabsTrigger>
             </TabsList>
 
             {/* Flat Table with Sparklines */}
@@ -417,6 +559,11 @@ export default function PolicyDashboard() {
                 </p>
               </div>
               <OutcomeDefinitionsPanel />
+            </TabsContent>
+
+            {/* ICD-10 Code Audit */}
+            <TabsContent value="audit" className="mt-4">
+              <CodeAuditPanel />
             </TabsContent>
           </Tabs>
         )}

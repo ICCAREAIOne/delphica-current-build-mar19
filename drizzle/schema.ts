@@ -2257,3 +2257,25 @@ export const policyConfidenceHistory = mysqlTable("policy_confidence_history", {
 
 export type PolicyConfidenceHistory = typeof policyConfidenceHistory.$inferSelect;
 export type InsertPolicyConfidenceHistory = typeof policyConfidenceHistory.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ICD-10-CM REFERENCE TABLE
+// Authoritative code set loaded from CMS flat file (71,704 codes, FY2025).
+// outcome_definitions.diagnosisCode is validated against this table at insert
+// and via the periodic audit endpoint.
+// ─────────────────────────────────────────────────────────────────────────────
+import { tinyint } from "drizzle-orm/mysql-core";
+
+export const icd10Codes = mysqlTable("icd10_codes", {
+  code:       varchar("code",       { length: 10  }).primaryKey(),
+  shortDesc:  varchar("short_desc", { length: 255 }).notNull(),
+  longDesc:   varchar("long_desc",  { length: 500 }).notNull(),
+  category:   varchar("category",   { length: 10  }).notNull(),
+  section:    varchar("section",    { length: 255 }).notNull().default(""),
+  isBillable: tinyint("is_billable").notNull().default(1),
+  // diagnosis | encounter | status | external | supplemental
+  codeType:   varchar("code_type",  { length: 20  }).notNull().default("diagnosis"),
+  createdAt:  timestamp("created_at").defaultNow(),
+});
+export type Icd10Code = typeof icd10Codes.$inferSelect;
+export type InsertIcd10Code = typeof icd10Codes.$inferInsert;

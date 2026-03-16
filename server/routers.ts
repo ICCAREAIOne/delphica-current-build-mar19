@@ -3397,6 +3397,40 @@ export const appRouter = router({
       }),
 
     /**
+     * Audit all active outcome_definitions codes against the ICD-10-CM reference table.
+     * Returns per-row status: valid | not_found | encounter_code | not_billable | external_cause
+     */
+    auditOutcomeDefinitionCodes: protectedProcedure
+      .query(async () => {
+        return await db.auditOutcomeDefinitionCodes();
+      }),
+
+    /**
+     * Validate a single ICD-10-CM diagnosis code before inserting an outcome definition.
+     * Returns { valid, icdShortDesc, icdLongDesc, codeType } or { valid: false, reason, suggestions }.
+     */
+    validateDiagnosisCode: protectedProcedure
+      .input(z.object({ code: z.string().min(3).max(10) }))
+      .query(async ({ input }) => {
+        const result = await db.validateDiagnosisCode(input.code);
+        if (result.valid) {
+          return {
+            valid: true as const,
+            code: result.icd.code,
+            shortDesc: result.icd.shortDesc,
+            longDesc: result.icd.longDesc,
+            codeType: result.icd.codeType,
+            isBillable: result.icd.isBillable,
+          };
+        }
+        return {
+          valid: false as const,
+          reason: result.reason,
+          suggestions: result.suggestions,
+        };
+      }),
+
+    /**
      * Get patient outcomes
      */
     getPatientOutcomes: protectedProcedure
