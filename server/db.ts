@@ -5194,6 +5194,8 @@ export async function auditTreatmentEntryCPTCodes(): Promise<Array<{
   valid: boolean;
   reason?: string;
   suggestions?: string[];
+  cptDescription?: string;
+  cptCategory?: string;
 }>> {
   const db = await getDb();
   if (!db) return [];
@@ -5221,6 +5223,8 @@ export async function auditTreatmentEntryCPTCodes(): Promise<Array<{
         treatmentEntryId: entry.id,
         cptCode: entry.cptCode,
         valid: true,
+        cptDescription: validation.cpt.description ?? undefined,
+        cptCategory: validation.cpt.category ?? undefined,
       });
     }
   }

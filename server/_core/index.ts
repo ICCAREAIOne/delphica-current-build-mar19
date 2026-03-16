@@ -7,6 +7,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { scheduleIcd10Refresh } from "../icd10Refresh";
+import { scheduleCptRefresh } from "../cptRefresh";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {

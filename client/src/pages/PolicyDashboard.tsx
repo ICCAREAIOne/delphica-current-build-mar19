@@ -158,6 +158,148 @@ function OutcomeDefinitionsPanel() {
   );
 }
 
+// ─── CPT Code Audit Panel ───────────────────────────────────────────────────
+
+function CptAuditPanel() {
+  const { data: results = [], isLoading, refetch, isFetching } = trpc.causalBrain.auditTreatmentEntryCPTCodes.useQuery(
+    undefined,
+    { staleTime: 60_000 }
+  );
+
+  const triggerRefresh = trpc.causalBrain.triggerCptRefresh.useMutation();
+
+  const issues  = results.filter((r) => !r.valid);
+  const clean   = results.filter((r) => r.valid);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold">CPT Code Audit</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Every <code className="text-xs bg-muted px-1 rounded">treatment_entries.treatmentCode</code> is validated
+            against the CPT-4 reference table (8,222 codes). Flags invalid, unlicensed, or fabricated procedure codes.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => triggerRefresh.mutate({ force: false })}
+            disabled={triggerRefresh.isPending}
+            className="text-xs border rounded px-3 py-1.5 hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {triggerRefresh.isPending ? 'Refreshing…' : 'Refresh CPT Table'}
+          </button>
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="text-xs border rounded px-3 py-1.5 hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {isFetching ? 'Running…' : 'Re-run Audit'}
+          </button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-muted-foreground text-sm py-8 text-center">Running CPT audit…</div>
+      ) : results.length === 0 ? (
+        <div className="rounded-lg border bg-muted/30 py-12 text-center">
+          <p className="text-sm font-medium text-muted-foreground">No treatment entries found</p>
+          <p className="text-xs text-muted-foreground mt-1">CPT codes will appear here once treatment entries are recorded.</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary */}
+          <div className="flex gap-4 flex-wrap">
+            <div className="rounded-lg border bg-emerald-50 px-4 py-3 min-w-32">
+              <p className="text-xs text-emerald-700 font-medium uppercase tracking-wide">Valid CPT Codes</p>
+              <p className="text-2xl font-bold text-emerald-800">{clean.length}</p>
+            </div>
+            <div className="rounded-lg border bg-red-50 px-4 py-3 min-w-32">
+              <p className="text-xs text-red-700 font-medium uppercase tracking-wide">Invalid / Not Found</p>
+              <p className="text-2xl font-bold text-red-800">{issues.length}</p>
+            </div>
+            <div className="rounded-lg border bg-muted px-4 py-3 min-w-32">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Entries</p>
+              <p className="text-2xl font-bold">{results.length}</p>
+            </div>
+          </div>
+
+          {/* Issues Table */}
+          {issues.length > 0 && (
+            <div className="rounded-lg border overflow-x-auto">
+              <div className="px-4 py-3 border-b bg-red-50">
+                <p className="text-sm font-medium text-red-800">⚠ Invalid CPT Codes — Requiring Correction</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Entry ID</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">CPT Code</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Reason</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Suggested Codes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {issues.map((r) => (
+                    <tr key={r.treatmentEntryId} className="border-b last:border-0">
+                      <td className="px-4 py-2 font-mono text-xs text-muted-foreground">#{r.treatmentEntryId}</td>
+                      <td className="px-4 py-2">
+                        <span className="font-mono text-xs bg-red-100 text-red-800 px-1.5 py-0.5 rounded">{r.cptCode}</span>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-red-700">{r.reason ?? 'Not found in CPT-4 reference'}</td>
+                      <td className="px-4 py-2 text-xs text-muted-foreground font-mono">
+                        {r.suggestions?.join(', ') ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Valid Codes Table */}
+          {clean.length > 0 && (
+            <div className="rounded-lg border overflow-x-auto">
+              <div className="px-4 py-3 border-b bg-emerald-50">
+                <p className="text-sm font-medium text-emerald-800">✓ Valid CPT Codes ({clean.length})</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Entry ID</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">CPT Code</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Description</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Category</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clean.map((r) => (
+                    <tr key={r.treatmentEntryId} className="border-b last:border-0 hover:bg-muted/20">
+                      <td className="px-4 py-2 font-mono text-xs text-muted-foreground">#{r.treatmentEntryId}</td>
+                      <td className="px-4 py-2">
+                        <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{r.cptCode}</span>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-muted-foreground">{r.cptDescription ?? '—'}</td>
+                      <td className="px-4 py-2">
+                        <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                          {r.cptCategory ?? 'CPT'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-xs text-muted-foreground px-4 py-2">
+                Source: CPT-4 public reference · 8,222 codes · Validated at query time
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── ICD-10 Code Audit Panel ─────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -475,6 +617,7 @@ export default function PolicyDashboard() {
               <TabsTrigger value="grouped">By Diagnosis</TabsTrigger>
               <TabsTrigger value="outcomes">Outcome Definitions</TabsTrigger>
               <TabsTrigger value="audit">ICD-10 Audit</TabsTrigger>
+              <TabsTrigger value="cpt-audit">CPT Audit</TabsTrigger>
             </TabsList>
 
             {/* Flat Table with Sparklines */}
@@ -610,6 +753,11 @@ export default function PolicyDashboard() {
             {/* ICD-10 Code Audit */}
             <TabsContent value="audit" className="mt-4">
               <CodeAuditPanel />
+            </TabsContent>
+
+            {/* CPT Code Audit */}
+            <TabsContent value="cpt-audit" className="mt-4">
+              <CptAuditPanel />
             </TabsContent>
           </Tabs>
         )}

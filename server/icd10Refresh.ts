@@ -216,3 +216,32 @@ export async function runIcd10Refresh(force = false): Promise<RefreshResult> {
     };
   }
 }
+
+/**
+ * Schedule the ICD-10-CM refresh to run every October 1st at 02:00 UTC.
+ * CMS releases the annual ICD-10-CM update in October.
+ * Call this once from server/_core/index.ts at startup.
+ */
+export function scheduleIcd10Refresh(): void {
+  const now = new Date();
+  const nextOct1 = new Date(Date.UTC(now.getUTCFullYear(), 9, 1, 2, 0, 0));
+  if (nextOct1 <= now) {
+    nextOct1.setUTCFullYear(nextOct1.getUTCFullYear() + 1);
+  }
+  const msUntilFirst = nextOct1.getTime() - now.getTime();
+  const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+
+  setTimeout(() => {
+    runIcd10Refresh().catch((err) =>
+      console.error("[ICD10Refresh] Scheduled run failed:", err)
+    );
+    setInterval(() => {
+      runIcd10Refresh().catch((err) =>
+        console.error("[ICD10Refresh] Scheduled run failed:", err)
+      );
+    }, MS_PER_YEAR);
+  }, msUntilFirst);
+
+  const daysUntil = Math.round(msUntilFirst / (1000 * 60 * 60 * 24));
+  console.log(`[ICD10Refresh] Scheduled — next run in ${daysUntil} days (Oct 1 UTC)`);
+}

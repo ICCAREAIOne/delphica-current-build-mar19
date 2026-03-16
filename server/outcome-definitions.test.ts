@@ -16,8 +16,8 @@ describe('Outcome Definitions – DB helpers', () => {
     expect(defs.length).toBeGreaterThanOrEqual(30);
   });
 
-  it('should return the primary E11 definition (HbA1c < 7%)', async () => {
-    const def = await db.getOutcomeDefinitionByDiagnosis('E11');
+  it('should return the primary E11.9 definition (HbA1c < 7%)', async () => {
+    const def = await db.getOutcomeDefinitionByDiagnosis('E11.9');
     expect(def).toBeDefined();
     expect(def!.measurementInstrument).toContain('HbA1c');
     expect(def!.successOperator).toBe('lt');
@@ -32,8 +32,8 @@ describe('Outcome Definitions – DB helpers', () => {
     expect(Number(def!.successThreshold)).toBe(130);
   });
 
-  it('should return the primary F32 definition (PHQ-9 drop ≥ 5)', async () => {
-    const def = await db.getOutcomeDefinitionByDiagnosis('F32');
+  it('should return the primary F32.1 definition (PHQ-9 drop ≥ 5)', async () => {
+    const def = await db.getOutcomeDefinitionByDiagnosis('F32.1');
     expect(def).toBeDefined();
     expect(def!.measurementInstrument).toContain('PHQ-9');
     expect(def!.successOperator).toBe('drop_by');
@@ -64,16 +64,16 @@ describe('Outcome Definitions – DB helpers', () => {
     expect(def!.timeHorizonDays).toBe(180);
   });
 
-  it('M79.3 — VAS Fatigue drop_by 30mm (90d, Grade B)', async () => {
-    const defs = await db.getAllOutcomeDefinitionsForDiagnosis('M79.3');
+  it('M79.7 — VAS Fatigue drop_by 30mm (90d, Grade B)', async () => {
+    const defs = await db.getAllOutcomeDefinitionsForDiagnosis('M79.7');
     const vasDef = defs.find((d) => d.measurementInstrument === 'VAS Fatigue');
     expect(vasDef).toBeDefined();
     expect(vasDef!.successOperator).toBe('drop_by');
     expect(Number(vasDef!.successThreshold)).toBe(30);
   });
 
-  it('D50 — Hemoglobin ≥ 12 g/dL (gte, 30d, Grade A)', async () => {
-    const def = await db.getOutcomeDefinitionByDiagnosis('D50');
+  it('D50.9 — Hemoglobin ≥ 12 g/dL (gte, 30d, Grade A)', async () => {
+    const def = await db.getOutcomeDefinitionByDiagnosis('D50.9');
     expect(def).toBeDefined();
     expect(def!.measurementInstrument).toBe('Hemoglobin');
     expect(def!.successOperator).toBe('gte');
@@ -82,8 +82,9 @@ describe('Outcome Definitions – DB helpers', () => {
     expect(def!.evidenceGrade).toBe('A');
   });
 
-  it('R53 — generic SF-36 Vitality row (gte, 90d)', async () => {
-    const def = await db.getOutcomeDefinitionByDiagnosis('R53');
+  it('R53.83 — SF-36 Vitality row (gte, 90d)', async () => {
+    const defs = await db.getAllOutcomeDefinitionsForDiagnosis('R53.83');
+    const def = defs.find((d) => d.measurementInstrument && d.measurementInstrument.includes('SF-36'));
     expect(def).toBeDefined();
     expect(def!.measurementInstrument).toContain('SF-36');
     expect(def!.successOperator).toBe('gte');
@@ -93,7 +94,7 @@ describe('Outcome Definitions – DB helpers', () => {
 
   it('should have evidence grades A or B for all primary definitions', async () => {
     const defs = await db.getAllOutcomeDefinitions();
-    const primaryCodes = ['E11', 'I10', 'J44', 'N18', 'F32', 'I48'];
+    const primaryCodes = ['E11.9', 'I10', 'J44.1', 'N18.3', 'F32.1', 'I48.91'];
     for (const code of primaryCodes) {
       const def = defs.find((d) => d.diagnosisCode === code);
       expect(def, `Missing definition for ${code}`).toBeDefined();

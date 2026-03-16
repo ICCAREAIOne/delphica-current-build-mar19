@@ -7,6 +7,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { runIcd10Refresh } from "./icd10Refresh";
+import { runCptRefresh } from "./cptRefresh";
 import * as aiService from "./aiService";
 import * as semanticProcessor from "./semanticProcessor";
 import * as qaAnalytics from "./qaAnalytics";
@@ -3415,6 +3416,15 @@ export const appRouter = router({
       .input(z.object({ force: z.boolean().optional() }))
       .mutation(async ({ input }) => {
         return await runIcd10Refresh(input.force ?? false);
+      }),
+    /**
+     * Trigger the annual CPT-4 reference table refresh on demand.
+     * force=true bypasses the 11-month staleness check.
+     */
+    triggerCptRefresh: protectedProcedure
+      .input(z.object({ force: z.boolean().optional() }))
+      .mutation(async ({ input }) => {
+        return await runCptRefresh(input.force ?? false);
       }),
 
     /**

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,9 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
   const [showDiagnosisDialog, setShowDiagnosisDialog] = useState(false);
   const [showTreatmentDialog, setShowTreatmentDialog] = useState(false);
   const [showDelphiSimulator, setShowDelphiSimulator] = useState(false);
+  const [cptCodeInput, setCptCodeInput] = useState('');
+  const [cptValidation, setCptValidation] = useState<{ valid: boolean; shortDesc?: string; reason?: string } | null>(null);
+  const cptDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedDiagnosisForSimulation, setSelectedDiagnosisForSimulation] = useState<{ code: string; name: string } | null>(null);
 
   // Fetch patient sessions
@@ -143,6 +146,7 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
       sessionId: activeSessionId,
       treatmentType: formData.get('treatmentType') as any,
       treatmentName: formData.get('treatmentName') as string,
+      treatmentCode: cptCodeInput || undefined,
       dosage: formData.get('dosage') as string || undefined,
       frequency: formData.get('frequency') as string || undefined,
       route: formData.get('route') as string || undefined,
@@ -150,7 +154,32 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
       instructions: formData.get('instructions') as string || undefined,
       rationale: formData.get('rationale') as string || undefined,
     });
+    setCptCodeInput('');
+    setCptValidation(null);
   };
+
+  const validateCpt = trpc.causalBrain.validateCPTCode.useQuery(
+    { code: cptCodeInput },
+    { enabled: cptCodeInput.length >= 4, staleTime: 30_000 }
+  );
+
+  useEffect(() => {
+    if (cptCodeInput.length < 4) {
+      setCptValidation(null);
+      return;
+    }
+    if (cptDebounceRef.current) clearTimeout(cptDebounceRef.current);
+    cptDebounceRef.current = setTimeout(() => {
+      if (validateCpt.data) {
+        if (validateCpt.data.valid) {
+          setCptValidation({ valid: true, shortDesc: validateCpt.data.description });
+        } else {
+          setCptValidation({ valid: false, reason: validateCpt.data.reason });
+        }
+      }
+    }, 400);
+    return () => { if (cptDebounceRef.current) clearTimeout(cptDebounceRef.current); };
+  }, [cptCodeInput, validateCpt.data]);
 
   return (
     <div className="space-y-6">
