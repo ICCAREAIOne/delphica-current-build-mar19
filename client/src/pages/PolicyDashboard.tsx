@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -312,6 +314,15 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 };
 
 function CodeAuditPanel() {
+  const { toast } = useToast();
+  const [reviewedIds, setReviewedIds] = useState<Record<number, 'accepted' | 'flagged'>>({});
+  const reviewMutation = trpc.causalBrain.reviewOutcomeDefinition.useMutation({
+    onSuccess: (_, vars) => {
+      setReviewedIds(prev => ({ ...prev, [vars.outcomeDefId]: vars.accepted ? 'accepted' : 'flagged' }));
+      toast({ title: vars.accepted ? 'Accepted — review saved' : 'Flagged for correction — review saved' });
+    },
+    onError: (err) => toast({ title: 'Review failed', description: err.message, variant: 'destructive' }),
+  });
   const { data: results = [], isLoading, refetch, isFetching } = trpc.causalBrain.auditOutcomeDefinitionCodes.useQuery(
     undefined,
     { staleTime: 60_000 }
@@ -424,6 +435,7 @@ function CodeAuditPanel() {
                     <th className="text-left px-4 py-2 font-medium text-muted-foreground">Condition</th>
                     <th className="text-left px-4 py-2 font-medium text-muted-foreground">ICD-10-CM Description</th>
                     <th className="text-left px-4 py-2 font-medium text-muted-foreground">More Specific Codes</th>
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground">Sign-off</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -438,6 +450,26 @@ function CodeAuditPanel() {
                         {r.specificerCodes && r.specificerCodes.length > 0
                           ? r.specificerCodes.slice(0, 3).join(' · ')
                           : '—'}
+                      </td>
+                      <td className="px-4 py-2">
+                        {reviewedIds[r.outcomeDefId] === 'accepted' ? (
+                          <span className="text-xs text-emerald-600 font-medium">✓ Accepted</span>
+                        ) : reviewedIds[r.outcomeDefId] === 'flagged' ? (
+                          <span className="text-xs text-red-600 font-medium">⚑ Flagged</span>
+                        ) : (
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                              onClick={() => reviewMutation.mutate({ outcomeDefId: r.outcomeDefId, accepted: true })}
+                              disabled={reviewMutation.isPending}>
+                              Accept
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-red-700 border-red-300 hover:bg-red-50"
+                              onClick={() => reviewMutation.mutate({ outcomeDefId: r.outcomeDefId, accepted: false, reviewNote: 'Flagged for correction' })}
+                              disabled={reviewMutation.isPending}>
+                              Flag
+                            </Button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

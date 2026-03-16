@@ -32,6 +32,9 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
   const [cptValidation, setCptValidation] = useState<{ valid: boolean; shortDesc?: string; reason?: string } | null>(null);
   const cptDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedDiagnosisForSimulation, setSelectedDiagnosisForSimulation] = useState<{ code: string; name: string } | null>(null);
+  const [diagCodeInput, setDiagCodeInput] = useState('');
+  const [diagValidation, setDiagValidation] = useState<{ valid: boolean; shortDesc?: string; longDesc?: string; reason?: string; isUnspecified?: boolean } | null>(null);
+  const diagDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch patient sessions
   const { data: sessions, refetch: refetchSessions } = trpc.daoProtocol.getPatientSessions.useQuery({ patientId });
@@ -158,6 +161,26 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
     setCptValidation(null);
   };
 
+  const validateDiag = trpc.causalBrain.validateDiagnosisCode.useQuery(
+    { code: diagCodeInput },
+    { enabled: diagCodeInput.length >= 3, staleTime: 30_000 }
+  );
+  useEffect(() => {
+    if (diagCodeInput.length < 3) { setDiagValidation(null); return; }
+    if (diagDebounceRef.current) clearTimeout(diagDebounceRef.current);
+    diagDebounceRef.current = setTimeout(() => {
+      if (validateDiag.data) {
+        if (validateDiag.data.valid) {
+          const isUnspecified = validateDiag.data.shortDesc?.toLowerCase().includes('unspecified') ||
+            validateDiag.data.longDesc?.toLowerCase().includes('unspecified');
+          setDiagValidation({ valid: true, shortDesc: validateDiag.data.shortDesc, longDesc: validateDiag.data.longDesc, isUnspecified });
+        } else {
+          setDiagValidation({ valid: false, reason: (validateDiag.data as any).reason });
+        }
+      }
+    }, 400);
+    return () => { if (diagDebounceRef.current) clearTimeout(diagDebounceRef.current); };
+  }, [diagCodeInput, validateDiag.data]);
   const validateCpt = trpc.causalBrain.validateCPTCode.useQuery(
     { code: cptCodeInput },
     { enabled: cptCodeInput.length >= 4, staleTime: 30_000 }
@@ -321,11 +344,16 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
                             {treatment.dosage && `${treatment.dosage} `}
                             {treatment.frequency && `- ${treatment.frequency}`}
                           </div>
-                          <div className="flex gap-2 mt-2">
+                          <div className="flex gap-2 mt-2 flex-wrap">
                             <Badge variant="outline">{treatment.treatmentType}</Badge>
                             <Badge variant={treatment.status === 'active' ? 'default' : 'secondary'}>
                               {treatment.status}
                             </Badge>
+                            {treatment.treatmentCode && (
+                              <Badge variant="outline" className="font-mono text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                CPT {treatment.treatmentCode}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -425,7 +453,7 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
       </Dialog>
 
       {/* Add Diagnosis Dialog */}
-      <Dialog open={showDiagnosisDialog} onOpenChange={setShowDiagnosisDialog}>
+      <Dialog open={showDiagnosisDialog} onOpenChange={(open) => { setShowDiagnosisDialog(open); if (!open) { setDiagCodeInput(''); setDiagValidation(null); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Diagnosis</DialogTitle>
@@ -449,7 +477,29 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
                     id="diagnosisCode"
                     name="diagnosisCode"
                     placeholder="e.g., I10"
+                    value={diagCodeInput}
+                    onChange={(e) => { setDiagCodeInput(e.target.value.toUpperCase()); setDiagValidation(null); }}
                   />
+                  {/* ICD-10 Validation Badge */}
+                  {diagCodeInput.length >= 3 && (
+                    <div className={`mt-1 px-2 py-1 rounded text-xs flex items-start gap-1.5 ${
+                      diagValidation === null ? 'bg-muted text-muted-foreground' :
+                      diagValidation.valid && !diagValidation.isUnspecified ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                      diagValidation.valid && diagValidation.isUnspecified ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                      'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      {diagValidation === null && <span>Validating…</span>}
+                      {diagValidation?.valid && !diagValidation.isUnspecified && (
+                        <><CheckCircle2 className="h-3 w-3 mt-0.5 shrink-0" /><span><strong>Valid:</strong> {diagValidation.shortDesc}</span></>
+                      )}
+                      {diagValidation?.valid && diagValidation.isUnspecified && (
+                        <><span className="shrink-0">⚠</span><span><strong>Unspecified:</strong> {diagValidation.shortDesc} — consider a more specific subcode</span></>
+                      )}
+                      {diagValidation && !diagValidation.valid && (
+                        <><XCircle className="h-3 w-3 mt-0.5 shrink-0" /><span><strong>Invalid:</strong> {diagValidation.reason}</span></>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
