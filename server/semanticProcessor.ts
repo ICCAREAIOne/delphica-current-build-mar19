@@ -1,4 +1,5 @@
 import { invokeLLM } from "./_core/llm";
+import { validateDiagnosisCode } from "./db";
 
 /**
  * Semantic Processor - Medical Coding & Terminology Bridge
@@ -120,7 +121,41 @@ Focus on:
   const content = response.choices[0]?.message?.content;
   const contentStr = typeof content === 'string' ? content : '{"codes":[]}';
   const result = JSON.parse(contentStr);
-  return result.codes;
+  const rawCodes: ICD10Code[] = result.codes;
+
+  // ── ICD-10 VALIDATION GATE ──────────────────────────────────────────────────
+  // Validate each LLM-generated code against the CMS FY2025 tabular.
+  // Invalid codes get confidence=0 and a flagged description so the UI
+  // surfaces them to the physician rather than passing them downstream.
+  const validatedCodes: ICD10Code[] = [];
+  for (const c of rawCodes) {
+    const validation = await validateDiagnosisCode(c.code).catch(() => null);
+    if (!validation) {
+      // DB unavailable — pass through with reduced confidence
+      validatedCodes.push({ ...c, confidence: Math.min(c.confidence, 0.4) });
+      continue;
+    }
+    if (!validation.valid) {
+      validatedCodes.push({
+        code: c.code,
+        description: `[INVALID — ${validation.reason ?? 'not in ICD-10-CM FY2025'}] ${c.description}`,
+        confidence: 0,
+        category: c.category,
+      });
+      console.warn(`[SemanticProcessor] Invalid ICD-10 "${c.code}": ${validation.reason}`);
+    } else {
+      const icdDesc = (validation.icd.longDesc ?? validation.icd.shortDesc ?? '').toLowerCase();
+      const isUnspecified = icdDesc.includes('unspecified') || icdDesc.includes(' nos');
+      validatedCodes.push({
+        ...c,
+        description: validation.icd.shortDesc ?? c.description,
+        confidence: isUnspecified
+          ? Math.min(c.confidence, 0.7)
+          : c.confidence,
+      });
+    }
+  }
+  return validatedCodes;
 }
 
 /**

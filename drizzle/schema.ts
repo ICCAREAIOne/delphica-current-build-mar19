@@ -2279,3 +2279,22 @@ export const icd10Codes = mysqlTable("icd10_codes", {
 });
 export type Icd10Code = typeof icd10Codes.$inferSelect;
 export type InsertIcd10Code = typeof icd10Codes.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OUTCOME DEFINITION REVIEWS
+// Physician sign-off records for specificity warnings in outcome_definitions.
+// When a physician reviews and accepts an unspecified code, a row is inserted
+// here so the audit UI can suppress the amber warning for that row.
+// ─────────────────────────────────────────────────────────────────────────────
+export const outcomeDefinitionReviews = mysqlTable("outcome_definition_reviews", {
+  id:               int("id").primaryKey().autoincrement(),
+  outcomeDefId:     int("outcomeDefId").notNull(),
+  reviewedByUserId: int("reviewedByUserId").notNull().references(() => users.id),
+  reviewNote:       text("reviewNote"),          // Optional physician rationale
+  reviewedAt:       timestamp("reviewedAt").defaultNow(),
+  // accepted = physician confirmed code is intentionally unspecified
+  // rejected = physician flagged for correction
+  accepted:         boolean("accepted").notNull().default(true),
+});
+export type OutcomeDefinitionReview = typeof outcomeDefinitionReviews.$inferSelect;
+export type InsertOutcomeDefinitionReview = typeof outcomeDefinitionReviews.$inferInsert;

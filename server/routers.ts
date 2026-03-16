@@ -3478,6 +3478,32 @@ export const appRouter = router({
         return { success: true };
       }),
     /**
+     * Physician sign-off: mark a specificity warning as reviewed & accepted (or flagged).
+     */
+    reviewOutcomeDefinition: protectedProcedure
+      .input(z.object({
+        outcomeDefId: z.number().int().positive(),
+        accepted: z.boolean(),
+        reviewNote: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.upsertOutcomeDefinitionReview(
+          input.outcomeDefId,
+          ctx.user.id,
+          input.accepted,
+          input.reviewNote
+        );
+        return result;
+      }),
+    /**
+     * Get all physician reviews for a list of outcome definition IDs.
+     */
+    getOutcomeDefinitionReviews: protectedProcedure
+      .input(z.object({ outcomeDefIds: z.array(z.number().int().positive()) }))
+      .query(async ({ input }) => {
+        return await db.getOutcomeDefinitionReviews(input.outcomeDefIds);
+      }),
+    /**
      * Get patient outcomes
      */
     getPatientOutcomes: protectedProcedure

@@ -243,3 +243,90 @@ describe("createOutcomeDefinition — ICD-10 gate", () => {
     await deactivateOutcomeDefinition(row.id);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEMANTIC PROCESSOR GATE TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+describe("generateICD10Codes — validation gate (via validateDiagnosisCode)", () => {
+  it("rejects encounter code Z51.11 — used as proxy for LLM bad output", async () => {
+    const result = await validateDiagnosisCode("Z51.11");
+    expect(result.valid).toBe(false);
+    expect((result as any).reason).toMatch(/encounter/i);
+  });
+
+  it("accepts E11.9 and returns authoritative shortDesc from tabular", async () => {
+    const result = await validateDiagnosisCode("E11.9");
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.icd.shortDesc.toLowerCase()).toContain("type 2");
+    }
+  });
+
+  it("flags F20.9 as valid but unspecified (confidence should be capped at 0.7)", async () => {
+    const result = await validateDiagnosisCode("F20.9");
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      const desc = (result.icd.longDesc ?? result.icd.shortDesc ?? "").toLowerCase();
+      expect(desc).toMatch(/unspecified/i);
+    }
+  });
+
+  it("rejects non-billable category N18 (no subcode)", async () => {
+    const result = await validateDiagnosisCode("N18");
+    expect(result.valid).toBe(false);
+    // N18 is not in the tabular at all (category header only) — reason is "not found"
+    expect((result as any).reason).toMatch(/not found|non-billable/i);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHYSICIAN SIGN-OFF TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+import {
+  upsertOutcomeDefinitionReview,
+  getOutcomeDefinitionReviews,
+  getDb,
+} from "./db";
+import { outcomeDefinitions } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
+
+describe("upsertOutcomeDefinitionReview — physician sign-off", () => {
+  it("inserts a review record and returns the new id", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [firstDef] = await db
+      .select({ id: outcomeDefinitions.id })
+      .from(outcomeDefinitions)
+      .where(eq(outcomeDefinitions.isActive, true))
+      .limit(1);
+    expect(firstDef).toBeDefined();
+
+    const result = await upsertOutcomeDefinitionReview(
+      firstDef.id,
+      1,
+      true,
+      "Intentionally unspecified — covers all subtypes in this practice"
+    );
+    expect(result.outcomeDefId).toBe(firstDef.id);
+    expect(result.accepted).toBe(true);
+    expect(result.id).toBeGreaterThan(0);
+  });
+
+  it("replaces a prior review by the same physician (upsert semantics)", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [firstDef] = await db
+      .select({ id: outcomeDefinitions.id })
+      .from(outcomeDefinitions)
+      .where(eq(outcomeDefinitions.isActive, true))
+      .limit(1);
+
+    await upsertOutcomeDefinitionReview(firstDef.id, 1, true, "First review");
+    await upsertOutcomeDefinitionReview(firstDef.id, 1, false, "Changed mind");
+
+    const reviews = await getOutcomeDefinitionReviews([firstDef.id]);
+    const mine = reviews.filter((r) => r.outcomeDefId === firstDef.id);
+    expect(mine.length).toBe(1);
+    expect(mine[0].accepted).toBe(false);
+  });
+});

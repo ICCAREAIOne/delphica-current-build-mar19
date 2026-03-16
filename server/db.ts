@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, gte, lte, lt, gt, sql, ne, like } from "drizzle-orm";
+import { eq, desc, asc, and, gte, lte, lt, gt, sql, ne, like, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, 
@@ -99,6 +99,8 @@ import {
   InsertPolicyConfidenceHistory,
   icd10Codes,
   Icd10Code,
+  outcomeDefinitionReviews,
+  InsertOutcomeDefinitionReview,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -5064,4 +5066,80 @@ export async function deactivateOutcomeDefinition(id: number): Promise<void> {
     .update(outcomeDefinitions)
     .set({ isActive: false })
     .where(eq(outcomeDefinitions.id, id));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OUTCOME DEFINITION REVIEWS — Physician sign-off helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Upsert a physician sign-off for a specificity warning.
+ * Replaces any prior review by the same physician for the same outcome def.
+ */
+export async function upsertOutcomeDefinitionReview(
+  outcomeDefId: number,
+  reviewedByUserId: number,
+  accepted: boolean,
+  reviewNote?: string
+): Promise<{ id: number; outcomeDefId: number; accepted: boolean }> {
+  const database = await getDb();
+  if (!database) throw new Error('Database unavailable');
+  // Remove prior review by this physician for this outcome def
+  await database.delete(outcomeDefinitionReviews)
+    .where(
+      and(
+        eq(outcomeDefinitionReviews.outcomeDefId, outcomeDefId),
+        eq(outcomeDefinitionReviews.reviewedByUserId, reviewedByUserId)
+      )
+    );
+  const result = await database.insert(outcomeDefinitionReviews).values({
+    outcomeDefId,
+    reviewedByUserId,
+    accepted,
+    reviewNote: reviewNote ?? null,
+    reviewedAt: new Date(),
+  }) as any;
+  // Drizzle mysql2 returns [ResultSetHeader, FieldPacket[]] — insertId is on result[0]
+  const insertId = (Array.isArray(result) ? result[0]?.insertId : result?.insertId) as number;
+  return { id: insertId, outcomeDefId, accepted };
+}
+
+/**
+ * Get all reviews for a list of outcome definition IDs.
+ * Returns the most recent review per outcome def.
+ */
+export async function getOutcomeDefinitionReviews(
+  outcomeDefIds: number[]
+): Promise<Array<{
+  outcomeDefId: number;
+  accepted: boolean;
+  reviewNote: string | null;
+  reviewedAt: Date | null;
+  reviewerName: string | null;
+}>> {
+  if (outcomeDefIds.length === 0) return [];
+  const database = await getDb();
+  if (!database) return [];
+  const rows = await database
+    .select({
+      outcomeDefId: outcomeDefinitionReviews.outcomeDefId,
+      accepted:     outcomeDefinitionReviews.accepted,
+      reviewNote:   outcomeDefinitionReviews.reviewNote,
+      reviewedAt:   outcomeDefinitionReviews.reviewedAt,
+      reviewerName: users.name,
+    })
+    .from(outcomeDefinitionReviews)
+    .leftJoin(users, eq(outcomeDefinitionReviews.reviewedByUserId, users.id))
+    .where(inArray(outcomeDefinitionReviews.outcomeDefId, outcomeDefIds))
+    .orderBy(desc(outcomeDefinitionReviews.reviewedAt));
+  // Deduplicate: keep most recent review per outcomeDefId
+  const seen = new Set<number>();
+  const deduped: typeof rows = [];
+  for (const r of rows) {
+    if (!seen.has(r.outcomeDefId)) {
+      seen.add(r.outcomeDefId);
+      deduped.push(r);
+    }
+  }
+  return deduped as any;
 }
