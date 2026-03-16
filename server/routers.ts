@@ -640,69 +640,86 @@ export const appRouter = router({
         selectedTreatmentOption: z.string().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
-        // Get patient data
+        const { generateCarePlanWithSafetyReview } = await import('./causal/orchestrator');
+        // Fetch patient
         const patient = await db.getPatientById(input.patientId);
-        if (!patient) throw new Error("Patient not found");
-
-        // Calculate age
+        if (!patient) throw new Error('Patient not found');
         const age = Math.floor((Date.now() - patient.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-
-        // Note: In production, this would use actual causal analysis and validation results
-        // For now, returning a placeholder
-        const result = {
-          planTitle: `Treatment Plan for ${patient.firstName} ${patient.lastName}`,
-          executiveSummary: "Comprehensive care plan based on clinical assessment",
-          goals: input.treatmentGoals,
-          interventions: [],
-          medications: [],
-          lifestyle: [],
-          followUp: [],
-          causalRationale: "Based on clinical assessment and patient history",
-          evidenceBasis: [],
+        // Build PatientContext for the orchestrator
+        const patientContext = {
+          patientId: input.patientId,
+          age,
+          gender: patient.gender,
+          chiefComplaint: input.diagnosis,
+          symptoms: [],
+          diagnosisCode: input.diagnosis,
+          diagnosisDescription: input.diagnosis,
+          allergies: (patient.allergies as string[]) || [],
+          chronicConditions: (patient.chronicConditions as string[]) || [],
+          currentMedications: (patient.currentMedications as string[]) || [],
         };
-
-        // Save care plan to database
+        // Minimal CausalAnalysisResult — enriched by orchestrator's LLM calls
+        const causalAnalysis = {
+          analysisId: `care-plan-${Date.now()}`,
+          sessionId: undefined as number | undefined,
+          patientSummary: `${age}yo ${patient.gender} with ${input.diagnosis}`,
+          causalFactors: [] as any[],
+          evidenceSources: [] as any[],
+          clinicalInsights: input.treatmentGoals,
+          recommendedSimulationScenarios: input.selectedTreatmentOption
+            ? [input.selectedTreatmentOption]
+            : [],
+          confidenceScore: 70,
+          analysisMethod: 'llm_simulated' as const,
+          createdAt: new Date(),
+        };
+        // Minimal CausalValidationResult — physician selected via Delphi
+        const validatedTreatment = {
+          validatedOptions: input.selectedTreatmentOption
+            ? [{
+                option: input.selectedTreatmentOption,
+                causalValidity: 0.75,
+                evidenceAlignment: 0.75,
+                recommendation: 'proceed' as const,
+                rationale: `Physician-selected via Delphi simulation for ${input.diagnosis}`,
+              }]
+            : [],
+          optimalPath: input.selectedTreatmentOption || input.treatmentGoals[0] || 'Standard of care',
+          convergenceRationale: 'Physician-selected scenario from Delphi simulation',
+          requiresRefinement: false,
+        };
+        // Run the full orchestrator: LLM care plan generation + Digital Review Board safety check
+        const { carePlan, safetyReview } = await generateCarePlanWithSafetyReview(
+          causalAnalysis,
+          validatedTreatment,
+          patientContext
+        );
+        // Persist care plan
         const carePlanId = await db.createCarePlan({
           patientId: input.patientId,
           physicianId: ctx.user.id,
           daoEntryId: input.daoEntryId,
           delphiSimulationId: input.delphiSimulationId,
-          planTitle: result.planTitle,
+          planTitle: carePlan.planTitle,
           diagnosis: input.diagnosis,
-          goals: result.goals,
-          interventions: result.interventions,
-          medications: result.medications,
-          lifestyle: result.lifestyle,
-          followUp: result.followUp,
-          aiRationale: result.causalRationale,
-          status: "draft",
+          goals: carePlan.goals,
+          interventions: carePlan.interventions,
+          medications: carePlan.medications,
+          lifestyle: carePlan.lifestyle,
+          followUp: carePlan.followUp,
+          aiRationale: carePlan.causalRationale,
+          status: 'draft',
         });
-
-        // Automatically run safety review
-        const safetyResult = await aiService.performSafetyReview({
-          carePlan: result,
-          patientContext: {
-            age,
-            gender: patient.gender,
-            chiefComplaint: "",
-            symptoms: [],
-            allergies: patient.allergies as string[] || [],
-            chronicConditions: patient.chronicConditions as string[] || [],
-            currentMedications: patient.currentMedications as string[] || [],
-          },
-        });
-
-        // Save safety review
+        // Persist safety review
         await db.createSafetyReview({
           carePlanId,
-          reviewType: "automated",
-          safetyAlerts: safetyResult.safetyAlerts,
-          complianceChecks: safetyResult.complianceChecks,
-          overallStatus: safetyResult.overallStatus,
+          reviewType: 'automated',
+          safetyAlerts: safetyReview.safetyAlerts,
+          complianceChecks: safetyReview.complianceChecks,
+          overallStatus: safetyReview.overallStatus,
           reviewedById: ctx.user.id,
         });
-
-        return { id: carePlanId, ...result, safetyReview: safetyResult };
+        return { id: carePlanId, ...carePlan, safetyReview };
       }),
   }),
 
@@ -3593,6 +3610,18 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const outcomes = await db.getPatientOutcomes(input.patientId);
         return outcomes;
+      }),
+
+    /**
+     * Seed NNT/NNH stats from existing outcome records.
+     * Aggregates clinical_outcomes + patient_outcomes into treatment_arm_stats.
+     * Falls back to representative synthetic data if no real outcomes exist.
+     */
+    seedNNT: protectedProcedure
+      .mutation(async () => {
+        const { seedNNTFromOutcomes } = await import('./nntSeed');
+        const result = await seedNNTFromOutcomes();
+        return result;
       }),
   }),
 

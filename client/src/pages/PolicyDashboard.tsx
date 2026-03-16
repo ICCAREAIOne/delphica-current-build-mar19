@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CausalDagGraph from "@/components/CausalDagGraph";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -171,6 +172,7 @@ const NNT_DIAGNOSIS_OPTIONS = [
 ];
 
 function NntPanel() {
+  const { toast } = useToast();
   const [diagCode, setDiagCode] = useState("E11");
   const { data: arms = [], isLoading, refetch } = trpc.causalBrain.getTreatmentArmStats.useQuery(
     { diagnosisCode: diagCode },
@@ -178,6 +180,13 @@ function NntPanel() {
   );
   const setControl = trpc.causalBrain.setControlArm.useMutation({
     onSuccess: () => refetch(),
+  });
+  const seedNNT = trpc.causalBrain.seedNNT.useMutation({
+    onSuccess: (result: { rowsUpserted: number; summary: unknown[] }) => {
+      refetch();
+      toast({ title: 'NNT data seeded', description: `${result.rowsUpserted} treatment arms populated.` });
+    },
+    onError: (err: { message: string }) => toast({ title: 'Seed failed', description: err.message, variant: 'destructive' }),
   });
 
   const controlArm = arms.find((a) => a.controlArmId == null) ?? arms[0];
@@ -220,9 +229,17 @@ function NntPanel() {
       {isLoading ? (
         <div className="text-muted-foreground text-sm py-8 text-center">Loading treatment arm data...</div>
       ) : arms.length === 0 ? (
-        <div className="rounded-lg border bg-muted/30 py-12 text-center">
+        <div className="rounded-lg border bg-muted/30 py-12 text-center space-y-3">
           <p className="text-sm font-medium text-muted-foreground">No treatment arm data for {diagCode}</p>
-          <p className="text-xs text-muted-foreground mt-1">Record outcomes via the Treatment Recommendations panel to populate NNT calculations.</p>
+          <p className="text-xs text-muted-foreground">Seed from existing outcome records, or record outcomes via Treatment Recommendations.</p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={seedNNT.isPending}
+            onClick={() => seedNNT.mutate()}
+          >
+            {seedNNT.isPending ? 'Seeding…' : 'Seed NNT Data'}
+          </Button>
         </div>
       ) : (
         <>
@@ -377,51 +394,39 @@ function DagPanel() {
             <div><span className="text-muted-foreground">Edges: </span><span className="font-bold">{graphData.edges.length}</span></div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-lg border">
-              <div className="px-4 py-2 border-b bg-muted/30 text-sm font-medium">Nodes ({graphData.nodes.length})</div>
-              <div className="divide-y max-h-72 overflow-y-auto">
-                {graphData.nodes.map((node: any) => (
-                  <div key={node.id} className="px-4 py-2 flex items-start gap-3">
-                    <span className={`text-xs px-2 py-0.5 rounded border font-medium shrink-0 mt-0.5 ${NODE_TYPE_COLORS[node.nodeType] ?? "bg-muted text-muted-foreground border-muted"}`}>
-                      {nodeTypeLabel[node.nodeType] ?? node.nodeType}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm">{node.label}</div>
-                      {node.description && <div className="text-xs text-muted-foreground truncate">{node.description}</div>}
-                      {node.icdCode && <span className="font-mono text-xs bg-muted px-1 rounded">{node.icdCode}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* ── Force-directed DAG graph ── */}
+          <CausalDagGraph
+            nodes={graphData.nodes as any[]}
+            edges={graphData.edges as any[]}
+            width={900}
+            height={480}
+          />
 
-            <div className="rounded-lg border">
-              <div className="px-4 py-2 border-b bg-muted/30 text-sm font-medium">Directed Edges ({graphData.edges.length})</div>
-              <div className="divide-y max-h-72 overflow-y-auto">
-                {graphData.edges.map((edge: any) => {
+          {/* ── Collapsible edge detail table ── */}
+          {graphData.edges.filter((e: any) => e.isBackdoor).length > 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50/30">
+              <div className="px-4 py-2 border-b border-red-200 text-sm font-medium text-red-700">
+                &#9888; Backdoor Paths ({graphData.edges.filter((e: any) => e.isBackdoor).length})
+              </div>
+              <div className="divide-y divide-red-100">
+                {graphData.edges.filter((e: any) => e.isBackdoor).map((edge: any) => {
                   const fromNode = graphData.nodes.find((n: any) => n.id === edge.fromNodeId);
                   const toNode   = graphData.nodes.find((n: any) => n.id === edge.toNodeId);
                   return (
-                    <div key={edge.id} className={`px-4 py-2 ${edge.isBackdoor ? "bg-red-50/60" : ""}`}>
-                      <div className="flex items-center gap-2 text-sm flex-wrap">
-                        <span className="font-medium">{fromNode?.label ?? `Node ${edge.fromNodeId}`}</span>
-                        <span className="text-muted-foreground">&rarr;</span>
-                        <span className="font-medium">{toNode?.label ?? `Node ${edge.toNodeId}`}</span>
-                        {edge.isBackdoor && <Badge className="bg-red-500 text-white text-xs ml-1">backdoor</Badge>}
-                        {edge.evidenceGrade && <Badge variant="outline" className="text-xs font-mono">{edge.evidenceGrade}</Badge>}
-                      </div>
+                    <div key={edge.id} className="px-4 py-2 text-sm flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{fromNode?.label ?? `Node ${edge.fromNodeId}`}</span>
+                      <span className="text-muted-foreground">&rarr;</span>
+                      <span className="font-medium">{toNode?.label ?? `Node ${edge.toNodeId}`}</span>
                       {edge.estimatedAce && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          ACE = {edge.estimatedAce}{edge.aceUnit ? ` ${edge.aceUnit}` : ""}
-                        </div>
+                        <span className="text-xs text-muted-foreground ml-2">ACE={edge.estimatedAce}{edge.aceUnit ? ` ${edge.aceUnit}` : ""}</span>
                       )}
+                      {edge.evidenceGrade && <Badge variant="outline" className="text-xs font-mono">{edge.evidenceGrade}</Badge>}
                     </div>
                   );
                 })}
               </div>
             </div>
-          </div>
+          )}
 
           {graphData.nodes.filter((n: any) => n.nodeType === "confounder").length > 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50/40 px-4 py-3">
