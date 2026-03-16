@@ -15,12 +15,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface DelphiSimulatorProps {
   sessionId: number;
+  patientId: number;
   diagnosisCode: string;
   diagnosisName: string;
   onClose: () => void;
 }
 
-export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClose }: DelphiSimulatorProps) {
+export function DelphiSimulator({ sessionId, patientId, diagnosisCode, diagnosisName, onClose }: DelphiSimulatorProps) {
   const [selectedScenarioId, setSelectedScenarioId] = useState<number | null>(null);
   const [physicianMessage, setPhysicianMessage] = useState('');
   const [currentDay, setCurrentDay] = useState(1);
@@ -169,6 +170,77 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
     },
   });
 
+  // ─── Delphi → Care Plan handoff ──────────────────────────────────────────
+  const [generatingCarePlan, setGeneratingCarePlan] = useState(false);
+  const [carePlanId, setCarePlanId] = useState<number | null>(null);
+
+  const generateCarePlan = trpc.ai.generateCarePlan.useMutation({
+    onSuccess: (data: { id: number }) => {
+      setCarePlanId(data.id);
+      setGeneratingCarePlan(false);
+      toast.success('Care plan generated — review it in the Care Plans section.');
+    },
+    onError: (error: { message: string }) => {
+      setGeneratingCarePlan(false);
+      toast.error(`Failed to generate care plan: ${error.message}`);
+    },
+  });
+
+  const handleGenerateCarePlan = (selectedScenarioId: number, comparisonId: number) => {
+    const scenario = scenarios?.find((s) => s.id === selectedScenarioId);
+    if (!scenario) return;
+    setGeneratingCarePlan(true);
+    generateCarePlan.mutate({
+      patientId,
+      delphiSimulationId: comparisonId,
+      diagnosis: diagnosisCode,
+      treatmentGoals: [scenario.simulationGoal || `Optimise ${diagnosisCode} management`],
+      selectedTreatmentOption: scenario.treatmentCode || scenario.scenarioName,
+    });
+  };
+  // ─── End Care Plan handoff ──────────────────────────────────────────────────
+
+  // ─── Multi-iteration Delphi refinement ────────────────────────────────────
+  const [showRefineDialog, setShowRefineDialog] = useState(false);
+  const [refineFeedback, setRefineFeedback] = useState('');
+  const [currentIteration, setCurrentIteration] = useState(1);
+
+  const refineScenarios = trpc.delphiSimulator.refineScenarios.useMutation({
+    onSuccess: (data) => {
+      if (!data.refined) {
+        toast.info(data.reason);
+      } else {
+        setCurrentIteration(data.iteration);
+        toast.success(`Iteration ${data.iteration} ready — ${data.newScenarioIds.length} refined scenarios generated.`);
+        refetchScenarios();
+        setSelectedScenarioId(null);
+      }
+      setShowRefineDialog(false);
+      setRefineFeedback('');
+    },
+    onError: (error) => {
+      toast.error(error.message);
+      setShowRefineDialog(false);
+    },
+  });
+
+  const handleRefineScenarios = () => {
+    if (!refineFeedback.trim()) return;
+    const activeScenarioIds = (scenarios || []).filter((s) => s.status !== 'archived').map((s) => s.id);
+    if (activeScenarioIds.length === 0) {
+      toast.error('No active scenarios to refine');
+      return;
+    }
+    refineScenarios.mutate({
+      sessionId,
+      diagnosisCode,
+      physicianFeedback: refineFeedback.trim(),
+      currentScenarioIds: activeScenarioIds,
+      forceRefine: true,
+    });
+  };
+  // ─── End refinement ─────────────────────────────────────────────────────────
+
   // Auto-generate scenarios on mount if none exist
   useEffect(() => {
     if (scenarios && scenarios.length === 0 && !generateScenarios.isPending) {
@@ -282,6 +354,18 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
             >
               {compareScenarios.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Compare All Scenarios
+            </Button>
+          )}
+          {scenarios && scenarios.filter((s) => s.status !== 'archived').length > 0 && currentIteration < 3 && (
+            <Button
+              onClick={() => setShowRefineDialog(true)}
+              disabled={refineScenarios.isPending}
+              variant="outline"
+              className="border-amber-500 text-amber-600 hover:bg-amber-50"
+            >
+              {refineScenarios.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Refine with Feedback
+              {currentIteration > 1 && <Badge className="ml-2 bg-amber-100 text-amber-700">Iter {currentIteration}</Badge>}
             </Button>
           )}
           <Button onClick={onClose} variant="outline">Close</Button>
@@ -574,6 +658,25 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
                               Select This Scenario
                             </Button>
                           )}
+                          {comparison.selectedScenarioId === rank.scenarioId && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <span className="text-sm text-green-700 font-medium">Selected</span>
+                              {carePlanId ? (
+                                <Badge className="bg-green-100 text-green-700">Care Plan #{carePlanId} created</Badge>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white ml-2"
+                                  onClick={() => handleGenerateCarePlan(rank.scenarioId, comparison.id)}
+                                  disabled={generatingCarePlan || generateCarePlan.isPending}
+                                >
+                                  {(generatingCarePlan || generateCarePlan.isPending) && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                                  Generate Care Plan
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -639,6 +742,41 @@ export function DelphiSimulator({ sessionId, diagnosisCode, diagnosisName, onClo
             <Button onClick={handleSubmitInteractionFeedback} disabled={submitInteractionFeedback.isPending}>
               {submitInteractionFeedback.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit Feedback
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Refine Scenarios Dialog */}
+      <Dialog open={showRefineDialog} onOpenChange={setShowRefineDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Refine Scenarios with Feedback</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Describe what’s missing, incorrect, or what you’d like to explore differently.
+              Causal Brain will critique the current scenarios and Delphi will generate a refined
+              set (Iteration {currentIteration + 1} of 3).
+            </p>
+            <Textarea
+              placeholder="e.g. ‘Scenarios don’t account for renal impairment. Explore lower-dose SGLT2 options and GLP-1 alternatives.’"
+              value={refineFeedback}
+              onChange={(e) => setRefineFeedback(e.target.value)}
+              rows={5}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRefineDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRefineScenarios}
+              disabled={!refineFeedback.trim() || refineScenarios.isPending}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {refineScenarios.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Run Iteration {currentIteration + 1}
             </Button>
           </DialogFooter>
         </DialogContent>

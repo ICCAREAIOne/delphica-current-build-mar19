@@ -3958,6 +3958,179 @@ Return scenarios as a JSON array.`;
       }),
 
     /**
+     * MULTI-ITERATION DELPHI LOOP
+     * Physician provides feedback on current scenarios → Causal Brain critiques →
+     * Delphi generates refined scenarios (iteration N+1, capped at 3).
+     *
+     * Flow:
+     *   1. Physician submits feedback text (what's wrong / what to explore differently)
+     *   2. Causal Brain runs validateAndOptimize on the current scenarios + feedback
+     *   3. If needsRefinement=true (or physician forced it), Delphi re-runs with
+     *      previousFeedback = validation.refinementGuidance + physician notes
+     *   4. New scenarios are created in DB; old ones are archived
+     *   5. Returns new scenario IDs + iteration number
+     */
+    refineScenarios: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        diagnosisCode: z.string(),
+        physicianFeedback: z.string(),
+        currentScenarioIds: z.array(z.number()),
+        forceRefine: z.boolean().default(false),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const MAX_ITERATIONS = 3;
+
+        // Get session and patient data
+        const session = await db.getClinicalSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' });
+        const patient = await db.getPatientById(session.patientId);
+        if (!patient) throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+
+        // Load current scenarios to understand what iteration we're on
+        const currentScenarios = await Promise.all(
+          input.currentScenarioIds.map((id) => db.getScenarioById(id))
+        );
+        const validScenarios = currentScenarios.filter(Boolean);
+        if (validScenarios.length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'No valid scenarios found' });
+        }
+
+        // Determine iteration number from scenario names (look for "(Iteration N)" suffix)
+        const existingIter = validScenarios[0]?.scenarioName?.match(/\(Iteration (\d+)\)/);
+        const currentIteration = existingIter ? parseInt(existingIter[1]) : 1;
+        if (currentIteration >= MAX_ITERATIONS) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Maximum ${MAX_ITERATIONS} iterations reached. Select a scenario to proceed.`,
+          });
+        }
+        const nextIteration = currentIteration + 1;
+
+        // Build a lightweight causal analysis summary from current scenarios
+        // (avoids a full re-run of the expensive causal pipeline)
+        const patientAge = Math.floor(
+          (Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+        );
+        const causalSummary: import('./aiService').CausalAnalysisResult = {
+          analysisId: `refine-${input.sessionId}-${nextIteration}`,
+          patientSummary: `${patientAge}yo ${patient.gender} with ${input.diagnosisCode}. Comorbidities: ${(patient.chronicConditions as string[] || []).join(', ') || 'none'}.`,
+          causalFactors: [
+            {
+              factor: input.diagnosisCode,
+              impact: 'Primary diagnosis requiring treatment',
+              confidence: 0.9,
+              evidenceLevel: 'high',
+            },
+          ],
+          evidenceSources: [],
+          clinicalInsights: [input.physicianFeedback],
+          recommendedSimulationScenarios: validScenarios.map((s) => s!.treatmentDescription),
+          confidenceScore: 75,
+        };
+
+        // Step 1: Causal Brain critiques current scenarios + physician feedback
+        const currentOptions = validScenarios.map((s) => ({
+          option: s!.scenarioName,
+          description: s!.treatmentDescription,
+          predictedOutcome: s!.simulationGoal || '',
+          confidence: 0.7,
+          risks: [],
+          benefits: [],
+          evidenceSupport: '',
+        }));
+        const delphiResultForValidation: import('./aiService').DelphiSimulationResult = {
+          simulationId: `current-${input.sessionId}`,
+          scenarioDescription: `Current scenarios for ${input.diagnosisCode}`,
+          treatmentOptions: currentOptions,
+          outcomeAnalysis: `Physician feedback: ${input.physicianFeedback}`,
+          uncertaintyFactors: [],
+          recommendationsForCausalBrain: [input.physicianFeedback],
+        };
+        const validation = await aiService.validateAndOptimize({
+          causalAnalysis: causalSummary,
+          delphiSimulation: delphiResultForValidation,
+        });
+
+        // If Causal Brain says no refinement needed and physician didn't force it, bail early
+        if (!validation.needsRefinement && !input.forceRefine) {
+          return {
+            refined: false,
+            reason: 'Causal Brain validated current scenarios — no refinement needed.',
+            validation,
+            newScenarioIds: [],
+            iteration: currentIteration,
+          };
+        }
+
+        // Step 2: Build combined feedback for Delphi
+        const combinedFeedback = [
+          `Physician feedback: ${input.physicianFeedback}`,
+          validation.refinementGuidance
+            ? `Causal Brain guidance: ${validation.refinementGuidance}`
+            : '',
+          `Rejected options: ${validation.validatedOptions
+            .filter((v) => v.recommendation === 'rejected')
+            .map((v) => v.option)
+            .join(', ') || 'none'}`,
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        // Step 3: Run Delphi with previousFeedback populated
+        const diagnoses = await db.getDiagnosisEntriesBySession(input.sessionId);
+        const primaryDiagnosis = diagnoses.find((d) => d.diagnosisCode === input.diagnosisCode)
+          || diagnoses[0];
+        const scenarioToExplore = primaryDiagnosis
+          ? `Refined treatment for ${primaryDiagnosis.diagnosisName || input.diagnosisCode}`
+          : `Refined treatment for ${input.diagnosisCode}`;
+
+        const refinedResult = await aiService.runDelphiSimulation({
+          causalAnalysis: causalSummary,
+          scenarioToExplore,
+          iterationNumber: nextIteration,
+          previousFeedback: combinedFeedback,
+        });
+
+        // Step 4: Archive old scenarios
+        for (const id of input.currentScenarioIds) {
+          await db.updateScenarioStatus(id, 'archived');
+        }
+
+        // Step 5: Create new refined scenarios in DB
+        const newScenarioIds: number[] = [];
+        for (const opt of refinedResult.treatmentOptions) {
+          const scenarioId = await db.createSimulationScenario({
+            sessionId: input.sessionId,
+            physicianId: ctx.user.id,
+            patientId: patient.id,
+            scenarioName: `${opt.option} (Iteration ${nextIteration})`,
+            diagnosisCode: input.diagnosisCode,
+            treatmentCode: input.diagnosisCode,
+            treatmentDescription: opt.description,
+            patientAge,
+            patientGender: patient.gender,
+            comorbidities: patient.chronicConditions as string[] || [],
+            currentMedications: patient.currentMedications as string[] || [],
+            allergies: patient.allergies as string[] || [],
+            timeHorizon: 30,
+            simulationGoal: opt.predictedOutcome,
+            status: 'draft',
+          });
+          newScenarioIds.push(Number(scenarioId));
+        }
+
+        return {
+          refined: true,
+          reason: `Iteration ${nextIteration} generated with Causal Brain guidance.`,
+          validation,
+          newScenarioIds,
+          iteration: nextIteration,
+          refinedResult,
+        };
+      }),
+
+    /**
      * Get scenarios for a session
      */
     getScenarios: protectedProcedure

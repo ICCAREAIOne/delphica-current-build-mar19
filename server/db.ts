@@ -5161,9 +5161,7 @@ export async function getOutcomeDefinitionReviews(
 // CPT CODE VALIDATION HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CptValidationResult =
-  | { valid: true; cpt: CptCode }
-  | { valid: false; reason: string; suggestions: string[] };
+export type CptValidationResult = { valid: true; cpt: CptCode } | { valid: false; reason: string; suggestions: string[] };
 
 /**
  * Validate a single CPT code against the cpt_codes reference table.

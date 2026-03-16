@@ -1151,3 +1151,10 @@
 - [x] Compare cost of debt vs. equity dilution
 - [x] Create visualization showing cash balance with/without LOC (4 charts)
 - [x] Deliver analysis to user
+
+## Causal Engine Consolidation + Delphi Loop (Mar 2026)
+- [x] Consolidate engines: redirect causalBrain router calls to causal/inference.ts
+- [x] Shim causalBrain.ts as pass-through to causal/inference.ts
+- [x] Wire multi-iteration Delphi loop: refineScenarios mutation (max 3 iterations)
+- [x] Add "Refine Scenarios" UI button in DelphiSimulator with physician feedback input
+- [x] Wire Delphi → Care Plan: "Generate Care Plan" button in DelphiSimulator

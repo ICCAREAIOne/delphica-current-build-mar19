@@ -695,6 +695,7 @@ export function ClinicalSessionInterface({ patientId, patientName }: ClinicalSes
           {showDelphiSimulator && activeSessionId && selectedDiagnosisForSimulation && (
             <DelphiSimulator
               sessionId={activeSessionId}
+              patientId={patientId}
               diagnosisCode={selectedDiagnosisForSimulation.code}
               diagnosisName={selectedDiagnosisForSimulation.name}
               onClose={() => {
