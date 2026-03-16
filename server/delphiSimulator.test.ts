@@ -38,7 +38,7 @@ describe('Delphi Simulator Database Helpers', () => {
       sessionType: 'initial_consultation',
       status: 'in_progress',
     });
-    testSessionId = Number((sessionResult as any)[0].insertId);
+    testSessionId = sessionResult as number;
   });
 
   it('should create a simulation scenario', async () => {

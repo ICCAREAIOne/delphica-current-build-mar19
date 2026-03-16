@@ -3,25 +3,37 @@ import * as db from './db';
 
 describe('Protocol Auto-Coding Integration', () => {
   let testUserId: number;
+  let testPatientId: number;
   let testCarePlanId: number;
   let testProtocolDeliveryId: number;
 
   beforeAll(async () => {
-    // Create test user
+    // Create test user (physician)
     const testOpenId = `test-autocoding-${Date.now()}`;
     await db.upsertUser({
       openId: testOpenId,
       email: `${testOpenId}@example.com`,
-      name: 'Test Auto-Coding Patient',
+      name: 'Test Auto-Coding Physician',
       role: 'user',
     });
     const user = await db.getUserByOpenId(testOpenId);
     testUserId = user!.id;
 
-    // Create test care plan
+    // Create a real patient row so FK on patient_care_plans.patient_id is satisfied
+    testPatientId = await db.createPatient({
+      mrn: `TEST-AUTOCODING-${Date.now()}`,
+      firstName: 'AutoCoding',
+      lastName: 'TestPatient',
+      dateOfBirth: new Date('1975-06-15'),
+      gender: 'male',
+      status: 'active',
+      assignedPhysicianId: testUserId,
+    });
+
+    // Create test care plan using the real patient ID
     const carePlanId = await db.createPatientCarePlan({
-      patientId: testUserId,
-      physicianId: testUserId, // Use same ID for simplicity in test
+      patientId: testPatientId,
+      physicianId: testUserId,
       title: 'Hypertension Management Protocol',
       diagnosis: 'Essential hypertension',
       goals: ['Lower blood pressure to <130/80 mmHg', 'Reduce cardiovascular risk'],
@@ -47,7 +59,7 @@ describe('Protocol Auto-Coding Integration', () => {
       pdfGenerated: true,
       sentAt: new Date(),
     });
-    testProtocolDeliveryId = deliveryId.insertId as number;
+    testProtocolDeliveryId = (deliveryId as any).id as number;
   });
 
   describe('Medical Code Storage', () => {
@@ -138,7 +150,7 @@ describe('Protocol Auto-Coding Integration', () => {
       const icd10Code = codes.find((c) => c.codeType === 'ICD10');
       expect(icd10Code).toBeDefined();
       expect(icd10Code?.code).toBe('I10');
-      expect(icd10Code?.isPrimary).toBe(1); // MySQL returns boolean as 1/0
+      expect(icd10Code?.isPrimary).toBeTruthy(); // MySQL may return 1 or true
 
       // Verify CPT code exists
       const cptCode = codes.find((c) => c.codeType === 'CPT');

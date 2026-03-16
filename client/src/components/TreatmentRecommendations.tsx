@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +43,8 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [feedbackAction, setFeedbackAction] = useState<'accepted' | 'rejected' | 'modified'>('accepted');
   const [feedback, setFeedback] = useState('');
+  const [bestTreatmentId, setBestTreatmentId] = useState<number | null>(null);
+  const [thompsonLoading, setThompsonLoading] = useState(false);
 
   // Fetch recommendations
   const { data: recommendations, isLoading, refetch } = trpc.causalBrain.getRecommendations.useQuery({ sessionId });
@@ -93,6 +95,47 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
       toast({ title: 'Error updating status', description: error.message, variant: 'destructive' });
     },
   });
+
+  // Thompson Sampling — select best treatment arm
+  const selectBestTreatmentMutation = trpc.causalBrain.selectBestTreatment.useMutation({
+    onSuccess: (result: any) => {
+      if (result?.bestTreatment) {
+        const winner = recommendations?.find(
+          (r: any) => r.treatmentName === result.bestTreatment.treatmentName
+        );
+        if (winner) {
+          setBestTreatmentId(winner.id);
+          toast({
+            title: '🏆 Best Treatment Selected',
+            description: `Thompson Sampling recommends: ${result.bestTreatment.treatmentName} (θ=${result.bestTreatment.sampledTheta?.toFixed(3) ?? 'N/A'})`,
+          });
+        } else {
+          toast({
+            title: '🏆 Best Treatment Selected',
+            description: `Thompson Sampling recommends: ${result.bestTreatment.treatmentName}`,
+          });
+        }
+      }
+      setThompsonLoading(false);
+    },
+    onError: (error: any) => {
+      toast({ title: 'Thompson Sampling error', description: error.message, variant: 'destructive' });
+      setThompsonLoading(false);
+    },
+  });
+
+  const handleSelectBestTreatment = useCallback(() => {
+    if (!recommendations || recommendations.length === 0 || !diagnosisCode) return;
+    setThompsonLoading(true);
+    setBestTreatmentId(null);
+    selectBestTreatmentMutation.mutate({
+      diagnosisCode: diagnosisCode,
+      candidates: recommendations.map((r: any) => ({
+        treatmentCode: r.treatmentType ?? r.treatmentName,
+        treatmentName: r.treatmentName,
+      })),
+    });
+  }, [recommendations, diagnosisCode, selectBestTreatmentMutation]);
 
   const handleGenerateRecommendations = () => {
     generateRecommendations.mutate({ sessionId });
@@ -199,19 +242,36 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
                 Evidence-based suggestions from Causal Brain analysis
               </CardDescription>
             </div>
-            <Button 
-              onClick={handleGenerateRecommendations}
-              disabled={generateRecommendations.isPending}
-              variant="outline"
-              size="sm"
-            >
-              {generateRecommendations.isPending ? 'Regenerating...' : 'Regenerate'}
-            </Button>
+            <div className="flex items-center gap-2">
+              {diagnosisCode && (
+                <Button
+                  onClick={handleSelectBestTreatment}
+                  disabled={thompsonLoading || !recommendations || recommendations.length === 0}
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-400 text-amber-700 hover:bg-amber-50"
+                >
+                  {thompsonLoading ? (
+                    <><div className="animate-spin rounded-full h-3 w-3 border-b-2 border-amber-600 mr-2" />Sampling...</>
+                  ) : (
+                    <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Best Treatment</>
+                  )}
+                </Button>
+              )}
+              <Button 
+                onClick={handleGenerateRecommendations}
+                disabled={generateRecommendations.isPending}
+                variant="outline"
+                size="sm"
+              >
+                {generateRecommendations.isPending ? 'Regenerating...' : 'Regenerate'}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {recommendations.map((rec: any, index: number) => (
-            <Card key={rec.id} className="border-2 border-cyan-100">
+            <Card key={rec.id} className={`border-2 ${bestTreatmentId === rec.id ? 'border-amber-400 ring-2 ring-amber-200' : 'border-cyan-100'}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -223,6 +283,12 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
                       <Badge variant="outline" className="text-xs">
                         {rec.treatmentType}
                       </Badge>
+                      {bestTreatmentId === rec.id && (
+                        <Badge className="bg-amber-500 text-white text-xs flex items-center gap-1">
+                          <Sparkles className="h-3 w-3" />
+                          AI Recommended
+                        </Badge>
+                      )}
                     </div>
                     <CardTitle className="text-lg">{rec.treatmentName}</CardTitle>
                   </div>

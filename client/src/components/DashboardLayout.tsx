@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, ClipboardList, ChevronDown, Send, CheckCircle, Clock, FileText, BarChart3, TrendingUp } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, ClipboardList, ChevronDown, Send, CheckCircle, Clock, FileText, BarChart3, TrendingUp, Brain } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,6 +33,7 @@ const menuItems = [
   { icon: ClipboardList, label: "Intake Sessions", path: "/intake-dashboard" },
   { icon: TrendingUp, label: "Risk Predictions", path: "/risk-predictions" },
   { icon: BarChart3, label: "Peer Comparison", path: "/peer-comparison" },
+  { icon: Brain, label: "AI Policy", path: "/policy" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

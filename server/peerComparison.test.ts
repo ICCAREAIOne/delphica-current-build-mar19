@@ -63,7 +63,7 @@ describe('Peer Comparison Analytics', () => {
       sessionType: 'initial_consultation',
       status: 'in_progress',
     });
-    testSessionId = Number((sessionResult as any)[0].insertId);
+    testSessionId = sessionResult as number;
 
     // Create test scenarios
     testScenario1Id = await db.createSimulationScenario({

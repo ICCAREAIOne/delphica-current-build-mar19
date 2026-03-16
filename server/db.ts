@@ -1255,8 +1255,8 @@ export async function createPatientCarePlan(data: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const [result] = await db.insert(patientCarePlans).values(data);
-  return result;
+  const result = await db.insert(patientCarePlans).values(data) as any;
+  return Number(result[0].insertId);
 }
 
 export async function getPatientCarePlans(patientId: number) {
