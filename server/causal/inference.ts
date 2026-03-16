@@ -151,6 +151,43 @@ Perform causal analysis.`,
 export async function performCausalAnalysis(
   request: CausalAnalysisRequest
 ): Promise<CausalAnalysisResult> {
+  // ── Step 0: Pre-fetch DAG to enrich evidence query ─────────────────────────────────
+  // Fetch the causal DAG before building the evidence query so we can inject
+  // DAG node labels and key edge pairs as PubMed search terms.
+  // This ensures PubMed results are targeted to the causal pathway, not just
+  // the diagnosis in isolation.
+  let _prefetchedDagNodeLabels: string[] = [];
+  let _prefetchedDagEdgePairs: Array<{ from: string; to: string }> = [];
+  if (request.patientContext.diagnosisCode) {
+    try {
+      const dbPre = await import("../db");
+      const dagGraph = await dbPre.getCausalGraphByCode(request.patientContext.diagnosisCode);
+      if (dagGraph) {
+        const fullDag = await dbPre.getFullCausalGraph(dagGraph.id);
+        if (fullDag && fullDag.nodes.length > 0) {
+          // Collect treatment + outcome node labels (most relevant for PubMed)
+          _prefetchedDagNodeLabels = fullDag.nodes
+            .filter((n: any) => n.nodeType === 'treatment' || n.nodeType === 'outcome')
+            .map((n: any) => n.label as string)
+            .slice(0, 4);
+          // Collect key edges (treatment → outcome, skip backdoor paths)
+          const nodeMap = new Map(fullDag.nodes.map((n: any) => [n.id, n]));
+          _prefetchedDagEdgePairs = fullDag.edges
+            .filter((e: any) => !e.isBackdoor)
+            .slice(0, 3)
+            .map((e: any) => ({
+              from: (nodeMap.get(e.fromNodeId) as any)?.label ?? '',
+              to:   (nodeMap.get(e.toNodeId)   as any)?.label ?? '',
+            }))
+            .filter((p) => p.from && p.to);
+        }
+      }
+    } catch {
+      // DAG pre-fetch is optional
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────────
+
   // Retrieve evidence to ground the analysis
   const evidenceQuery: EvidenceQuery = {
     diagnosisCode: request.patientContext.diagnosisCode,
@@ -159,6 +196,9 @@ export async function performCausalAnalysis(
     patientAge: request.patientContext.age,
     comorbidities: request.patientContext.chronicConditions,
     maxResults: 5,
+    // Inject DAG context into PubMed query for targeted evidence retrieval
+    dagNodeLabels: _prefetchedDagNodeLabels.length ? _prefetchedDagNodeLabels : undefined,
+    dagEdgePairs:  _prefetchedDagEdgePairs.length  ? _prefetchedDagEdgePairs  : undefined,
   };
   const evidence = await retrieveEvidence(evidenceQuery);
 
@@ -200,6 +240,38 @@ export async function performCausalAnalysis(
               (entry.keyFindings ? ` | Key: ${entry.keyFindings}` : "")
           )
           .join("\n")}`;
+      }
+    }
+
+    // Source 4: Causal DAG structure (nodes + directed edges with estimated ACEs)
+    if (request.patientContext.diagnosisCode) {
+      try {
+        const graph = await db.getCausalGraphByCode(request.patientContext.diagnosisCode);
+        if (graph) {
+          const fullGraph = await db.getFullCausalGraph(graph.id);
+          if (fullGraph && fullGraph.nodes.length > 0) {
+            const nodeMap = new Map(fullGraph.nodes.map((n: any) => [n.id, n]));
+            const edgeLines = fullGraph.edges.map((e: any) => {
+              const from = nodeMap.get(e.fromNodeId);
+              const to   = nodeMap.get(e.toNodeId);
+              const ace  = e.estimatedAce ? ` ACE=${e.estimatedAce}${e.aceUnit ? ' ' + e.aceUnit : ''}` : '';
+              const grade = e.evidenceGrade ? ` [Grade ${e.evidenceGrade}]` : '';
+              const backdoor = e.isBackdoor ? ' ⚠ BACKDOOR PATH' : '';
+              return `  ${from?.label ?? '?'} → ${to?.label ?? '?'}${ace}${grade}${backdoor}`;
+            });
+            const confounders = fullGraph.nodes
+              .filter((n: any) => n.nodeType === 'confounder')
+              .map((n: any) => n.label);
+            knowledgeContext += `\n\nCausal DAG (${graph.conditionName}, ${graph.guidelineSource ?? 'curated'}, v${graph.version}):\n`;
+            if (confounders.length) {
+              knowledgeContext += `Confounders to adjust for: ${confounders.join(', ')}\n`;
+            }
+            knowledgeContext += `Directed causal edges:\n${edgeLines.join('\n')}\n`;
+            knowledgeContext += `IMPORTANT: Use this DAG to identify backdoor paths and confounders. Adjust treatment effect estimates accordingly. Do not recommend treatments that open backdoor paths without noting the confounding risk.`;
+          }
+        }
+      } catch {
+        // DAG lookup is optional — continue without it
       }
     }
 

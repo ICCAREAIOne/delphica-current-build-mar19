@@ -103,6 +103,17 @@ import {
   InsertOutcomeDefinitionReview,
   cptCodes,
   CptCode,
+  causalGraphs,
+  CausalGraph,
+  InsertCausalGraph,
+  causalNodes,
+  CausalNode,
+  InsertCausalNode,
+  causalEdges,
+  CausalEdge,
+  InsertCausalEdge,
+  treatmentArmStats,
+  TreatmentArmStat,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -5229,4 +5240,147 @@ export async function auditTreatmentEntryCPTCodes(): Promise<Array<{
     }
   }
   return results;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAUSAL DAG HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function createCausalGraph(data: InsertCausalGraph): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(causalGraphs).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+export async function getCausalGraphByCode(diagnosisCode: string): Promise<CausalGraph | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(causalGraphs)
+    .where(and(eq(causalGraphs.diagnosisCode, diagnosisCode), eq(causalGraphs.status, "active")))
+    .orderBy(desc(causalGraphs.version))
+    .limit(1);
+  return rows[0];
+}
+
+export async function getCausalGraphById(id: number): Promise<CausalGraph | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(causalGraphs).where(eq(causalGraphs.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function getAllCausalGraphs(): Promise<CausalGraph[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(causalGraphs).orderBy(desc(causalGraphs.updatedAt));
+}
+
+export async function addCausalNode(data: InsertCausalNode): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(causalNodes).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+export async function getNodesByGraph(graphId: number): Promise<CausalNode[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(causalNodes).where(eq(causalNodes.graphId, graphId)).orderBy(asc(causalNodes.id));
+}
+
+export async function addCausalEdge(data: InsertCausalEdge): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(causalEdges).values(data) as any;
+  return Number(result[0].insertId);
+}
+
+export async function getEdgesByGraph(graphId: number): Promise<CausalEdge[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(causalEdges).where(eq(causalEdges.graphId, graphId)).orderBy(asc(causalEdges.id));
+}
+
+export async function getFullCausalGraph(graphId: number) {
+  const [graph, nodes, edges] = await Promise.all([
+    getCausalGraphById(graphId),
+    getNodesByGraph(graphId),
+    getEdgesByGraph(graphId),
+  ]);
+  if (!graph) return undefined;
+  return { graph, nodes, edges };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NNT / NNH HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Upsert a treatment arm stat row and recompute NNT/NNH.
+ * Called by recordOutcome after every outcome event.
+ */
+export async function updateTreatmentArmStats(
+  diagnosisCode: string,
+  treatmentName: string,
+  ageGroup: string,
+  success: boolean
+): Promise<TreatmentArmStat | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  // Upsert the arm row
+  await db.execute(sql`
+    INSERT INTO treatment_arm_stats (diagnosis_code, treatment_name, age_group, total_patients, success_count, failure_count)
+    VALUES (${diagnosisCode}, ${treatmentName}, ${ageGroup}, 1, ${success ? 1 : 0}, ${success ? 0 : 1})
+    ON DUPLICATE KEY UPDATE
+      total_patients = total_patients + 1,
+      success_count  = success_count  + ${success ? 1 : 0},
+      failure_count  = failure_count  + ${success ? 0 : 1},
+      event_rate     = (success_count + ${success ? 1 : 0}) / (total_patients + 1)
+  `);
+
+  // Fetch updated row
+  const rows = await db.select().from(treatmentArmStats)
+    .where(and(
+      eq(treatmentArmStats.diagnosisCode, diagnosisCode),
+      eq(treatmentArmStats.treatmentName, treatmentName),
+      eq(treatmentArmStats.ageGroup, ageGroup)
+    )).limit(1);
+  const arm = rows[0];
+  if (!arm) return undefined;
+
+  // Compute NNT against control arm if one is designated
+  if (arm.controlArmId) {
+    const controlRows = await db.select().from(treatmentArmStats)
+      .where(eq(treatmentArmStats.id, arm.controlArmId)).limit(1);
+    const control = controlRows[0];
+    if (control && control.totalPatients > 0 && arm.totalPatients > 0) {
+      const treatRate = arm.successCount / arm.totalPatients;
+      const ctrlRate  = control.successCount / control.totalPatients;
+      const arrd = treatRate - ctrlRate; // Absolute Risk Reduction (for benefit)
+      const ari  = ctrlRate - treatRate; // Absolute Risk Increase (for harm)
+      const nnt  = arrd !== 0 ? Math.abs(1 / arrd) : null;
+      const nnh  = ari  !== 0 ? Math.abs(1 / ari)  : null;
+      await db.update(treatmentArmStats)
+        .set({ nnt: nnt !== null ? String(nnt.toFixed(2)) : null, nnh: nnh !== null ? String(nnh.toFixed(2)) : null })
+        .where(eq(treatmentArmStats.id, arm.id));
+    }
+  }
+
+  return arm;
+}
+
+export async function getTreatmentArmStats(diagnosisCode: string): Promise<TreatmentArmStat[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(treatmentArmStats)
+    .where(eq(treatmentArmStats.diagnosisCode, diagnosisCode))
+    .orderBy(desc(treatmentArmStats.totalPatients));
+}
+
+export async function setControlArm(armId: number, controlArmId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(treatmentArmStats).set({ controlArmId }).where(eq(treatmentArmStats.id, armId));
 }

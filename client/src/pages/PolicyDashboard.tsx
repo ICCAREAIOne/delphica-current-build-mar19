@@ -160,6 +160,289 @@ function OutcomeDefinitionsPanel() {
   );
 }
 
+// ─── NNT / NNH Panel ──────────────────────────────────────────────────────────
+
+const NNT_DIAGNOSIS_OPTIONS = [
+  { code: "E11", label: "Type 2 Diabetes (E11)" },
+  { code: "I10", label: "Hypertension (I10)" },
+  { code: "J44", label: "COPD (J44)" },
+  { code: "N18", label: "CKD (N18)" },
+  { code: "F32", label: "Depression (F32)" },
+];
+
+function NntPanel() {
+  const [diagCode, setDiagCode] = useState("E11");
+  const { data: arms = [], isLoading, refetch } = trpc.causalBrain.getTreatmentArmStats.useQuery(
+    { diagnosisCode: diagCode },
+    { staleTime: 30_000 }
+  );
+  const setControl = trpc.causalBrain.setControlArm.useMutation({
+    onSuccess: () => refetch(),
+  });
+
+  const controlArm = arms.find((a) => a.controlArmId == null) ?? arms[0];
+
+  function nntColor(val: string | null) {
+    if (!val) return "text-muted-foreground";
+    const n = parseFloat(val);
+    if (n <= 10) return "text-emerald-600 font-bold";
+    if (n <= 25) return "text-amber-600 font-semibold";
+    return "text-red-500";
+  }
+
+  function eventRatePct(val: string | null) {
+    if (!val) return "\u2014";
+    return (parseFloat(val) * 100).toFixed(1) + "%";
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="font-semibold">Number Needed to Treat / Harm (NNT / NNH)</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Absolute Risk Reduction-based NNT and NNH per treatment arm.
+            NNT = 1 / |ARR|. Requires a designated control arm for comparison.
+          </p>
+        </div>
+        <Select value={diagCode} onValueChange={setDiagCode}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Select diagnosis" />
+          </SelectTrigger>
+          <SelectContent>
+            {NNT_DIAGNOSIS_OPTIONS.map((o) => (
+              <SelectItem key={o.code} value={o.code}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? (
+        <div className="text-muted-foreground text-sm py-8 text-center">Loading treatment arm data...</div>
+      ) : arms.length === 0 ? (
+        <div className="rounded-lg border bg-muted/30 py-12 text-center">
+          <p className="text-sm font-medium text-muted-foreground">No treatment arm data for {diagCode}</p>
+          <p className="text-xs text-muted-foreground mt-1">Record outcomes via the Treatment Recommendations panel to populate NNT calculations.</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: "Treatment Arms", value: arms.length },
+              { label: "Total Patients", value: arms.reduce((s, a) => s + (a.totalPatients ?? 0), 0) },
+              {
+                label: "Best NNT",
+                value: (() => {
+                  const v = arms.map((a) => a.nnt ? parseFloat(a.nnt) : Infinity).filter(isFinite);
+                  return v.length ? Math.min(...v).toFixed(1) : "\u2014";
+                })(),
+              },
+              { label: "Control Arm", value: controlArm?.treatmentName ?? "None set" },
+            ].map((c) => (
+              <div key={c.label} className="rounded-lg border bg-card p-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.label}</p>
+                <p className="text-xl font-bold mt-1 truncate">{c.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-lg border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Treatment Arm</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Age Group</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">n</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Success</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Event Rate</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">NNT</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">NNH</th>
+                  <th className="text-center px-4 py-3 font-medium text-muted-foreground">Control?</th>
+                </tr>
+              </thead>
+              <tbody>
+                {arms.map((arm) => {
+                  const isCtrl = arm.controlArmId == null;
+                  return (
+                    <tr key={arm.id} className={`border-b last:border-0 hover:bg-muted/20 transition-colors ${isCtrl ? "bg-blue-50/40" : ""}`}>
+                      <td className="px-4 py-3 font-medium">{arm.treatmentName}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{arm.ageGroup}</td>
+                      <td className="px-4 py-3 text-right">{arm.totalPatients}</td>
+                      <td className="px-4 py-3 text-right text-emerald-600">{arm.successCount}</td>
+                      <td className="px-4 py-3 text-right font-mono text-xs">{eventRatePct(arm.eventRate)}</td>
+                      <td className={`px-4 py-3 text-right font-mono text-sm ${nntColor(arm.nnt)}`}>
+                        {arm.nnt ? parseFloat(arm.nnt).toFixed(1) : <span className="text-muted-foreground text-xs">set control</span>}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-mono text-sm ${nntColor(arm.nnh)}`}>
+                        {arm.nnh ? parseFloat(arm.nnh).toFixed(1) : "\u2014"}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {isCtrl ? (
+                          <Badge className="bg-blue-600 text-white text-xs">Control</Badge>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (controlArm) setControl.mutate({ armId: arm.id, controlArmId: controlArm.id });
+                            }}
+                            className="text-xs text-blue-600 underline underline-offset-2 hover:text-blue-800"
+                          >
+                            Set as control
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            NNT = 1 / |ARR| where ARR = treatment event rate minus control event rate.
+            NNT &le; 10 (green) = clinically meaningful. NNT 10-25 (amber) = moderate benefit. NNT &gt; 25 (red) = limited benefit.
+            Blue row = designated control arm.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Causal DAG Viewer Panel ──────────────────────────────────────────────────
+
+const DAG_DIAGNOSIS_OPTIONS = [
+  { code: "E11", label: "Type 2 Diabetes (E11)" },
+  { code: "I10", label: "Hypertension (I10)" },
+  { code: "N18.3", label: "CKD Stage 3 (N18.3)" },
+];
+
+const NODE_TYPE_COLORS: Record<string, string> = {
+  treatment:   "bg-blue-100 text-blue-800 border-blue-300",
+  outcome:     "bg-emerald-100 text-emerald-800 border-emerald-300",
+  confounder:  "bg-amber-100 text-amber-800 border-amber-300",
+  mediator:    "bg-purple-100 text-purple-800 border-purple-300",
+  exposure:    "bg-red-100 text-red-800 border-red-300",
+};
+
+function DagPanel() {
+  const [diagCode, setDiagCode] = useState("E11");
+  const { data: graphData, isLoading } = trpc.causalBrain.getCausalGraph.useQuery(
+    { diagnosisCode: diagCode },
+    { staleTime: 300_000 }
+  );
+
+  const nodeTypeLabel: Record<string, string> = {
+    treatment: "Treatment",
+    outcome: "Outcome",
+    confounder: "Confounder",
+    mediator: "Mediator",
+    exposure: "Exposure",
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="font-semibold">Causal DAG &mdash; Directed Acyclic Graph</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Pearl do-calculus DAG: nodes are causal variables, directed edges are causal relationships.
+            Confounders (amber) must be adjusted for in treatment effect estimates.
+          </p>
+        </div>
+        <Select value={diagCode} onValueChange={setDiagCode}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Select condition" />
+          </SelectTrigger>
+          <SelectContent>
+            {DAG_DIAGNOSIS_OPTIONS.map((o) => (
+              <SelectItem key={o.code} value={o.code}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isLoading ? (
+        <div className="text-muted-foreground text-sm py-8 text-center">Loading DAG...</div>
+      ) : !graphData ? (
+        <div className="rounded-lg border bg-muted/30 py-12 text-center">
+          <p className="text-sm font-medium text-muted-foreground">No DAG found for {diagCode}</p>
+          <p className="text-xs text-muted-foreground mt-1">Causal graphs are seeded for E11, I10, and N18.3.</p>
+        </div>
+      ) : (
+        <>
+          <div className="rounded-lg border bg-muted/20 px-4 py-3 flex flex-wrap gap-4 text-sm">
+            <div><span className="text-muted-foreground">Condition: </span><span className="font-medium">{graphData.graph.conditionName}</span></div>
+            <div><span className="text-muted-foreground">Source: </span><span className="font-medium">{graphData.graph.guidelineSource ?? "Curated"}</span></div>
+            <div><span className="text-muted-foreground">Version: </span><span className="font-mono text-xs">{graphData.graph.version}</span></div>
+            <div><span className="text-muted-foreground">Nodes: </span><span className="font-bold">{graphData.nodes.length}</span></div>
+            <div><span className="text-muted-foreground">Edges: </span><span className="font-bold">{graphData.edges.length}</span></div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-lg border">
+              <div className="px-4 py-2 border-b bg-muted/30 text-sm font-medium">Nodes ({graphData.nodes.length})</div>
+              <div className="divide-y max-h-72 overflow-y-auto">
+                {graphData.nodes.map((node: any) => (
+                  <div key={node.id} className="px-4 py-2 flex items-start gap-3">
+                    <span className={`text-xs px-2 py-0.5 rounded border font-medium shrink-0 mt-0.5 ${NODE_TYPE_COLORS[node.nodeType] ?? "bg-muted text-muted-foreground border-muted"}`}>
+                      {nodeTypeLabel[node.nodeType] ?? node.nodeType}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm">{node.label}</div>
+                      {node.description && <div className="text-xs text-muted-foreground truncate">{node.description}</div>}
+                      {node.icdCode && <span className="font-mono text-xs bg-muted px-1 rounded">{node.icdCode}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border">
+              <div className="px-4 py-2 border-b bg-muted/30 text-sm font-medium">Directed Edges ({graphData.edges.length})</div>
+              <div className="divide-y max-h-72 overflow-y-auto">
+                {graphData.edges.map((edge: any) => {
+                  const fromNode = graphData.nodes.find((n: any) => n.id === edge.fromNodeId);
+                  const toNode   = graphData.nodes.find((n: any) => n.id === edge.toNodeId);
+                  return (
+                    <div key={edge.id} className={`px-4 py-2 ${edge.isBackdoor ? "bg-red-50/60" : ""}`}>
+                      <div className="flex items-center gap-2 text-sm flex-wrap">
+                        <span className="font-medium">{fromNode?.label ?? `Node ${edge.fromNodeId}`}</span>
+                        <span className="text-muted-foreground">&rarr;</span>
+                        <span className="font-medium">{toNode?.label ?? `Node ${edge.toNodeId}`}</span>
+                        {edge.isBackdoor && <Badge className="bg-red-500 text-white text-xs ml-1">backdoor</Badge>}
+                        {edge.evidenceGrade && <Badge variant="outline" className="text-xs font-mono">{edge.evidenceGrade}</Badge>}
+                      </div>
+                      {edge.estimatedAce && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          ACE = {edge.estimatedAce}{edge.aceUnit ? ` ${edge.aceUnit}` : ""}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {graphData.nodes.filter((n: any) => n.nodeType === "confounder").length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/40 px-4 py-3">
+              <p className="text-sm font-medium text-amber-800">&#9888; Confounders &mdash; Must Adjust in Causal Analysis</p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {graphData.nodes
+                  .filter((n: any) => n.nodeType === "confounder")
+                  .map((n: any) => (
+                    <span key={n.id} className="text-xs bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded">
+                      {n.label}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── CPT Code Audit Panel ───────────────────────────────────────────────────
 
 function CptAuditPanel() {
@@ -650,6 +933,8 @@ export default function PolicyDashboard() {
               <TabsTrigger value="outcomes">Outcome Definitions</TabsTrigger>
               <TabsTrigger value="audit">ICD-10 Audit</TabsTrigger>
               <TabsTrigger value="cpt-audit">CPT Audit</TabsTrigger>
+              <TabsTrigger value="nnt">NNT / NNH</TabsTrigger>
+              <TabsTrigger value="dag">Causal DAG</TabsTrigger>
             </TabsList>
 
             {/* Flat Table with Sparklines */}
@@ -790,6 +1075,16 @@ export default function PolicyDashboard() {
             {/* CPT Code Audit */}
             <TabsContent value="cpt-audit" className="mt-4">
               <CptAuditPanel />
+            </TabsContent>
+
+            {/* NNT / NNH */}
+            <TabsContent value="nnt" className="mt-4">
+              <NntPanel />
+            </TabsContent>
+
+            {/* Causal DAG Viewer */}
+            <TabsContent value="dag" className="mt-4">
+              <DagPanel />
             </TabsContent>
           </Tabs>
         )}

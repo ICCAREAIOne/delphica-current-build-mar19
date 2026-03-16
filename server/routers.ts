@@ -3547,6 +3547,45 @@ export const appRouter = router({
     /**
      * Get patient outcomes
      */
+
+    /**
+     * Get the full causal DAG for a diagnosis code (graph + nodes + edges).
+     */
+    getCausalGraph: protectedProcedure
+      .input(z.object({ diagnosisCode: z.string() }))
+      .query(async ({ input }) => {
+        const graph = await db.getCausalGraphByCode(input.diagnosisCode);
+        if (!graph) return null;
+        return await db.getFullCausalGraph(graph.id);
+      }),
+
+    /**
+     * List all causal graphs (for Policy Dashboard overview).
+     */
+    listCausalGraphs: protectedProcedure
+      .query(async () => {
+        return await db.getAllCausalGraphs();
+      }),
+
+    /**
+     * Get NNT/NNH treatment arm stats for a diagnosis code.
+     */
+    getTreatmentArmStats: protectedProcedure
+      .input(z.object({ diagnosisCode: z.string() }))
+      .query(async ({ input }) => {
+        return await db.getTreatmentArmStats(input.diagnosisCode);
+      }),
+
+    /**
+     * Set the control arm for NNT/NNH calculation.
+     */
+    setControlArm: protectedProcedure
+      .input(z.object({ armId: z.number(), controlArmId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.setControlArm(input.armId, input.controlArmId);
+        return { success: true };
+      }),
+
     getPatientOutcomes: protectedProcedure
       .input(z.object({
         patientId: z.number(),

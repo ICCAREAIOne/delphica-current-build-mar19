@@ -91,6 +91,10 @@ export interface EvidenceQuery {
   patientGender?: string;
   comorbidities?: string[];
   maxResults?: number;
+  /** DAG node labels to include as MeSH/tiab search terms (from causal_nodes) */
+  dagNodeLabels?: string[];
+  /** DAG edge pairs to include as causal relationship terms */
+  dagEdgePairs?: Array<{ from: string; to: string }>;
 }
 
 // ─────────────────────────────────────────────

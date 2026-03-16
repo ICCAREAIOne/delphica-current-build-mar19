@@ -2312,3 +2312,83 @@ export const cptCodes = mysqlTable('cpt_codes', {
   createdAt:    timestamp('created_at').defaultNow(),
 });
 export type CptCode = typeof cptCodes.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAUSAL DAG LAYER
+// Three tables implement a directed acyclic graph (DAG) per condition:
+//   causal_graphs  — one graph per ICD-10 diagnosis code
+//   causal_nodes   — variables (treatments, confounders, outcomes, mediators)
+//   causal_edges   — directed causal relationships between nodes
+// ─────────────────────────────────────────────────────────────────────────────
+export const causalGraphs = mysqlTable("causal_graphs", {
+  id:              int("id").primaryKey().autoincrement(),
+  diagnosisCode:   varchar("diagnosis_code", { length: 20 }).notNull(),
+  conditionName:   varchar("condition_name", { length: 255 }).notNull(),
+  version:         int("version").notNull().default(1),
+  status:          mysqlEnum("status", ["draft", "active", "archived"]).notNull().default("draft"),
+  description:     text("description"),
+  guidelineSource: varchar("guideline_source", { length: 255 }),
+  createdByUserId: int("created_by_user_id"),
+  createdAt:       timestamp("created_at").defaultNow(),
+  updatedAt:       timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+export type CausalGraph = typeof causalGraphs.$inferSelect;
+export type InsertCausalGraph = typeof causalGraphs.$inferInsert;
+
+export const causalNodes = mysqlTable("causal_nodes", {
+  id:           int("id").primaryKey().autoincrement(),
+  graphId:      int("graph_id").notNull().references(() => causalGraphs.id),
+  nodeType:     mysqlEnum("node_type", ["treatment", "outcome", "confounder", "mediator", "collider", "instrument"]).notNull(),
+  label:        varchar("label", { length: 255 }).notNull(),
+  description:  text("description"),
+  codeSystem:   varchar("code_system", { length: 20 }),
+  code:         varchar("code", { length: 50 }),
+  isObservable: boolean("is_observable").notNull().default(true),
+  isLatent:     boolean("is_latent").notNull().default(false),
+  outcomeDefId: int("outcome_def_id"),
+  positionX:    decimal("position_x", { precision: 8, scale: 2 }),
+  positionY:    decimal("position_y", { precision: 8, scale: 2 }),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+export type CausalNode = typeof causalNodes.$inferSelect;
+export type InsertCausalNode = typeof causalNodes.$inferInsert;
+
+export const causalEdges = mysqlTable("causal_edges", {
+  id:              int("id").primaryKey().autoincrement(),
+  graphId:         int("graph_id").notNull().references(() => causalGraphs.id),
+  fromNodeId:      int("from_node_id").notNull().references(() => causalNodes.id),
+  toNodeId:        int("to_node_id").notNull().references(() => causalNodes.id),
+  edgeType:        mysqlEnum("edge_type", ["direct", "indirect", "backdoor", "frontdoor"]).notNull().default("direct"),
+  estimatedAce:    decimal("estimated_ace", { precision: 8, scale: 4 }),
+  aceUnit:         varchar("ace_unit", { length: 50 }),
+  evidenceGrade:   mysqlEnum("evidence_grade", ["A", "B", "C", "D", "E"]),
+  guidelineSource: varchar("guideline_source", { length: 255 }),
+  isBackdoor:      boolean("is_backdoor").notNull().default(false),
+  description:     text("description"),
+  createdAt:       timestamp("created_at").defaultNow(),
+});
+export type CausalEdge = typeof causalEdges.$inferSelect;
+export type InsertCausalEdge = typeof causalEdges.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NNT/NNH TRACKING
+// Per-treatment-arm outcome accumulator for Number Needed to Treat calculation.
+// Updated by recordOutcome on every outcome event.
+// ─────────────────────────────────────────────────────────────────────────────
+export const treatmentArmStats = mysqlTable("treatment_arm_stats", {
+  id:            int("id").primaryKey().autoincrement(),
+  diagnosisCode: varchar("diagnosis_code", { length: 20 }).notNull(),
+  treatmentName: varchar("treatment_name", { length: 255 }).notNull(),
+  ageGroup:      varchar("age_group", { length: 20 }).notNull().default("all"),
+  totalPatients: int("total_patients").notNull().default(0),
+  successCount:  int("success_count").notNull().default(0),
+  failureCount:  int("failure_count").notNull().default(0),
+  eventRate:     decimal("event_rate", { precision: 8, scale: 6 }),
+  nnt:           decimal("nnt", { precision: 10, scale: 2 }),
+  nnh:           decimal("nnh", { precision: 10, scale: 2 }),
+  controlArmId:  int("control_arm_id"),
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow().onUpdateNow(),
+  createdAt:     timestamp("created_at").defaultNow(),
+});
+export type TreatmentArmStat = typeof treatmentArmStats.$inferSelect;
+export type InsertTreatmentArmStat = typeof treatmentArmStats.$inferInsert;

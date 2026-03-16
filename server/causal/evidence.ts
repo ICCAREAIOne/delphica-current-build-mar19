@@ -141,6 +141,29 @@ export function buildPubMedQuery(query: EvidenceQuery): string {
     if (comorbParts) parts.push(`(${comorbParts})`);
   }
 
+  // ── DAG-enhanced search terms ─────────────────────────────────────────────
+  // Include up to 3 DAG node labels (treatment/outcome/confounder nodes)
+  // as additional tiab terms to narrow the search to the causal pathway.
+  if (query.dagNodeLabels?.length) {
+    const dagNodeParts = query.dagNodeLabels
+      .slice(0, 3)
+      .filter((label) => label.length > 3)  // skip trivially short labels
+      .map((label) => `"${label}"[tiab]`)
+      .join(" OR ");
+    if (dagNodeParts) parts.push(`(${dagNodeParts})`);
+  }
+
+  // Include up to 2 DAG edge pairs as causal relationship search terms.
+  // e.g. "Metformin" AND "HbA1c" as co-occurrence in title/abstract.
+  if (query.dagEdgePairs?.length) {
+    const edgeParts = query.dagEdgePairs
+      .slice(0, 2)
+      .map((e) => `("${e.from}"[tiab] AND "${e.to}"[tiab])`)
+      .join(" OR ");
+    if (edgeParts) parts.push(`(${edgeParts})`);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Prefer high-quality study designs
   parts.push(
     "(randomized controlled trial[pt] OR meta-analysis[pt] OR systematic review[pt] OR practice guideline[pt])"
