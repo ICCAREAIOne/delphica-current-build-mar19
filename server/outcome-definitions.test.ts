@@ -11,9 +11,9 @@ import * as db from './db';
 // ─── DB helpers ───────────────────────────────────────────────────────────────
 
 describe('Outcome Definitions – DB helpers', () => {
-  it('should return 25 seeded definitions', async () => {
+  it('should return 30 seeded definitions (25 original + 5 fatigue)', async () => {
     const defs = await db.getAllOutcomeDefinitions();
-    expect(defs.length).toBeGreaterThanOrEqual(25);
+    expect(defs.length).toBeGreaterThanOrEqual(30);
   });
 
   it('should return the primary E11 definition (HbA1c < 7%)', async () => {
@@ -43,6 +43,52 @@ describe('Outcome Definitions – DB helpers', () => {
   it('should return undefined for an unknown diagnosis code', async () => {
     const def = await db.getOutcomeDefinitionByDiagnosis('Z99');
     expect(def).toBeUndefined();
+  });
+
+  it('R53.83 — FACIT-Fatigue ≥ 40 (gte, 90d, Grade B)', async () => {
+    const def = await db.getOutcomeDefinitionByDiagnosis('R53.83');
+    expect(def).toBeDefined();
+    expect(def!.measurementInstrument).toContain('FACIT');
+    expect(def!.successOperator).toBe('gte');
+    expect(Number(def!.successThreshold)).toBe(40);
+    expect(def!.timeHorizonDays).toBe(90);
+    expect(def!.evidenceGrade).toBe('B');
+  });
+
+  it('G93.3 — SF-36 Vitality ≥ 50 (gte, 180d, Grade B)', async () => {
+    const def = await db.getOutcomeDefinitionByDiagnosis('G93.3');
+    expect(def).toBeDefined();
+    expect(def!.measurementInstrument).toContain('SF-36');
+    expect(def!.successOperator).toBe('gte');
+    expect(Number(def!.successThreshold)).toBe(50);
+    expect(def!.timeHorizonDays).toBe(180);
+  });
+
+  it('M79.3 — VAS Fatigue drop_by 30mm (90d, Grade B)', async () => {
+    const defs = await db.getAllOutcomeDefinitionsForDiagnosis('M79.3');
+    const vasDef = defs.find((d) => d.measurementInstrument === 'VAS Fatigue');
+    expect(vasDef).toBeDefined();
+    expect(vasDef!.successOperator).toBe('drop_by');
+    expect(Number(vasDef!.successThreshold)).toBe(30);
+  });
+
+  it('D50 — Hemoglobin ≥ 12 g/dL (gte, 30d, Grade A)', async () => {
+    const def = await db.getOutcomeDefinitionByDiagnosis('D50');
+    expect(def).toBeDefined();
+    expect(def!.measurementInstrument).toBe('Hemoglobin');
+    expect(def!.successOperator).toBe('gte');
+    expect(Number(def!.successThreshold)).toBe(12);
+    expect(def!.timeHorizonDays).toBe(30);
+    expect(def!.evidenceGrade).toBe('A');
+  });
+
+  it('R53 — generic SF-36 Vitality row (gte, 90d)', async () => {
+    const def = await db.getOutcomeDefinitionByDiagnosis('R53');
+    expect(def).toBeDefined();
+    expect(def!.measurementInstrument).toContain('SF-36');
+    expect(def!.successOperator).toBe('gte');
+    expect(Number(def!.successThreshold)).toBe(50);
+    expect(def!.timeHorizonDays).toBe(90);
   });
 
   it('should have evidence grades A or B for all primary definitions', async () => {
