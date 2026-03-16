@@ -330,3 +330,63 @@ describe("upsertOutcomeDefinitionReview — physician sign-off", () => {
     expect(mine[0].accepted).toBe(false);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CPT CODE VALIDATION TESTS
+// ─────────────────────────────────────────────────────────────────────────────
+import { validateCPTCode, auditTreatmentEntryCPTCodes } from "./db";
+
+describe("validateCPTCode", () => {
+  it("returns valid=true for a known E&M code (99213)", async () => {
+    const result = await validateCPTCode("99213");
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.cpt.code).toBe("99213");
+      expect(result.cpt.description.toLowerCase()).toContain("office");
+      expect(result.cpt.category).toBe("Evaluation and Management");
+    }
+  });
+
+  it("returns valid=true for a lab code (80053)", async () => {
+    const result = await validateCPTCode("80053");
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.cpt.category).toBe("Pathology and Laboratory");
+    }
+  });
+
+  it("returns valid=false for a fabricated code with correct reason", async () => {
+    const result = await validateCPTCode("99999");
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.reason).toContain("99999");
+      // 999xx range has no codes in the dataset — suggestions may be empty
+      expect(Array.isArray(result.suggestions)).toBe(true);
+    }
+  });
+
+  it("returns valid=false for a clearly invalid code", async () => {
+    const result = await validateCPTCode("ZZZZZ");
+    expect(result.valid).toBe(false);
+  });
+
+  it("validates ECG code (93000)", async () => {
+    const result = await validateCPTCode("93000");
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.cpt.code).toBe("93000");
+    }
+  });
+});
+
+describe("auditTreatmentEntryCPTCodes", () => {
+  it("returns an array with correct shape for each entry", async () => {
+    const results = await auditTreatmentEntryCPTCodes();
+    expect(Array.isArray(results)).toBe(true);
+    for (const r of results) {
+      expect(typeof r.treatmentEntryId).toBe("number");
+      expect(typeof r.cptCode).toBe("string");
+      expect(typeof r.valid).toBe("boolean");
+    }
+  });
+});

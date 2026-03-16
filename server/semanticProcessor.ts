@@ -1,5 +1,5 @@
 import { invokeLLM } from "./_core/llm";
-import { validateDiagnosisCode } from "./db";
+import { validateDiagnosisCode, validateCPTCode } from "./db";
 
 /**
  * Semantic Processor - Medical Coding & Terminology Bridge
@@ -226,7 +226,28 @@ Focus on:
   const content = response.choices[0]?.message?.content;
   const contentStr = typeof content === 'string' ? content : '{"codes":[]}';
   const result = JSON.parse(contentStr);
-  return result.codes;
+  const rawCodes: CPTCode[] = result.codes ?? [];
+
+  // Gate: validate each LLM-returned CPT code against the reference table
+  const validatedCodes: CPTCode[] = [];
+  for (const c of rawCodes) {
+    const validation = await validateCPTCode(c.code);
+    if (validation.valid) {
+      // Use the canonical description from the reference table
+      validatedCodes.push({
+        ...c,
+        description: validation.cpt.description,
+      });
+    } else {
+      // Surface invalid codes with zeroed confidence and a warning prefix
+      validatedCodes.push({
+        ...c,
+        description: `[INVALID CPT] ${c.description} — ${validation.reason.split('.')[0]}`,
+        confidence: 0,
+      });
+    }
+  }
+  return validatedCodes;
 }
 
 /**

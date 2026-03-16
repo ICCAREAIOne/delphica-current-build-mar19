@@ -101,6 +101,8 @@ import {
   Icd10Code,
   outcomeDefinitionReviews,
   InsertOutcomeDefinitionReview,
+  cptCodes,
+  CptCode,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -5142,4 +5144,85 @@ export async function getOutcomeDefinitionReviews(
     }
   }
   return deduped as any;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CPT CODE VALIDATION HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CptValidationResult =
+  | { valid: true; cpt: CptCode }
+  | { valid: false; reason: string; suggestions: string[] };
+
+/**
+ * Validate a single CPT code against the cpt_codes reference table.
+ * Returns the full row on success, or a reason + suggestions on failure.
+ */
+export async function validateCPTCode(code: string): Promise<CptValidationResult> {
+  const db = await getDb();
+  if (!db) return { valid: false, reason: 'Database unavailable', suggestions: [] };
+
+  const normalised = code.trim().toUpperCase();
+  const rows = await db.select().from(cptCodes).where(eq(cptCodes.code, normalised)).limit(1);
+
+  if (rows.length > 0) {
+    return { valid: true, cpt: rows[0] };
+  }
+
+  // Suggest nearby codes by prefix (first 3 chars)
+  const prefix = normalised.slice(0, 3);
+  const suggestions = await db
+    .select({ code: cptCodes.code, description: cptCodes.description })
+    .from(cptCodes)
+    .where(like(cptCodes.code, `${prefix}%`))
+    .limit(5);
+
+  return {
+    valid: false,
+    reason: `CPT code ${normalised} not found in reference table (CPT-4 dataset, 8,222 codes).`,
+    suggestions: suggestions.map(s => `${s.code} — ${s.description}`),
+  };
+}
+
+/**
+ * Audit all CPT codes stored in treatment_entries against the reference table.
+ * Returns a list of invalid codes with suggestions.
+ */
+export async function auditTreatmentEntryCPTCodes(): Promise<Array<{
+  treatmentEntryId: number;
+  cptCode: string;
+  valid: boolean;
+  reason?: string;
+  suggestions?: string[];
+}>> {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Get all distinct CPT codes from treatment_entries
+  const entries = await db
+    .select({ id: treatmentEntries.id, cptCode: treatmentEntries.treatmentCode })
+    .from(treatmentEntries)
+    .where(sql`${treatmentEntries.treatmentCode} IS NOT NULL AND ${treatmentEntries.treatmentCode} != ''`);
+
+  const results = [];
+  for (const entry of entries) {
+    if (!entry.cptCode) continue;
+    const validation = await validateCPTCode(entry.cptCode);
+    if (!validation.valid) {
+      results.push({
+        treatmentEntryId: entry.id,
+        cptCode: entry.cptCode,
+        valid: false,
+        reason: validation.reason,
+        suggestions: validation.suggestions,
+      });
+    } else {
+      results.push({
+        treatmentEntryId: entry.id,
+        cptCode: entry.cptCode,
+        valid: true,
+      });
+    }
+  }
+  return results;
 }

@@ -3443,6 +3443,37 @@ export const appRouter = router({
       }),
 
     /**
+     * Validate a single CPT code against the CPT-4 reference table (8,222 codes).
+     */
+    validateCPTCode: protectedProcedure
+      .input(z.object({ code: z.string().min(4).max(10) }))
+      .query(async ({ input }) => {
+        const result = await db.validateCPTCode(input.code);
+        if (result.valid) {
+          return {
+            valid: true as const,
+            code: result.cpt.code,
+            description: result.cpt.description,
+            category: result.cpt.category,
+            isCategoryIii: result.cpt.isCategoryIii === 1,
+          };
+        }
+        return {
+          valid: false as const,
+          reason: result.reason,
+          suggestions: result.suggestions,
+        };
+      }),
+
+    /**
+     * Audit all CPT codes in treatment_entries against the reference table.
+     */
+    auditTreatmentEntryCPTCodes: protectedProcedure
+      .query(async () => {
+        return await db.auditTreatmentEntryCPTCodes();
+      }),
+
+    /**
      * Create a new outcome definition — validates ICD-10-CM code before insert.
      * Rejects encounter codes, non-billable category codes, and codes not in CMS FY2025 tabular.
      */

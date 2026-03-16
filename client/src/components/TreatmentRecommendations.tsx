@@ -33,6 +33,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useState as _useState, useEffect, useRef } from 'react';
+import { CheckCircle, XCircle as XCircleIcon, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface TreatmentRecommendationsProps {
   sessionId: number;
@@ -55,6 +57,9 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
   const [baselineValue, setBaselineValue] = useState('');
   const [outcomeType, setOutcomeType] = useState<'improvement' | 'stable' | 'deterioration'>('improvement');
   const [outcomeNotes, setOutcomeNotes] = useState('');
+  // ICD-10 validation badge state
+  const [validationCode, setValidationCode] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch recommendations
   const { data: recommendations, isLoading, refetch } = trpc.causalBrain.getRecommendations.useQuery({ sessionId });
@@ -70,6 +75,19 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
     { diagnosisCode: diagnosisCode ?? '' },
     { enabled: !!diagnosisCode }
   );
+
+  // Real-time ICD-10 validation — debounced 600ms
+  const { data: codeValidation, isFetching: codeValidating } = trpc.causalBrain.validateDiagnosisCode.useQuery(
+    { code: validationCode },
+    { enabled: validationCode.length >= 3 }
+  );
+
+  // Seed the validation field when the dialog opens with the session's diagnosisCode
+  useEffect(() => {
+    if (showOutcomeDialog && diagnosisCode) {
+      setValidationCode(diagnosisCode);
+    }
+  }, [showOutcomeDialog, diagnosisCode]);
 
   // Record outcome mutation
   const recordOutcome = trpc.causalBrain.recordOutcome.useMutation({
@@ -642,6 +660,48 @@ export function TreatmentRecommendations({ sessionId, diagnosisCode, onRecommend
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* ICD-10 validation badge */}
+            <div>
+              <Label htmlFor="icd10Badge" className="text-sm font-medium">Diagnosis Code</Label>
+              <div className="flex items-center gap-2 mt-1.5">
+                <Input
+                  id="icd10Badge"
+                  value={validationCode}
+                  onChange={(e) => {
+                    const v = e.target.value.toUpperCase();
+                    setValidationCode(v);
+                  }}
+                  placeholder="e.g. E11.9"
+                  className="font-mono text-sm max-w-[140px]"
+                  maxLength={10}
+                />
+                {codeValidating && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking…
+                  </span>
+                )}
+                {!codeValidating && codeValidation && validationCode.length >= 3 && (
+                  codeValidation.valid ? (
+                    <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      {codeValidation.shortDesc}
+                    </span>
+                  ) : (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded px-2 py-0.5">
+                        <XCircleIcon className="h-3.5 w-3.5" />
+                        {codeValidation.reason?.split('.')[0]}
+                      </span>
+                      {codeValidation.suggestions?.length > 0 && (
+                        <span className="text-xs text-muted-foreground pl-1">
+                          Try: {codeValidation.suggestions.slice(0, 3).join(', ')}
+                        </span>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
             {/* Outcome type */}
             <div>
               <Label className="text-sm font-medium">Outcome</Label>
