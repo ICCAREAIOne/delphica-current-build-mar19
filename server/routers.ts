@@ -154,7 +154,7 @@ export const appRouter = router({
         mrn: z.string(),
         firstName: z.string(),
         lastName: z.string(),
-        dateOfBirth: z.date(),
+        dateOfBirth: z.coerce.date(),
         gender: z.enum(["male", "female", "other", "unknown"]),
         email: z.string().email().optional(),
         phone: z.string().optional(),
@@ -2637,18 +2637,28 @@ export const appRouter = router({
   drugSafety: router({
     checkInteractions: protectedProcedure
       .input(z.object({
-        medications: z.array(z.object({
-          name: z.string(),
-          dosage: z.string(),
-          frequency: z.string(),
-        })),
+        medications: z.array(z.union([
+          z.string(),
+          z.object({
+            name: z.string(),
+            dosage: z.string().optional(),
+            frequency: z.string().optional(),
+          }),
+        ])),
         allergies: z.array(z.string()).optional(),
+        patientAge: z.number().optional(),
+        renalFunction: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         const { comprehensiveDrugSafetyCheck } = await import('./drugInteractionService');
-        
+        // Normalize medications to object format
+        const normalizedMeds = input.medications.map((m: any) =>
+          typeof m === 'string'
+            ? { name: m, dosage: 'as prescribed', frequency: 'as prescribed' }
+            : { name: m.name, dosage: m.dosage || 'as prescribed', frequency: m.frequency || 'as prescribed' }
+        );
         return await comprehensiveDrugSafetyCheck(
-          input.medications,
+          normalizedMeds,
           input.allergies || []
         );
       }),
@@ -3569,11 +3579,17 @@ export const appRouter = router({
      * Get the full causal DAG for a diagnosis code (graph + nodes + edges).
      */
     getCausalGraph: protectedProcedure
-      .input(z.object({ diagnosisCode: z.string() }))
+      .input(z.object({ diagnosisCode: z.string().optional(), graphId: z.number().optional() }))
       .query(async ({ input }) => {
-        const graph = await db.getCausalGraphByCode(input.diagnosisCode);
-        if (!graph) return null;
-        return await db.getFullCausalGraph(graph.id);
+        if (input.graphId) {
+          return await db.getFullCausalGraph(input.graphId);
+        }
+        if (input.diagnosisCode) {
+          const graph = await db.getCausalGraphByCode(input.diagnosisCode);
+          if (!graph) return null;
+          return await db.getFullCausalGraph(graph.id);
+        }
+        return null;
       }),
 
     /**
@@ -4087,7 +4103,9 @@ Return scenarios as a JSON array.`;
             refined: false,
             reason: 'Causal Brain validated current scenarios — no refinement needed.',
             validation,
-            newScenarioIds: [],
+            newScenarioIds: input.currentScenarioIds,
+            scenarioIds: input.currentScenarioIds,
+            iterationNumber: currentIteration,
             iteration: currentIteration,
           };
         }
@@ -4154,6 +4172,8 @@ Return scenarios as a JSON array.`;
           reason: `Iteration ${nextIteration} generated with Causal Brain guidance.`,
           validation,
           newScenarioIds,
+          scenarioIds: newScenarioIds,
+          iterationNumber: nextIteration,
           iteration: nextIteration,
           refinedResult,
         };

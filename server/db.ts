@@ -285,7 +285,7 @@ export async function createDAOEntry(entry: InsertDaoProtocolEntry) {
   if (!db) throw new Error("Database not available");
 
   const result = await db.insert(daoProtocolEntries).values(entry) as any;
-  return Number(result.insertId);
+  return Number(result[0].insertId);
 }
 
 export async function updateDAOEntry(id: number, updates: Partial<InsertDaoProtocolEntry>) {
@@ -319,7 +319,7 @@ export async function createDelphiSimulation(simulation: InsertDelphiSimulation)
   if (!db) throw new Error("Database not available");
 
   const result = await db.insert(delphiSimulations).values(simulation) as any;
-  return Number(result.insertId);
+  return Number(result[0].insertId);
 }
 
 export async function updateDelphiSimulation(id: number, updates: Partial<InsertDelphiSimulation>) {
@@ -353,7 +353,7 @@ export async function createCausalInsight(insight: InsertCausalInsight) {
   if (!db) throw new Error("Database not available");
 
   const result = await db.insert(causalInsights).values(insight) as any;
-  return Number(result.insertId);
+  return Number(result[0].insertId);
 }
 
 export async function markInsightReviewed(id: number, reviewedAt: Date) {
@@ -389,7 +389,7 @@ export async function createCarePlan(plan: InsertPrecisionCarePlan) {
   if (!db) throw new Error("Database not available");
 
   const result = await db.insert(precisionCarePlans).values(plan) as any;
-  return Number(result.insertId);
+  return Number(result[0].insertId);
 }
 
 export async function updateCarePlan(id: number, updates: Partial<InsertPrecisionCarePlan>) {
@@ -426,7 +426,7 @@ export async function createSafetyReview(review: InsertSafetyReview) {
   if (!db) throw new Error("Database not available");
 
   const result = await db.insert(safetyReviews).values(review) as any;
-  return Number(result.insertId);
+  return Number(result[0].insertId);
 }
 
 export async function updateSafetyReview(id: number, updates: Partial<InsertSafetyReview>) {
@@ -461,7 +461,7 @@ export async function createClinicalOutcome(outcome: InsertClinicalOutcome) {
   if (!db) throw new Error("Database not available");
 
   const result = await db.insert(clinicalOutcomes).values(outcome) as any;
-  return Number(result.insertId);
+  return Number(result[0].insertId);
 }
 
 export async function updateClinicalOutcome(id: number, updates: Partial<InsertClinicalOutcome>) {
@@ -706,7 +706,7 @@ export async function createProtocolApplication(data: {
     feedbackSubmitted: false,
   });
   
-  return { id: result.insertId, success: true };
+  return { id: result[0].insertId, success: true };
 }
 
 export async function getProtocolApplicationsByProtocol(protocolId: string) {
@@ -758,7 +758,7 @@ export async function createProtocolOutcome(data: {
   const { protocolOutcomes } = await import("../drizzle/schema");
   const [result] = await db.insert(protocolOutcomes).values(data);
   
-  return { id: result.insertId, success: true };
+  return { id: result[0].insertId, success: true };
 }
 
 export async function getProtocolOutcomesByProtocol(protocolId: string) {
@@ -955,7 +955,7 @@ export async function createKnowledgeBaseEntry(data: {
   if (!db) throw new Error("Database not available");
   
   const [result] = await db.insert(knowledgeBase).values(data);
-  return result.insertId;
+  return result[0].insertId;
 }
 
 export async function searchKnowledgeBase(params: {
@@ -1027,7 +1027,7 @@ export async function recordKnowledgeBaseUsage(data: {
   if (!db) throw new Error("Database not available");
   
   const [result] = await db.insert(knowledgeBaseUsage).values(data);
-  return result.insertId;
+  return result[0].insertId;
 }
 
 // ============ Patient Intake Functions ============
@@ -1042,7 +1042,7 @@ export async function createIntakeSession(data: { patientId?: number; sessionTok
     status: "in_progress",
     collectedData: {},
   });
-  return result.insertId;
+  return result[0].insertId;
 }
 
 export async function getIntakeSession(sessionToken: string) {
@@ -1164,7 +1164,7 @@ export async function createIntakeSessionWithDetails(data: {
     collectedData: {},
   });
 
-  return Number(result.insertId);
+  return Number(result[0].insertId);
 }
 
 // ============ Patient Portal - Lab Results ============
@@ -2144,7 +2144,7 @@ export async function createMedicalCode(data: {
   const { medicalCodes } = await import("../drizzle/schema");
 
   const [result] = await database.insert(medicalCodes).values(data);
-  return result.insertId;
+  return result[0].insertId;
 }
 
 export async function getMedicalCodeById(id: number) {
@@ -2210,7 +2210,7 @@ export async function assignMedicalCodeToProtocol(data: {
     ...data,
     verifiedAt: data.verifiedBy ? new Date() : undefined,
   });
-  return result.insertId;
+  return result[0].insertId;
 }
 
 export async function getProtocolMedicalCodes(protocolDeliveryId: number) {
@@ -2254,7 +2254,7 @@ export async function createMedicalCodeMapping(data: {
     ...data,
     confidence: data.confidence?.toString(),
   });
-  return result.insertId;
+  return result[0].insertId;
 }
 
 export async function findMedicalCodeMapping(clinicalTerm: string) {
@@ -2852,8 +2852,8 @@ export async function getCausalAnalysis(diagnosisCode: string, treatmentCode: st
 export async function recordPatientOutcome(data: InsertPatientOutcome) {
   const db = await getDb();
   if (!db) throw new Error('Database not initialized');
-  const result = await db.insert(patientOutcomes).values(data);
-  return result;
+  const result = await db.insert(patientOutcomes).values(data) as any;
+  return { id: Number(result[0].insertId), success: true };
 }
 
 /**

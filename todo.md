@@ -1167,3 +1167,18 @@
 ## Production Readiness Fixes (Mar 2026)
 - [x] Fix /patients 404: add route + PatientList page
 - [x] Replace OutcomeAnalytics mock data with real tRPC queries
+
+## E2E Smoke Test (Mar 2026)
+- [ ] Patient creation endpoint
+- [ ] New encounter creation
+- [ ] Semantic processor (ICD-10/CPT coding)
+- [ ] Causal Brain analysis
+- [ ] Delphi simulation + scenario generation
+- [ ] Delphi refine scenarios (multi-iteration)
+- [ ] Care Plan generation (orchestrator pipeline)
+- [ ] Safety Review / Digital Review Board
+- [ ] Outcome recording
+- [ ] NNT seed from outcomes
+- [ ] Risk prediction endpoints
+- [ ] Analytics endpoints (outcome metrics, recommendation accuracy, policy learning)
+- [ ] Framework workflow (full pipeline)

@@ -1468,28 +1468,36 @@ export const causalAnalyses = mysqlTable("causal_analyses", {
   
   // Analysis scope
   diagnosisCode: varchar("diagnosisCode", { length: 16 }).notNull(), // ICD-10 code
-  treatmentCode: varchar("treatmentCode", { length: 16 }).notNull(), // CPT or treatment identifier
+  diagnosisName: varchar("diagnosisName", { length: 255 }), // Human-readable diagnosis name
+  treatmentCode: varchar("treatmentCode", { length: 16 }), // CPT or treatment identifier (optional)
+  treatmentName: varchar("treatmentName", { length: 255 }), // Human-readable treatment name
   
   // Causal inference results
-  effectSize: decimal("effectSize", { precision: 10, scale: 4 }), // Measured effect
+  effectSize: decimal("effectSize", { precision: 5, scale: 3 }), // Measured effect
   confidenceInterval: varchar("confidenceInterval", { length: 64 }), // e.g., "95% CI: 0.2-0.8"
-  pValue: decimal("pValue", { precision: 10, scale: 8 }),
+  pValue: decimal("pValue", { precision: 5, scale: 4 }),
+  evidenceLevel: varchar("evidenceLevel", { length: 64 }), // e.g., "Grade A"
+  studyCount: int("studyCount").default(0),
+  patientCount: int("patientCount").default(0),
   sampleSize: int("sampleSize"), // Number of cases analyzed
   
   // Analysis details
-  methodology: varchar("methodology", { length: 128 }), // e.g., "propensity score matching"
+  analysisMethod: varchar("analysisMethod", { length: 128 }), // e.g., "propensity score matching"
+  methodology: varchar("methodology", { length: 128 }), // alias for analysisMethod
   confounders: json("confounders").$type<string[]>(), // Controlled variables
+  limitations: text("limitations"),
   analysisNotes: text("analysisNotes"),
   
   // Outcome metrics
   outcomeType: varchar("outcomeType", { length: 128 }), // symptom reduction, cure rate, etc.
+  outcomeMetrics: json("outcomeMetrics").$type<Record<string, any>>(),
   outcomeValue: decimal("outcomeValue", { precision: 10, scale: 4 }),
   
   // Metadata
   analyzedAt: timestamp("analyzedAt").defaultNow().notNull(),
-  lastUpdated: timestamp("lastUpdated").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  lastUpdated: timestamp("lastUpdated").defaultNow().onUpdateNow(),
 });
-
 export type CausalAnalysis = typeof causalAnalyses.$inferSelect;
 export type InsertCausalAnalysis = typeof causalAnalyses.$inferInsert;
 
@@ -1647,7 +1655,7 @@ export const simulationScenarios = mysqlTable("simulation_scenarios", {
   
   // Simulation parameters
   timeHorizon: int("timeHorizon"), // Days to simulate
-  simulationGoal: varchar("simulationGoal", { length: 255 }), // What we're testing
+  simulationGoal: text("simulationGoal"), // What we're testing
   
   // Status
   status: mysqlEnum("status", ["draft", "running", "completed", "archived"]).default("draft"),
