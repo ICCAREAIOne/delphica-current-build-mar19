@@ -4769,6 +4769,14 @@ Provide a score (0-100) and reasoning for each scenario.`;
       }),
 
     /**
+     * Get all risk predictions for the current physician (used in OutcomeAnalytics)
+     */
+    getAll: protectedProcedure
+      .query(async ({ ctx }) => {
+        return await db.getAllRiskPredictions(ctx.user.id);
+      }),
+
+    /**
      * Generate Delphi Simulator scenario from risk prediction
      */
     exploreRiskPrediction: protectedProcedure

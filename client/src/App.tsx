@@ -32,6 +32,7 @@ import Analytics from "./pages/Analytics";
 import { PeerComparison } from "./pages/PeerComparison";
 import RiskPredictions from "./pages/RiskPredictions";
 import PolicyDashboard from "./pages/PolicyDashboard";
+import PatientList from "./pages/PatientList";
 
 function Router() {
   return (
@@ -39,6 +40,7 @@ function Router() {
       <Route path={"/"} component={Dashboard} />
       <Route path={"/qa"} component={QADashboard} />
       <Route path={"/demo"} component={CodingDemo} />
+      <Route path={"/patients"} component={PatientList} />
       <Route path={"/patients/new"} component={NewPatient} />
       <Route path={"/patients/:id"} component={PatientDetail} />
       <Route path={"/patients/:patientId/encounters/new"} component={NewEncounter} />

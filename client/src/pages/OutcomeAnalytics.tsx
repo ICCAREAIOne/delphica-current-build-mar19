@@ -1,471 +1,303 @@
-import { useState } from "react";
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  TrendingUp,
-  TrendingDown,
-  Target,
-  Activity,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  ArrowLeft,
-  Loader2,
-  BarChart3,
-  LineChart,
-  PieChart,
-  Download
-} from "lucide-react";
-import { Link } from "wouter";
-import { format } from "date-fns";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import DashboardLayout from "@/components/DashboardLayout";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend, LineChart, Line,
+} from "recharts";
+import { Activity, TrendingUp, AlertTriangle, CheckCircle2, Clock, Brain, Target, BarChart2 } from "lucide-react";
 
-export default function OutcomeAnalytics() {
-  const { user } = useAuth();
-  const [timeFilter, setTimeFilter] = useState("30");
-  const [diagnosisFilter, setDiagnosisFilter] = useState("all");
+const RISK_COLORS: Record<string, string> = {
+  low: "#10b981", moderate: "#f59e0b", high: "#ef4444", very_high: "#7c3aed",
+};
+const ACTION_COLORS: Record<string, string> = {
+  explored: "#3b82f6", monitored: "#10b981", dismissed: "#94a3b8", pending: "#f59e0b",
+};
 
-  // Mock data - in production, these would come from tRPC queries
-  const overallMetrics = {
-    totalOutcomes: 156,
-    successRate: 87.2,
-    aiAccuracy: 91.5,
-    avgRecoveryTime: 14.3,
-    improvementTrend: 5.2,
-  };
-
-  const outcomesByCategory = [
-    { category: "Diabetes Management", total: 45, successful: 42, aiAccurate: 41, successRate: 93.3 },
-    { category: "Hypertension Control", total: 38, successful: 34, aiAccurate: 35, successRate: 89.5 },
-    { category: "Cardiac Care", total: 27, successful: 22, aiAccurate: 24, successRate: 81.5 },
-    { category: "Respiratory Conditions", total: 25, successful: 21, aiAccurate: 22, successRate: 84.0 },
-    { category: "Pain Management", total: 21, successful: 17, aiAccurate: 18, successRate: 81.0 },
-  ];
-
-  const recentOutcomes = [
-    {
-      id: 1,
-      patientName: "John Smith",
-      diagnosis: "Type 2 Diabetes",
-      aiPrediction: "HbA1c reduction to <7% in 3 months",
-      actualOutcome: "HbA1c 6.8% achieved in 2.5 months",
-      status: "success",
-      accuracy: 95,
-      date: new Date(2026, 1, 10),
-    },
-    {
-      id: 2,
-      patientName: "Mary Johnson",
-      diagnosis: "Hypertension",
-      aiPrediction: "BP control <130/80 in 6 weeks",
-      actualOutcome: "BP 128/78 achieved in 5 weeks",
-      status: "success",
-      accuracy: 92,
-      date: new Date(2026, 1, 8),
-    },
-    {
-      id: 3,
-      patientName: "Robert Williams",
-      diagnosis: "Acute Bronchitis",
-      aiPrediction: "Full recovery in 10 days",
-      actualOutcome: "Recovery took 14 days",
-      status: "partial",
-      accuracy: 75,
-      date: new Date(2026, 1, 5),
-    },
-    {
-      id: 4,
-      patientName: "Sarah Davis",
-      diagnosis: "Chronic Back Pain",
-      aiPrediction: "50% pain reduction in 4 weeks",
-      actualOutcome: "60% pain reduction in 3 weeks",
-      status: "success",
-      accuracy: 98,
-      date: new Date(2026, 1, 3),
-    },
-    {
-      id: 5,
-      patientName: "Michael Brown",
-      diagnosis: "Atrial Fibrillation",
-      aiPrediction: "Rhythm control with medication",
-      actualOutcome: "Required cardioversion procedure",
-      status: "revised",
-      accuracy: 65,
-      date: new Date(2026, 0, 28),
-    },
-  ];
-
-  const feedbackLoopMetrics = {
-    totalFeedback: 156,
-    positiveImpact: 142,
-    modelUpdates: 8,
-    accuracyImprovement: 3.2,
-  };
-
+function StatCard({ label, value, sub, icon, color, loading }: {
+  label: string; value: string | number; sub?: string;
+  icon: React.ReactNode; color: string; loading?: boolean;
+}) {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/">
-                <Button variant="outline" size="icon">
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-                  <TrendingUp className="h-8 w-8" />
-                  Outcome Analytics Dashboard
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  AI treatment performance and marketplace feedback loop
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select value={timeFilter} onValueChange={setTimeFilter}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">Last 7 days</SelectItem>
-                  <SelectItem value="30">Last 30 days</SelectItem>
-                  <SelectItem value="90">Last 90 days</SelectItem>
-                  <SelectItem value="365">Last year</SelectItem>
-                  <SelectItem value="all">All time</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export Report
-              </Button>
-            </div>
+    <Card className="border border-slate-200 shadow-sm">
+      <CardContent className="pt-4 pb-4">
+        <div className="flex items-start gap-3">
+          <div className={`p-2 rounded-lg ${color} shrink-0`}>{icon}</div>
+          <div className="min-w-0">
+            <p className="text-xs text-slate-500 truncate">{label}</p>
+            {loading ? <Skeleton className="h-7 w-16 mt-1" /> : <p className="text-2xl font-bold text-slate-900">{value}</p>}
+            {sub && !loading && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
           </div>
         </div>
-      </header>
+      </CardContent>
+    </Card>
+  );
+}
 
-      <div className="container py-8">
-        {/* Overview Metrics */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5 mb-8">
-          <Card>
+export default function OutcomeAnalytics() {
+  const { data: allPredictions, isLoading: predsLoading } = trpc.riskPredictions.getAll.useQuery();
+  const { data: riskStats, isLoading: statsLoading } = trpc.riskPredictions.getStats.useQuery();
+  const { data: outcomeMetrics, isLoading: outcomesLoading } = trpc.analytics.getOutcomeMetrics.useQuery({});
+  const { data: recAccuracy, isLoading: recLoading } = trpc.analytics.getRecommendationAccuracy.useQuery({});
+  const { data: policyMetrics, isLoading: policyLoading } = trpc.analytics.getPolicyLearningMetrics.useQuery({});
+
+  const isLoading = predsLoading || statsLoading || outcomesLoading || recLoading || policyLoading;
+
+  const riskByCategoryData = useMemo(() => {
+    if (!allPredictions) return [];
+    const map = new Map<string, { high: number; moderate: number; low: number }>();
+    for (const p of allPredictions) {
+      const cat = p.diseaseCategory ?? "Other";
+      if (!map.has(cat)) map.set(cat, { high: 0, moderate: 0, low: 0 });
+      const e = map.get(cat)!;
+      if (p.riskLevel === "high" || p.riskLevel === "very_high") e.high++;
+      else if (p.riskLevel === "moderate") e.moderate++;
+      else e.low++;
+    }
+    return Array.from(map.entries()).map(([name, v]) => ({ name, ...v }));
+  }, [allPredictions]);
+
+  const riskLevelPie = useMemo(() => {
+    if (!allPredictions) return [];
+    const map = new Map<string, number>();
+    for (const p of allPredictions) map.set(p.riskLevel, (map.get(p.riskLevel) ?? 0) + 1);
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  }, [allPredictions]);
+
+  const actionPie = useMemo(() => {
+    if (!allPredictions) return [];
+    const map = new Map<string, number>();
+    for (const p of allPredictions) { const a = p.actionTaken ?? "pending"; map.set(a, (map.get(a) ?? 0) + 1); }
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  }, [allPredictions]);
+
+  const recAccuracyData = recAccuracy ? [
+    { name: "Accepted", value: recAccuracy.accepted, fill: "#10b981" },
+    { name: "Modified", value: recAccuracy.modified, fill: "#f59e0b" },
+    { name: "Rejected", value: recAccuracy.rejected, fill: "#ef4444" },
+    { name: "Pending", value: recAccuracy.pending, fill: "#94a3b8" },
+  ] : [];
+
+  const policyTrendData = useMemo(() => {
+    if (!policyMetrics?.effectTrend) return [];
+    return policyMetrics.effectTrend.slice(-20).map((t: any) => ({
+      date: new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      effectSize: parseFloat(t.effectSize?.toFixed(3) ?? "0"),
+    }));
+  }, [policyMetrics]);
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6 p-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Outcome Analytics</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Live data from risk predictions, treatment recommendations, and policy learning engine</p>
+        </div>
+
+        <div className="grid grid-cols-4 gap-4">
+          <StatCard label="Total Risk Predictions" value={allPredictions?.length ?? 0}
+            sub={`${riskStats?.highRiskCount ?? 0} high-risk`}
+            icon={<Brain className="h-5 w-5 text-blue-600" />} color="bg-blue-50" loading={isLoading} />
+          <StatCard label="Exploration Rate" value={riskStats ? `${riskStats.explorationRate.toFixed(1)}%` : "—"}
+            sub={`${riskStats?.exploredCount ?? 0} explored`}
+            icon={<Target className="h-5 w-5 text-emerald-600" />} color="bg-emerald-50" loading={isLoading} />
+          <StatCard label="Recommendation Acceptance" value={recAccuracy ? `${recAccuracy.acceptanceRate.toFixed(1)}%` : "—"}
+            sub={`${recAccuracy?.total ?? 0} total`}
+            icon={<CheckCircle2 className="h-5 w-5 text-violet-600" />} color="bg-violet-50" loading={isLoading} />
+          <StatCard label="Outcome Success Rate" value={outcomeMetrics ? `${outcomeMetrics.successRate.toFixed(1)}%` : "—"}
+            sub={`${outcomeMetrics?.totalOutcomes ?? 0} outcomes`}
+            icon={<TrendingUp className="h-5 w-5 text-amber-600" />} color="bg-amber-50" loading={isLoading} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <Card className="border border-slate-200 shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Outcomes</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <BarChart2 className="h-4 w-4 text-blue-500" /> Risk Predictions by Disease Category
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{overallMetrics.totalOutcomes}</div>
-              <p className="text-xs text-muted-foreground mt-1">Documented cases</p>
+              {isLoading ? <Skeleton className="h-52 w-full" /> : riskByCategoryData.length === 0 ? (
+                <div className="h-52 flex items-center justify-center text-slate-400 text-sm">No risk predictions yet</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={riskByCategoryData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="high" name="High/Very High" fill="#ef4444" stackId="a" />
+                    <Bar dataKey="moderate" name="Moderate" fill="#f59e0b" stackId="a" />
+                    <Bar dataKey="low" name="Low" fill="#10b981" stackId="a" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border border-slate-200 shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Success Rate</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Activity className="h-4 w-4 text-violet-500" /> Risk Level Distribution
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{overallMetrics.successRate}%</div>
-              <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
-                <TrendingUp className="h-3 w-3" />
-                +{overallMetrics.improvementTrend}% vs last period
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">AI Accuracy</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{overallMetrics.aiAccuracy}%</div>
-              <p className="text-xs text-muted-foreground mt-1">Prediction accuracy</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Avg Recovery</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{overallMetrics.avgRecoveryTime}</div>
-              <p className="text-xs text-muted-foreground mt-1">Days to outcome</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Model Updates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-purple-600">{feedbackLoopMetrics.modelUpdates}</div>
-              <p className="text-xs text-muted-foreground mt-1">From feedback loop</p>
+              {isLoading ? <Skeleton className="h-52 w-full" /> : riskLevelPie.length === 0 ? (
+                <div className="h-52 flex items-center justify-center text-slate-400 text-sm">No data yet</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={riskLevelPie} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                      {riskLevelPie.map((entry, i) => <Cell key={i} fill={RISK_COLORS[entry.name] ?? "#6b7280"} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="outcomes" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="outcomes">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Outcome Analysis
-            </TabsTrigger>
-            <TabsTrigger value="comparison">
-              <LineChart className="h-4 w-4 mr-2" />
-              Predicted vs Actual
-            </TabsTrigger>
-            <TabsTrigger value="feedback">
-              <Activity className="h-4 w-4 mr-2" />
-              Feedback Loop
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Outcomes Tab */}
-          <TabsContent value="outcomes" className="space-y-6">
-            {/* Outcomes by Category */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Outcomes by Clinical Category</CardTitle>
-                <CardDescription>Treatment success rates across different conditions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {outcomesByCategory.map((category) => (
-                    <div key={category.category} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{category.category}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {category.successful}/{category.total} successful • AI accurate: {category.aiAccurate}/{category.total}
-                          </p>
-                        </div>
-                        <Badge variant={category.successRate >= 90 ? "default" : category.successRate >= 80 ? "secondary" : "outline"}>
-                          {category.successRate}%
-                        </Badge>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-full transition-all"
-                          style={{ width: `${category.successRate}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+        <div className="grid grid-cols-2 gap-6">
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Treatment Recommendation Outcomes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? <Skeleton className="h-52 w-full" /> : recAccuracyData.every(d => d.value === 0) ? (
+                <div className="h-52 flex flex-col items-center justify-center text-slate-400 text-sm gap-2">
+                  <Clock className="h-8 w-8 opacity-30" />
+                  <p>No recommendations recorded yet</p>
+                  <p className="text-xs">Run a Framework Workflow to generate recommendations</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Outcomes */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Clinical Outcomes</CardTitle>
-                <CardDescription>Latest documented treatment results</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentOutcomes.map((outcome) => (
-                    <div key={outcome.id} className="p-4 border rounded-lg space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">{outcome.patientName}</p>
-                          <p className="text-sm text-muted-foreground">{outcome.diagnosis}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {outcome.status === "success" && (
-                            <Badge variant="default" className="bg-green-600">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Success
-                            </Badge>
-                          )}
-                          {outcome.status === "partial" && (
-                            <Badge variant="secondary">
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                              Partial
-                            </Badge>
-                          )}
-                          {outcome.status === "revised" && (
-                            <Badge variant="outline">
-                              <XCircle className="h-3 w-3 mr-1" />
-                              Revised
-                            </Badge>
-                          )}
-                          <Badge variant="outline">{outcome.accuracy}% accurate</Badge>
-                        </div>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground mb-1">AI Prediction:</p>
-                          <p className="font-medium">{outcome.aiPrediction}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground mb-1">Actual Outcome:</p>
-                          <p className="font-medium">{outcome.actualOutcome}</p>
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Documented: {format(outcome.date, "MMM d, yyyy")}
-                      </div>
-                    </div>
-                  ))}
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={recAccuracyData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                      {recAccuracyData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+              {recAccuracy && recAccuracy.total > 0 && (
+                <div className="flex gap-4 mt-3 text-xs text-slate-500 border-t border-slate-100 pt-3">
+                  <span>Acceptance: <strong className="text-emerald-600">{recAccuracy.acceptanceRate.toFixed(1)}%</strong></span>
+                  <span>Modification: <strong className="text-amber-600">{recAccuracy.modificationRate.toFixed(1)}%</strong></span>
+                  <span>Rejection: <strong className="text-red-600">{recAccuracy.rejectionRate.toFixed(1)}%</strong></span>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Comparison Tab */}
-          <TabsContent value="comparison" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Predicted vs Actual Outcomes</CardTitle>
-                <CardDescription>Comparing AI predictions with real-world results</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="p-6 bg-muted rounded-lg text-center">
-                    <LineChart className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-lg font-semibold mb-2">Time-Series Comparison Chart</p>
-                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                      Interactive visualization showing predicted outcomes vs actual results over time.
-                      This would display trend lines, confidence intervals, and accuracy metrics.
-                    </p>
-                  </div>
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Target className="h-4 w-4 text-blue-500" /> Prediction Action Taken
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? <Skeleton className="h-52 w-full" /> : actionPie.length === 0 ? (
+                <div className="h-52 flex items-center justify-center text-slate-400 text-sm">No data yet</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={actionPie} cx="50%" cy="50%" outerRadius={85} paddingAngle={3} dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                      {actionPie.map((entry, i) => <Cell key={i} fill={ACTION_COLORS[entry.name] ?? "#6b7280"} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Better Than Predicted</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-green-600">42%</div>
-                        <p className="text-xs text-muted-foreground">Outcomes exceeded AI predictions</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">As Predicted</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-blue-600">45%</div>
-                        <p className="text-xs text-muted-foreground">Outcomes matched predictions</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Below Predicted</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-orange-600">13%</div>
-                        <p className="text-xs text-muted-foreground">Outcomes below predictions</p>
-                      </CardContent>
-                    </Card>
+        <Card className="border border-slate-200 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <Brain className="h-4 w-4 text-violet-500" /> Policy Learning Engine — Causal Effect Size Trend
+            </CardTitle>
+            {policyMetrics && (
+              <p className="text-xs text-slate-400">
+                {policyMetrics.totalAnalyses} analyses · {policyMetrics.uniqueDiagnoses} diagnoses · Avg effect size: <strong>{policyMetrics.averageEffectSize.toFixed(3)}</strong>
+              </p>
+            )}
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <Skeleton className="h-44 w-full" /> : policyTrendData.length === 0 ? (
+              <div className="h-44 flex flex-col items-center justify-center text-slate-400 text-sm gap-2">
+                <Brain className="h-8 w-8 opacity-30" />
+                <p>No causal analyses recorded yet</p>
+                <p className="text-xs">Run Causal Brain analysis on a patient to populate this chart</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={policyTrendData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} domain={[0, "auto"]} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="effectSize" stroke="#7c3aed" strokeWidth={2} dot={false} name="Effect Size" />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {outcomeMetrics && outcomeMetrics.totalOutcomes > 0 && (
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Activity className="h-4 w-4 text-amber-500" /> Recorded Patient Outcomes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-4 gap-4">
+                {[
+                  { label: "Total", value: outcomeMetrics.totalOutcomes, color: "text-slate-700" },
+                  { label: "Successful", value: outcomeMetrics.successful, color: "text-emerald-600" },
+                  { label: "Adverse Events", value: outcomeMetrics.adverse, color: "text-red-600" },
+                  { label: "No Change", value: outcomeMetrics.noChange, color: "text-amber-600" },
+                ].map(s => (
+                  <div key={s.label} className="text-center p-3 bg-slate-50 rounded-lg">
+                    <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
                   </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isLoading && (allPredictions?.length ?? 0) === 0 && (
+          <Card className="border border-amber-200 bg-amber-50">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex gap-3 items-start">
+                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800 text-sm">No data yet</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    To populate: (1) Open a patient → run Framework Workflow to generate recommendations and outcomes.
+                    (2) Use Risk Predictions to import Delphi-2M predictions.
+                    (3) Run Causal Brain analysis to feed the policy learning engine.
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Feedback Loop Tab */}
-          <TabsContent value="feedback" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Marketplace Entry Feedback Loop</CardTitle>
-                <CardDescription>How outcome data improves the Causal Brain's learning</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{feedbackLoopMetrics.totalFeedback}</div>
-                    <p className="text-sm text-muted-foreground mt-1">Total Feedback Entries</p>
-                  </div>
-                  <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{feedbackLoopMetrics.positiveImpact}</div>
-                    <p className="text-sm text-muted-foreground mt-1">Positive Impact Cases</p>
-                  </div>
-                  <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">{feedbackLoopMetrics.modelUpdates}</div>
-                    <p className="text-sm text-muted-foreground mt-1">Model Updates Applied</p>
-                  </div>
-                  <div className="p-4 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600">+{feedbackLoopMetrics.accuracyImprovement}%</div>
-                    <p className="text-sm text-muted-foreground mt-1">Accuracy Improvement</p>
-                  </div>
-                </div>
-
-                <div className="p-6 border-2 border-dashed rounded-lg">
-                  <div className="text-center space-y-4">
-                    <Activity className="h-12 w-12 mx-auto text-primary" />
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Continuous Learning Cycle</h3>
-                      <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-                        Every documented outcome feeds back into the Causal Brain, refining its policy learning algorithms.
-                        This creates a virtuous cycle where real-world results continuously improve AI predictions and
-                        treatment recommendations.
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-center gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-blue-600"></div>
-                        <span>Data Collection</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-purple-600"></div>
-                        <span>Model Training</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-green-600"></div>
-                        <span>Improved Predictions</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Recent Model Improvements</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">Diabetes Treatment Protocol Updated</p>
-                          <p className="text-xs text-muted-foreground">
-                            Improved HbA1c prediction accuracy by 4.2% based on 45 recent outcomes
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">Applied: Feb 10, 2026</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">Hypertension Medication Dosing Refined</p>
-                          <p className="text-xs text-muted-foreground">
-                            Enhanced blood pressure control predictions based on 38 feedback entries
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">Applied: Feb 5, 2026</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">Cardiac Risk Stratification Enhanced</p>
-                          <p className="text-xs text-muted-foreground">
-                            Better identification of high-risk patients from 27 cardiac care outcomes
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">Applied: Jan 28, 2026</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

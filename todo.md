@@ -1163,3 +1163,7 @@
 - [x] Wire generateCarePlan to generateCarePlanWithSafetyReview orchestrator (real LLM + Digital Review Board)
 - [x] Seed NNT data from outcome records (nntSeed.ts + seedNNT tRPC mutation + "Seed NNT Data" button)
 - [x] D3 force-directed DAG visualization (CausalDagGraph.tsx — drag, zoom, pan, tooltips, legend)
+
+## Production Readiness Fixes (Mar 2026)
+- [x] Fix /patients 404: add route + PatientList page
+- [x] Replace OutcomeAnalytics mock data with real tRPC queries

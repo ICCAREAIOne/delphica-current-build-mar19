@@ -3985,6 +3985,16 @@ export async function getHighRiskPredictions(patientId: number, riskThreshold: n
 /**
  * Get pending risk predictions (not yet explored)
  */
+export async function getAllRiskPredictions(physicianId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(diseaseRiskPredictions)
+    .where(eq(diseaseRiskPredictions.physicianId, physicianId))
+    .orderBy(desc(diseaseRiskPredictions.createdAt));
+}
+
 export async function getPendingRiskPredictions(physicianId: number) {
   const db = await getDb();
   if (!db) throw new Error('Database connection failed');
