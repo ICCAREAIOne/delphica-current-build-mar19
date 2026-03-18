@@ -3253,7 +3253,16 @@ export const appRouter = router({
         );
         return result;
       }),
-
+    /**
+     * Get all recommendations for a patient across all sessions
+     */
+    getRecommendationsByPatient: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getTreatmentRecommendationsByPatient(input.patientId);
+      }),
     /**
      * Perform causal analysis on treatment effectiveness
      */
