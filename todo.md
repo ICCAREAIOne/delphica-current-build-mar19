@@ -1182,3 +1182,7 @@
 - [ ] Risk prediction endpoints
 - [ ] Analytics endpoints (outcome metrics, recommendation accuracy, policy learning)
 - [ ] Framework workflow (full pipeline)
+
+- [x] Fix 9 TypeScript errors in db.ts (result[0].insertId casting on ResultSetHeader)
+- [x] Wire risk_predictions auto-population on patient diagnosis entry (Delphi-2M trigger)
+- [x] Add outcome success rate classification to analytics (clinical target met logic)
