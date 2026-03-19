@@ -57,7 +57,7 @@ export default function FrameworkWorkflow() {
     { enabled: !!encounterId }
   );
 
-  // Workflow execution is handled locally with simulated steps
+  const runWorkflowStep = trpc.ai.runFrameworkWorkflow.useMutation();
 
   const updateStepStatus = (index: number, status: WorkflowStep["status"], result?: string) => {
     setSteps(prev => prev.map((step, i) => 
@@ -77,66 +77,26 @@ export default function FrameworkWorkflow() {
     // Reset all steps
     setSteps(prev => prev.map(step => ({ ...step, status: "pending" as const, result: undefined })));
     
+    const stepIds = ['dao', 'semantic', 'causal', 'delphi', 'precision', 'review', 'marketplace'] as const;
+    const progressPoints = [14, 28, 42, 56, 70, 84, 98];
     try {
-      // Step 1: DAO Protocol
-      setCurrentStepIndex(0);
-      updateStepStatus(0, "running");
-      setProgress(14);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const daoResult = `**Clinical Data Extracted:**\n\n- Chief Complaint: ${encounter.chiefComplaint}\n- Diagnosis: ${encounter.diagnosis}\n- Treatment Plan: ${encounter.treatmentPlan}\n- Vital Signs: ${encounter.vitalSigns ? JSON.stringify(encounter.vitalSigns) : "Not recorded"}\n\n✓ Data validated and structured for AI processing`;
-      updateStepStatus(0, "completed", daoResult);
-      
-      // Step 2: Semantic Processor
-      setCurrentStepIndex(1);
-      updateStepStatus(1, "running");
-      setProgress(28);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const semanticResult = `**Medical Coding Completed:**\n\n**ICD-10 Codes:**\n- ${encounter.diagnosis} → E11.9 (Type 2 Diabetes) - 95% confidence\n- Hypertension → I10 (Essential Hypertension) - 92% confidence\n\n**CPT Codes:**\n- 99214 (Office Visit, Level 4) - 98% confidence\n- 80053 (Comprehensive Metabolic Panel) - 90% confidence\n\n**SNOMED CT Mapping:**\n- Diabetes mellitus type 2 → 44054006\n- Hypertension → 38341003\n\n✓ All clinical entities coded and standardized`;
-      updateStepStatus(1, "completed", semanticResult);
-      
-      // Step 3: Causal Brain
-      setCurrentStepIndex(2);
-      updateStepStatus(2, "running");
-      setProgress(42);
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      const causalResult = `**Causal Analysis Complete:**\n\n**Evidence-Based Insights:**\n- HbA1c >8% correlates with 3.2x increased cardiovascular risk\n- Current BP 145/92 indicates suboptimal control\n- Metformin monotherapy shows 67% success rate for this profile\n\n**Policy Learning Recommendations:**\n- Add SGLT2 inhibitor (reduces CV events by 28%)\n- Intensify BP management (target <130/80)\n- Consider statin therapy (ASCVD risk 15.3%)\n\n**Confidence:** 91% based on 2,847 similar cases\n\n✓ Causal relationships identified and quantified`;
-      updateStepStatus(2, "completed", causalResult);
-      
-      // Step 4: Delphi Simulator (Bidirectional with Causal Brain)
-      setCurrentStepIndex(3);
-      updateStepStatus(3, "running");
-      setProgress(56);
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const delphiResult = `**Treatment Scenario Simulation:**\n\n**Scenario 1: Current Treatment**\n- Projected HbA1c: 7.8% (3 months)\n- CV Risk Reduction: 12%\n- Success Probability: 67%\n\n**Scenario 2: Add SGLT2 Inhibitor**\n- Projected HbA1c: 6.9% (3 months)\n- CV Risk Reduction: 35%\n- Success Probability: 89%\n- **Recommended by Causal Brain**\n\n**Scenario 3: Add GLP-1 Agonist**\n- Projected HbA1c: 6.7% (3 months)\n- CV Risk Reduction: 42%\n- Success Probability: 85%\n- Higher cost, injection required\n\n**Bidirectional Refinement:**\nCausal Brain updated risk model based on simulation results → Scenario 2 optimal for cost-effectiveness\n\n✓ Treatment options explored and optimized`;
-      updateStepStatus(3, "completed", delphiResult);
-      
-      // Step 5: Precision Care
-      setCurrentStepIndex(4);
-      updateStepStatus(4, "running");
-      setProgress(70);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const precisionResult = `**Personalized Treatment Plan:**\n\n**Medications:**\n1. Metformin 1000mg twice daily (continue)\n2. **Add: Empagliflozin 10mg daily** (SGLT2 inhibitor)\n3. **Add: Lisinopril 10mg daily** (ACE inhibitor for BP)\n4. **Add: Atorvastatin 20mg daily** (statin for CV protection)\n\n**Lifestyle Modifications:**\n- Dietary consultation for carbohydrate counting\n- Exercise: 150 min/week moderate activity\n- Weight loss goal: 5-7% body weight\n\n**Monitoring:**\n- HbA1c recheck in 3 months\n- BP monitoring twice weekly\n- Kidney function (eGFR) in 4 weeks\n\n**Follow-up:**\n- Return visit in 4 weeks\n- Telehealth check-in at 2 weeks\n\n✓ AI-optimized care plan generated`;
-      updateStepStatus(4, "completed", precisionResult);
-      
-      // Step 6: Digital Review Board
-      setCurrentStepIndex(5);
-      updateStepStatus(5, "running");
-      setProgress(84);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const reviewResult = `**Safety Verification Complete:**\n\n**Drug Interaction Check:**\n✓ No major interactions detected\n⚠ Minor: Lisinopril + NSAID (avoid ibuprofen)\n\n**Contraindication Screening:**\n✓ No contraindications for prescribed medications\n✓ eGFR >60: Safe for Metformin and SGLT2i\n\n**Guideline Compliance:**\n✓ ADA 2026 Guidelines: Compliant\n✓ ACC/AHA BP Guidelines: Compliant\n✓ USPSTF Statin Guidelines: Compliant\n\n**Risk Assessment:**\n- Hypoglycemia Risk: Low (2.1%)\n- Adverse Event Risk: Low (3.8%)\n- Hospitalization Risk: Reduced by 28%\n\n**Approval Status:** ✅ **APPROVED**\nAll safety checks passed. Plan ready for implementation.\n\n✓ Multi-layer safety verification completed`;
-      updateStepStatus(5, "completed", reviewResult);
-      
-      // Step 7: Marketplace Entry
-      setCurrentStepIndex(6);
-      updateStepStatus(6, "running");
-      setProgress(98);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const marketplaceResult = `**Feedback Loop Activated:**\n\n**Outcome Tracking Initiated:**\n- Baseline metrics recorded\n- Follow-up reminders scheduled\n- Predicted outcomes logged for comparison\n\n**Model Training Queue:**\n- Case added to Causal Brain training dataset\n- Delphi Simulator refinement scheduled\n- Expected model update: Next weekly cycle\n\n**Quality Metrics:**\n- Coding accuracy: 95%\n- Clinical appropriateness: 98%\n- Guideline adherence: 100%\n\n**Continuous Learning:**\nThis case will contribute to improving AI predictions for 2,847 similar patients\n\n✓ Feedback loop established for continuous improvement`;
-      updateStepStatus(6, "completed", marketplaceResult);
-      
+      for (let i = 0; i < stepIds.length; i++) {
+        setCurrentStepIndex(i);
+        updateStepStatus(i, "running");
+        setProgress(progressPoints[i]);
+        try {
+          const res = await runWorkflowStep.mutateAsync({ daoEntryId: encounter.id, step: stepIds[i] });
+          updateStepStatus(i, "completed", res.result);
+        } catch (stepErr: any) {
+          const msg = stepErr?.message || 'Step failed';
+          updateStepStatus(i, "error", `**Error:** ${msg}`);
+          toast.error(`Step ${stepIds[i]} failed: ${msg}`);
+          // Continue to next step rather than aborting entire workflow
+        }
+      }
       setProgress(100);
       setCurrentStepIndex(-1);
-      
+      toast.success("Framework workflow complete — all 7 steps executed");
     } catch (error) {
       console.error("Workflow error:", error);
       toast.error("Workflow execution failed");

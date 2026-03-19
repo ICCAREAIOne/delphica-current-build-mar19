@@ -33,7 +33,9 @@ import {
   Edit3,
   ShieldAlert,
   AlertTriangle,
-  Info
+  Info,
+  Play,
+  Zap
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { format } from "date-fns";
@@ -392,9 +394,17 @@ export default function PatientDetail() {
                                 {format(new Date(encounter.createdAt), "MMM d, yyyy 'at' h:mm a")}
                               </CardDescription>
                             </div>
-                            <Badge variant={encounter.status === "completed" ? "default" : "secondary"}>
-                              {encounter.status}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={encounter.status === "completed" ? "default" : "secondary"}>
+                                {encounter.status}
+                              </Badge>
+                              <Link href={`/workflow/${encounter.id}`}>
+                                <Button size="sm" variant="outline" className="gap-1 border-purple-400 text-purple-600 hover:bg-purple-50">
+                                  <Zap className="h-3 w-3" />
+                                  Run AI Analysis
+                                </Button>
+                              </Link>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent>
