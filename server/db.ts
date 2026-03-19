@@ -1289,6 +1289,13 @@ export async function getPatientCarePlans(patientId: number) {
     .orderBy(desc(patientCarePlans.createdAt));
 }
 
+export async function getPatientCarePlanById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(patientCarePlans).where(eq(patientCarePlans.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 export async function getActivePatientCarePlan(patientId: number) {
   const db = await getDb();
   if (!db) return null;
@@ -3004,7 +3011,7 @@ export async function addSessionComment(data: InsertSessionComment) {
   const dbConn = await getDb();
   if (!dbConn) throw new Error('Database not available');
   const result = await dbConn.insert(sessionComments).values(data);
-  return result;
+  return { id: (result as any)[0].insertId as number };
 }
 
 /**

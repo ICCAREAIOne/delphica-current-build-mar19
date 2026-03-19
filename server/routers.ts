@@ -60,7 +60,23 @@ export const appRouter = router({
     getPhysicianMetrics: protectedProcedure
       .input(z.object({ physicianId: z.number(), limit: z.number().optional() }))
       .query(async ({ input }) => {
-        return await db.getPhysicianQualityMetrics(input.physicianId, input.limit);
+        const rows = await db.getPhysicianQualityMetrics(input.physicianId, input.limit);
+        if (!rows || rows.length === 0) {
+          return { totalEncounters: 0, avgScore: 0, qualityScore: 0, icd10Accuracy: 0, cptAccuracy: 0, rows: [] };
+        }
+        const avgScore = rows.reduce((s: number, r: any) => s + (r.overallScore || 0), 0) / rows.length;
+        return {
+          totalEncounters: rows.length,
+          avgScore: Math.round(avgScore * 100) / 100,
+          qualityScore: Math.round(avgScore * 100) / 100,
+          icd10Accuracy: rows.filter((r: any) => r.icd10Accuracy != null).length > 0
+            ? rows.reduce((s: number, r: any) => s + (r.icd10Accuracy || 0), 0) / rows.length
+            : 0,
+          cptAccuracy: rows.filter((r: any) => r.cptAccuracy != null).length > 0
+            ? rows.reduce((s: number, r: any) => s + (r.cptAccuracy || 0), 0) / rows.length
+            : 0,
+          rows,
+        };
       }),
 
     getPerformanceAnalytics: protectedProcedure
@@ -492,7 +508,8 @@ export const appRouter = router({
     getByCarePlan: protectedProcedure
       .input(z.object({ carePlanId: z.number() }))
       .query(async ({ input }) => {
-        return await db.getSafetyReviewByCarePlan(input.carePlanId);
+        const review = await db.getSafetyReviewByCarePlan(input.carePlanId);
+        return review ? [review] : [];
       }),
 
     create: protectedProcedure
@@ -1023,7 +1040,7 @@ export const appRouter = router({
         })).optional(),
         lessonsLearned: z.string().optional(),
         feedbackForAI: z.string().optional(),
-        outcomeDate: z.date(),
+        outcomeDate: z.union([z.date(), z.string().transform(s => new Date(s))]),
       }))
       .mutation(async ({ input, ctx }) => {
         const id = await db.createClinicalOutcome({
@@ -1294,7 +1311,7 @@ export const appRouter = router({
           patientId: input.patientId,
           uploadedBy: 'patient',
           uploadMethod,
-          testDate: parsed.testDate ? new Date(parsed.testDate) : new Date(),
+          testDate: (() => { try { const d = parsed.testDate ? new Date(parsed.testDate) : new Date(); return isNaN(d.getTime()) ? new Date() : d; } catch { return new Date(); } })(),
           labName: parsed.labName || 'Uploaded Lab Report',
           testResults: JSON.stringify(parsed.results),
           pdfUrl: input.fileUrl,
@@ -1741,6 +1758,7 @@ export const appRouter = router({
     generateAndSend: protectedProcedure
       .input(z.object({
         userId: z.number(),
+        patientId: z.number().optional(),
         carePlanId: z.number(),
         customProtocol: z.object({
           title: z.string(),
@@ -1778,8 +1796,7 @@ export const appRouter = router({
             throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
           }
           
-          const carePlans = await db.getPatientCarePlans(input.userId);
-          const carePlan = carePlans.find(p => p.id === input.carePlanId);
+          const carePlan = await db.getPatientCarePlanById(input.carePlanId);
           if (!carePlan) {
             throw new TRPCError({ code: 'NOT_FOUND', message: 'Care plan not found' });
           }
@@ -1818,7 +1835,7 @@ export const appRouter = router({
             to: user.email || '',
             patientName: user.name || 'Patient',
             physicianName: ctx.user.name || 'Dr. Physician',
-            protocolName: carePlan.title || 'Care Protocol',
+            protocolName: (carePlan as any).title || 'Care Protocol',
             portalLink,
             pdfBuffer,
             template: 'protocolDelivery',
@@ -1828,7 +1845,7 @@ export const appRouter = router({
           const delivery = await db.createProtocolDelivery({
             userId: input.userId,
             carePlanId: input.carePlanId,
-            protocolName: input.customProtocol?.title || carePlan.title || 'Care Protocol',
+            protocolName: input.customProtocol?.title || (carePlan as any).title || 'Care Protocol',
             deliveryType: 'manual',
             emailSent: emailResult.success,
             emailMessageId: emailResult.messageId,
@@ -1966,7 +1983,7 @@ export const appRouter = router({
           // Create audit trail if protocol was customized
           if (input.customProtocol && delivery) {
             const originalProtocol = {
-              title: carePlan.title || 'Care Protocol',
+              title: (carePlan as any).title || 'Care Protocol',
               diagnosis: carePlan.diagnosis || '',
               duration: '12 weeks',
               goals: carePlan.goals || [],
@@ -2049,8 +2066,10 @@ export const appRouter = router({
           }
           
           return {
-            success: emailResult.success,
-            error: emailResult.error,
+            success: true, // PDF was generated and delivery tracked regardless of email status
+            emailSent: emailResult.success,
+            emailError: emailResult.error,
+            deliveryId: delivery?.id,
           };
         } catch (error: any) {
           console.error('[Protocol] Failed to generate and send:', error);
@@ -5483,7 +5502,7 @@ Generate 5 disease risk predictions. JSON: {"predictions":[{"diseaseCode":"ICD10
     createBiomarker: protectedProcedure
       .input(z.object({
         patientId: z.number(),
-        measurementDate: z.date(),
+        measurementDate: z.union([z.date(), z.string().transform(s => new Date(s))]),
         biomarkerType: z.enum(['blood_pressure_systolic', 'blood_pressure_diastolic', 'heart_rate', 'temperature', 'respiratory_rate', 'oxygen_saturation', 'weight', 'height', 'bmi', 'waist_circumference', 'total_cholesterol', 'ldl_cholesterol', 'hdl_cholesterol', 'triglycerides', 'glucose_fasting', 'glucose_random', 'hba1c', 'insulin', 'creatinine', 'bun', 'egfr', 'alt', 'ast', 'alkaline_phosphatase', 'bilirubin', 'tsh', 't3', 't4', 'crp', 'esr', 'wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'vitamin_d', 'b12', 'psa', 'other']),
         biomarkerName: z.string().optional(),
         value: z.string(),
