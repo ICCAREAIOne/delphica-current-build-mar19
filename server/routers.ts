@@ -5200,6 +5200,46 @@ Return ONLY valid JSON in this exact format:
         const stats = await db.getRiskPredictionStats(ctx.user.id);
         return stats;
       }),
+
+    /**
+     * Manually trigger Delphi-2M risk predictions for a patient.
+     * Pass forceRefresh=true to clear existing predictions and regenerate.
+     */
+    triggerDelphiPredictions: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        forceRefresh: z.boolean().optional().default(false),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const patient = await db.getPatientById(input.patientId);
+        if (!patient) throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+        const sessions = await db.getClinicalSessionsByPatient(input.patientId);
+        const latestSession = (sessions as any[])?.[0];
+        const diagnoses = latestSession ? await db.getDiagnosisEntriesBySession(latestSession.id) : [];
+        const primaryDx = (diagnoses as any[]).find((d: any) => d.diagnosisType === 'primary') || (diagnoses as any[])[0];
+        const diagnosisName = primaryDx?.diagnosisName || 'General health assessment';
+        const diagnosisCode = primaryDx?.diagnosisCode || null;
+        if (input.forceRefresh) await db.deleteRiskPredictionsByPatient(input.patientId);
+        const ageYears = patient.dateOfBirth
+          ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+          : null;
+        const riskResponse = await invokeLLM({
+          messages: [
+            { role: 'system', content: 'You are Delphi-2M, a clinical risk stratification model. Return ONLY valid JSON.' },
+            { role: 'user', content: `Patient: age=${ageYears ?? 'unknown'}, sex=${(patient as any).gender ?? 'unknown'}, medications=${JSON.stringify((patient as any).currentMedications ?? [])}.
+Primary diagnosis: ${diagnosisName} (${diagnosisCode ?? 'unspecified'}).
+Generate 5 disease risk predictions. JSON: {"predictions":[{"diseaseCode":"ICD10","diseaseName":"string","diseaseCategory":"string","riskProbability":0.0,"riskLevel":"low|moderate|high|very_high","timeHorizon":5,"confidenceScore":0.0,"rationale":"string"}]}` },
+          ],
+          response_format: { type: 'json_schema', json_schema: { name: 'risk_predictions', strict: true, schema: { type: 'object', properties: { predictions: { type: 'array', items: { type: 'object', properties: { diseaseCode: { type: 'string' }, diseaseName: { type: 'string' }, diseaseCategory: { type: 'string' }, riskProbability: { type: 'number' }, riskLevel: { type: 'string', enum: ['low','moderate','high','very_high'] }, timeHorizon: { type: 'integer' }, confidenceScore: { type: 'number' }, rationale: { type: 'string' } }, required: ['diseaseCode','diseaseName','diseaseCategory','riskProbability','riskLevel','timeHorizon','confidenceScore','rationale'], additionalProperties: false } } }, required: ['predictions'], additionalProperties: false } } },
+        });
+        const parsed = JSON.parse(riskResponse.choices[0].message.content as string);
+        const predictionIds: number[] = [];
+        for (const pred of (parsed.predictions ?? [])) {
+          const id = await db.createRiskPrediction({ patientId: input.patientId, physicianId: ctx.user.id, diseaseCode: pred.diseaseCode, diseaseName: pred.diseaseName, diseaseCategory: pred.diseaseCategory, riskProbability: String(pred.riskProbability), riskLevel: pred.riskLevel, timeHorizon: pred.timeHorizon, confidenceScore: String(pred.confidenceScore), predictionSource: 'Delphi-2M', inputFeatures: { rationale: pred.rationale, diagnosisCode } as any, actionTaken: 'pending' });
+          predictionIds.push(id);
+        }
+        return { success: true, count: predictionIds.length, predictionIds };
+      }),
   }),
 
   /**

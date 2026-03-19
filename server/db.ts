@@ -3987,6 +3987,15 @@ export async function createRiskPrediction(data: InsertDiseaseRiskPrediction) {
 }
 
 /**
+ * Delete all risk predictions for a patient (used before force-refresh)
+ */
+export async function deleteRiskPredictionsByPatient(patientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(diseaseRiskPredictions).where(eq(diseaseRiskPredictions.patientId, patientId));
+  return { success: true };
+}
+/**
  * Get risk predictions for a patient
  */
 export async function getRiskPredictionsByPatient(patientId: number) {

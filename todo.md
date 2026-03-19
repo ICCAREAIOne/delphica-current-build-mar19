@@ -1189,3 +1189,4 @@
 
 - [x] Recommendation accept/reject/modify UI on care plan page
 - [x] Patient risk prediction dashboard (Delphi-2M panel with riskLevel badges + rationale)
+- [x] Re-run Delphi-2M button on PatientDetail Risk tab (Run + Force Refresh)

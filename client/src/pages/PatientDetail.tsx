@@ -35,7 +35,8 @@ import {
   AlertTriangle,
   Info,
   Play,
-  Zap
+  Zap,
+  RefreshCw
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { format } from "date-fns";
@@ -85,6 +86,17 @@ export default function PatientDetail() {
       { patientId: patientId! },
       { enabled: !!patientId }
     );
+
+  const utils = trpc.useUtils();
+  const triggerRisk = trpc.riskPredictions.triggerDelphiPredictions.useMutation({
+    onSuccess: (data) => {
+      toast({ title: 'Delphi-2M complete', description: `${data.count} risk predictions generated.` });
+      utils.riskPredictions.getPatientPredictions.invalidate({ patientId: patientId! });
+    },
+    onError: (err) => {
+      toast({ title: 'Re-run failed', description: err.message, variant: 'destructive' });
+    },
+  });
 
   const updateStatus = trpc.causalBrain.updateRecommendationStatus.useMutation({
     onSuccess: () => {
@@ -706,16 +718,43 @@ export default function PatientDetail() {
 
               {/* Risk Predictions Tab */}
               <TabsContent value="risk" className="space-y-4">
+                {/* Re-run controls */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Info className="h-3.5 w-3.5" />
+                    Delphi-2M disease risk stratification
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={triggerRisk.isPending}
+                      onClick={() => triggerRisk.mutate({ patientId: patientId!, forceRefresh: false })}
+                    >
+                      {triggerRisk.isPending
+                        ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+                      Run Delphi-2M
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={triggerRisk.isPending}
+                      onClick={() => triggerRisk.mutate({ patientId: patientId!, forceRefresh: true })}
+                    >
+                      {triggerRisk.isPending
+                        ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                      Force Refresh
+                    </Button>
+                  </div>
+                </div>
                 {riskLoading ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
                 ) : riskPredictions && riskPredictions.length > 0 ? (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                      <Info className="h-3.5 w-3.5" />
-                      Delphi-2M disease risk predictions — auto-generated on diagnosis entry
-                    </div>
                     {riskPredictions
                       .slice()
                       .sort((a: any, b: any) => {
