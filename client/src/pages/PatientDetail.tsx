@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { format } from "date-fns";
+import BiomarkerTrendChart from "@/components/BiomarkerTrendChart";
 
 export default function PatientDetail() {
   const { user } = useAuth();
@@ -354,7 +355,7 @@ export default function PatientDetail() {
           {/* Right Column: Clinical Data */}
           <div className="lg:col-span-2 space-y-6">
             <Tabs defaultValue="encounters" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="encounters">
                   <FileText className="h-4 w-4 mr-1" />
                   Encounters
@@ -375,6 +376,10 @@ export default function PatientDetail() {
                       {pendingRecs.length}
                     </span>
                   )}
+                </TabsTrigger>
+                <TabsTrigger value="biomarkers">
+                  <Activity className="h-4 w-4 mr-1" />
+                  Biomarkers
                 </TabsTrigger>
                 <TabsTrigger value="risk">
                   <ShieldAlert className="h-4 w-4 mr-1" />
@@ -849,12 +854,16 @@ export default function PatientDetail() {
                     </CardContent>
                   </Card>
                 )}
+               </TabsContent>
+
+              {/* Biomarker Trends Tab */}
+              <TabsContent value="biomarkers" className="space-y-4">
+                <BiomarkerTrendChart patientId={Number(patientId)} />
               </TabsContent>
             </Tabs>
           </div>
         </div>
       </div>
-
       {/* Recommendation Feedback Dialog */}
       <Dialog open={feedbackDialog.open} onOpenChange={(open) => !open && setFeedbackDialog(d => ({ ...d, open: false }))}>
         <DialogContent>

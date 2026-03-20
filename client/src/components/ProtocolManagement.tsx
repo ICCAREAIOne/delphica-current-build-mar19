@@ -45,7 +45,7 @@ export function ProtocolManagement({ userId, userName }: ProtocolManagementProps
       } else {
         toast({
           title: 'Failed to Send Protocol',
-          description: result.error || 'An error occurred while sending the protocol',
+          description: result.emailError || 'An error occurred while sending the protocol',
           variant: 'destructive',
         });
       }

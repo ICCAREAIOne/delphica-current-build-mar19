@@ -1190,3 +1190,8 @@
 - [x] Recommendation accept/reject/modify UI on care plan page
 - [x] Patient risk prediction dashboard (Delphi-2M panel with riskLevel badges + rationale)
 - [x] Re-run Delphi-2M button on PatientDetail Risk tab (Run + Force Refresh)
+
+## New Features (Mar 19 2026)
+- [ ] Email delivery: add EMAIL_USER and EMAIL_PASS secrets, activate protocol PDF email path
+- [x] Biomarker trending chart: HbA1c/BP/weight over time per patient (Enhanced DAO data)
+- [x] Delphi Simulator patient-facing what-if view: expose scenario results in patient portal

@@ -26,6 +26,8 @@ import { Streamdown } from "streamdown";
 import UnstructuredLabUpload from "@/components/UnstructuredLabUpload";
 import BatchLabUpload from "@/components/BatchLabUpload";
 import LabTrendChart from "@/components/LabTrendChart";
+import BiomarkerTrendChart from "@/components/BiomarkerTrendChart";
+import DelphiWhatIf from "@/components/DelphiWhatIf";
 
 export default function PatientPortal() {
   const { user } = useAuth();
@@ -168,11 +170,13 @@ export default function PatientPortal() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="checkin">Check-in</TabsTrigger>
           <TabsTrigger value="labs">Lab Results</TabsTrigger>
           <TabsTrigger value="progress">Progress</TabsTrigger>
+          <TabsTrigger value="biomarkers">Biomarkers</TabsTrigger>
+          <TabsTrigger value="whatif">What-If</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -605,6 +609,16 @@ export default function PatientPortal() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* Biomarker Trends Tab */}
+        <TabsContent value="biomarkers" className="space-y-6">
+          <BiomarkerTrendChart patientId={user?.id || 0} />
+        </TabsContent>
+
+        {/* What-If Scenarios Tab */}
+        <TabsContent value="whatif" className="space-y-6">
+          <DelphiWhatIf patientId={user?.id || 0} />
         </TabsContent>
       </Tabs>
     </div>
