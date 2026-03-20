@@ -481,11 +481,15 @@ Your plans must be:
 4. Evidence-based with clear rationale
 5. Ready for Digital Review Board safety verification`;
 
+  const insuranceContext = (request.patientContext as any).insuranceBenefits
+    ? `\nInsurance Coverage:\n- Primary Insurer: ${(request.patientContext as any).insuranceBenefits.primaryInsurer ?? 'Unknown'}\n- Plan Type: ${(request.patientContext as any).insuranceBenefits.planType ?? 'Unknown'}${(request.patientContext as any).insuranceBenefits.benefitsSummary ? `\n- Benefits Summary: ${JSON.stringify((request.patientContext as any).insuranceBenefits.benefitsSummary)}` : ''}\nIMPORTANT: Flag any recommended treatments that may require prior authorization, are typically excluded from this plan type, or have significant out-of-pocket costs. Where clinically appropriate, suggest covered alternatives.`
+    : '';
+
   const userPrompt = `Patient Context:
 - Age: ${request.patientContext.age}
 - Gender: ${request.patientContext.gender}
 ${request.patientContext.allergies?.length ? `- Allergies: ${request.patientContext.allergies.join(", ")}` : ""}
-${request.patientContext.chronicConditions?.length ? `- Chronic Conditions: ${request.patientContext.chronicConditions.join(", ")}` : ""}
+${request.patientContext.chronicConditions?.length ? `- Chronic Conditions: ${request.patientContext.chronicConditions.join(", ")}` : ""}${insuranceContext}
 
 Causal Brain's Optimal Treatment: ${request.validatedTreatment.optimalChoice}
 
@@ -493,7 +497,7 @@ Optimization Rationale: ${request.validatedTreatment.optimizationRationale}
 
 Causal Analysis Summary: ${request.causalAnalysis.patientSummary}
 
-Generate a comprehensive, personalized precision care plan.`;
+Generate a comprehensive, personalized precision care plan optimized for both clinical outcomes and insurance coverage.`;
 
   const response = await invokeLLM({
     messages: [

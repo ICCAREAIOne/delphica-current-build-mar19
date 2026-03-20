@@ -258,7 +258,7 @@ export default function ConsultationRoom() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">Patient:</span>
                       <p className="font-medium">{patientCase.name}</p>
@@ -289,7 +289,7 @@ export default function ConsultationRoom() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <h4 className="font-medium mb-2 text-sm">Current Medications</h4>
                       <ul className="text-sm text-muted-foreground space-y-1">

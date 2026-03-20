@@ -28,6 +28,7 @@ import BatchLabUpload from "@/components/BatchLabUpload";
 import LabTrendChart from "@/components/LabTrendChart";
 import BiomarkerTrendChart from "@/components/BiomarkerTrendChart";
 import DelphiWhatIf from "@/components/DelphiWhatIf";
+import PatientWhatIfRequest from "@/components/PatientWhatIfRequest";
 
 export default function PatientPortal() {
   const { user } = useAuth();
@@ -170,7 +171,7 @@ export default function PatientPortal() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="flex overflow-x-auto gap-1 w-full">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="checkin">Check-in</TabsTrigger>
           <TabsTrigger value="labs">Lab Results</TabsTrigger>
@@ -618,7 +619,18 @@ export default function PatientPortal() {
 
         {/* What-If Scenarios Tab */}
         <TabsContent value="whatif" className="space-y-6">
-          <DelphiWhatIf patientId={user?.id || 0} />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Request an Analysis</h3>
+              <p className="text-sm text-muted-foreground mb-4">Ask your care team to run a what-if simulation for your concern.</p>
+              <PatientWhatIfRequest patientId={user?.id || 0} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Your What-If Scenarios</h3>
+              <p className="text-sm text-muted-foreground mb-4">AI-generated treatment comparisons your physician has run for you.</p>
+              <DelphiWhatIf patientId={user?.id || 0} />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

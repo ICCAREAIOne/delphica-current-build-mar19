@@ -257,7 +257,7 @@ export default function ClinicalLibrary() {
 
         {/* Tabs */}
         <Tabs defaultValue="all" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="flex flex-wrap sm:grid sm:grid-cols-4 w-full gap-1">
             <TabsTrigger value="all">All Protocols ({protocols.length})</TabsTrigger>
             <TabsTrigger value="favorites">Favorites ({favoriteProtocols.length})</TabsTrigger>
             <TabsTrigger value="recent">Recently Viewed</TabsTrigger>

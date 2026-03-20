@@ -15,6 +15,7 @@ import { patientAvatarService } from "./patientAvatarService";
 import { labParsingService } from "./labParsingService";
 import { storagePut } from "./storage";
 import { invokeLLM } from "./_core/llm";
+import { notifyOwner } from "./_core/notification";
 
 export const appRouter = router({
   system: systemRouter,
@@ -174,14 +175,32 @@ export const appRouter = router({
         gender: z.enum(["male", "female", "other", "unknown"]),
         email: z.string().email().optional(),
         phone: z.string().optional(),
+        phoneMobile: z.string().optional(),
+        phoneHome: z.string().optional(),
+        phoneOffice: z.string().optional(),
+        preferredPhone: z.enum(["mobile", "home", "office"]).optional(),
         address: z.string().optional(),
         allergies: z.array(z.string()).optional(),
         chronicConditions: z.array(z.string()).optional(),
         currentMedications: z.array(z.string()).optional(),
         assignedPhysicianId: z.number().optional(),
+        // Insurance
+        insurancePrimary: z.string().optional(),
+        insurancePrimaryPolicyNumber: z.string().optional(),
+        insurancePrimaryGroupNumber: z.string().optional(),
+        insurancePrimaryMemberId: z.string().optional(),
+        insurancePrimaryPhone: z.string().optional(),
+        insurancePrimaryPlanType: z.string().optional(),
+        insurancePrimaryEffectiveDate: z.string().optional(),
+        insurancePrimaryExpiryDate: z.string().optional(),
+        insuranceSecondary: z.string().optional(),
+        insuranceSecondaryPolicyNumber: z.string().optional(),
+        insuranceSecondaryGroupNumber: z.string().optional(),
+        insurancePdfUrl: z.string().optional(),
+        insuranceBenefitsSummary: z.record(z.string(), z.any()).optional(),
       }))
       .mutation(async ({ input }) => {
-        const id = await db.createPatient(input);
+        const id = await db.createPatient(input as any);
         return { id, success: true };
       }),
 
@@ -193,16 +212,132 @@ export const appRouter = router({
           lastName: z.string().optional(),
           email: z.string().email().optional(),
           phone: z.string().optional(),
+          phoneMobile: z.string().optional(),
+          phoneHome: z.string().optional(),
+          phoneOffice: z.string().optional(),
+          preferredPhone: z.enum(["mobile", "home", "office"]).optional(),
           address: z.string().optional(),
           allergies: z.array(z.string()).optional(),
           chronicConditions: z.array(z.string()).optional(),
           currentMedications: z.array(z.string()).optional(),
           status: z.enum(["active", "inactive", "discharged"]).optional(),
+          insurancePrimary: z.string().optional(),
+          insurancePrimaryPolicyNumber: z.string().optional(),
+          insurancePrimaryGroupNumber: z.string().optional(),
+          insurancePrimaryMemberId: z.string().optional(),
+          insurancePrimaryPhone: z.string().optional(),
+          insurancePrimaryPlanType: z.string().optional(),
+          insurancePrimaryEffectiveDate: z.string().optional(),
+          insurancePrimaryExpiryDate: z.string().optional(),
+          insuranceSecondary: z.string().optional(),
+          insuranceSecondaryPolicyNumber: z.string().optional(),
+          insuranceSecondaryGroupNumber: z.string().optional(),
+          insurancePdfUrl: z.string().optional(),
+          insuranceBenefitsSummary: z.record(z.string(), z.any()).optional(),
         }),
       }))
       .mutation(async ({ input }) => {
-        await db.updatePatient(input.id, input.updates);
+        await db.updatePatient(input.id, input.updates as any);
         return { success: true };
+      }),
+
+    getExpiringInsurance: protectedProcedure
+      .input(z.object({ daysAhead: z.number().default(30) }).optional())
+      .query(async ({ input }) => {
+        const days = input?.daysAhead ?? 30;
+        const allPatients = await db.getAllPatients();
+        const now = new Date();
+        const cutoff = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+        return allPatients
+          .filter((p: any) => {
+            if (!p.insurancePrimaryExpiryDate) return false;
+            const expiry = new Date(p.insurancePrimaryExpiryDate);
+            return expiry <= cutoff;
+          })
+          .map((p: any) => ({
+            id: p.id,
+            name: [p.firstName, p.lastName].filter(Boolean).join(' '),
+            insurer: p.insurancePrimary || 'Unknown',
+            expiryDate: p.insurancePrimaryExpiryDate,
+            daysUntilExpiry: Math.ceil((new Date(p.insurancePrimaryExpiryDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+          }));
+      }),
+
+    parseInsurancePdf: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        pdfUrl: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Use LLM to extract structured benefits data from the insurance PDF URL
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: 'system',
+              content: `You are a medical insurance benefits analyst. Extract structured insurance information from the provided document. Return JSON only.`,
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'file_url',
+                  file_url: { url: input.pdfUrl, mime_type: 'application/pdf' },
+                },
+                {
+                  type: 'text',
+                  text: 'Extract all insurance benefit details from this document. Include: insurer name, plan type, policy number, group number, member ID, deductible (individual/family), out-of-pocket max, copays (PCP, specialist, ER, urgent care), coinsurance, covered services, prior authorization requirements, network info, and any notable exclusions.',
+                },
+              ],
+            },
+          ],
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'insurance_benefits',
+              strict: true,
+              schema: {
+                type: 'object',
+                properties: {
+                  insurerName: { type: 'string' },
+                  planType: { type: 'string' },
+                  policyNumber: { type: 'string' },
+                  groupNumber: { type: 'string' },
+                  memberId: { type: 'string' },
+                  deductibleIndividual: { type: 'string' },
+                  deductibleFamily: { type: 'string' },
+                  outOfPocketMaxIndividual: { type: 'string' },
+                  outOfPocketMaxFamily: { type: 'string' },
+                  copayPCP: { type: 'string' },
+                  copaySpecialist: { type: 'string' },
+                  copayER: { type: 'string' },
+                  copayUrgentCare: { type: 'string' },
+                  coinsurance: { type: 'string' },
+                  coveredServices: { type: 'array', items: { type: 'string' } },
+                  priorAuthRequired: { type: 'array', items: { type: 'string' } },
+                  networkInfo: { type: 'string' },
+                  exclusions: { type: 'array', items: { type: 'string' } },
+                  effectiveDate: { type: 'string' },
+                  notes: { type: 'string' },
+                },
+                required: ['insurerName', 'planType', 'policyNumber', 'groupNumber', 'memberId', 'deductibleIndividual', 'deductibleFamily', 'outOfPocketMaxIndividual', 'outOfPocketMaxFamily', 'copayPCP', 'copaySpecialist', 'copayER', 'copayUrgentCare', 'coinsurance', 'coveredServices', 'priorAuthRequired', 'networkInfo', 'exclusions', 'effectiveDate', 'notes'],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+        const raw = response.choices[0]?.message?.content || '{}';
+        const benefits = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        // Save PDF URL and parsed benefits to patient record
+        await db.updatePatient(input.patientId, {
+          insurancePdfUrl: input.pdfUrl,
+          insuranceBenefitsSummary: benefits,
+          ...(benefits.insurerName ? { insurancePrimary: benefits.insurerName } : {}),
+          ...(benefits.policyNumber ? { insurancePrimaryPolicyNumber: benefits.policyNumber } : {}),
+          ...(benefits.groupNumber ? { insurancePrimaryGroupNumber: benefits.groupNumber } : {}),
+          ...(benefits.memberId ? { insurancePrimaryMemberId: benefits.memberId } : {}),
+          ...(benefits.planType ? { insurancePrimaryPlanType: benefits.planType } : {}),
+        });
+        return { success: true, benefits };
       }),
 
     stats: protectedProcedure
@@ -419,8 +554,62 @@ export const appRouter = router({
         await db.markInsightReviewed(input.id, new Date());
         return { success: true };
       }),
+   }),
+  // ============ Prior Authorization ============
+  priorAuth: router({
+    generate: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        requestedTreatment: z.string(),
+        diagnosisCode: z.string().optional(),
+        diagnosisDescription: z.string().optional(),
+        clinicalJustification: z.string().optional(),
+        alternativesTried: z.array(z.string()).optional(),
+        urgency: z.enum(['routine', 'urgent', 'emergent']).default('routine'),
+        physicianNpi: z.string().optional(),
+        physicianPhone: z.string().optional(),
+        physicianFax: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const patient = await db.getPatientById(input.patientId);
+        if (!patient) throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+        const physician = await db.getUserById(ctx.user.id);
+        const benefits = patient.insuranceBenefitsSummary as Record<string, any> | null;
+        const priorAuthRequired: string[] = [];
+        if (benefits) {
+          const paField = benefits.priorAuthorizationRequired || benefits.priorAuth || benefits.prior_auth;
+          if (paField) priorAuthRequired.push(String(paField));
+          const specialtyField = benefits.specialtyDrugPriorAuth || benefits.specialtyPriorAuth;
+          if (specialtyField) priorAuthRequired.push('Specialty drugs: ' + String(specialtyField));
+        }
+        const { generatePriorAuthPDF } = await import('./pdfService');
+        const pdfBuffer = await generatePriorAuthPDF({
+          patientName: [patient.firstName, patient.lastName].filter(Boolean).join(' ') || 'Unknown',
+          patientDob: patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString('en-US') : 'Not on file',
+          patientMemberId: patient.insurancePrimaryMemberId || '',
+          patientPolicyNumber: patient.insurancePrimaryPolicyNumber || '',
+          patientGroupNumber: patient.insurancePrimaryGroupNumber || '',
+          insurerName: patient.insurancePrimary || '',
+          insurerPhone: patient.insurancePrimaryPhone || '',
+          planType: patient.insurancePrimaryPlanType || '',
+          requestedTreatment: input.requestedTreatment,
+          diagnosisCode: input.diagnosisCode || '',
+          diagnosisDescription: input.diagnosisDescription || '',
+          clinicalJustification: input.clinicalJustification || '',
+          alternativesTried: input.alternativesTried || [],
+          requestingPhysicianName: physician?.name || ctx.user.name || 'Physician',
+          requestingPhysicianNpi: input.physicianNpi,
+          requestingPhysicianPhone: input.physicianPhone,
+          requestingPhysicianFax: input.physicianFax,
+          requestDate: new Date(),
+          urgency: input.urgency,
+          priorAuthRequired,
+        });
+        const fileKey = `prior-auth/${input.patientId}-${Date.now()}.pdf`;
+        const { url } = await storagePut(fileKey, pdfBuffer, 'application/pdf');
+        return { pdfUrl: url, success: true };
+      }),
   }),
-
   // ============ Precision Care Plans ============
   carePlans: router({
     listByPatient: protectedProcedure
@@ -674,6 +863,14 @@ export const appRouter = router({
           allergies: (patient.allergies as string[]) || [],
           chronicConditions: (patient.chronicConditions as string[]) || [],
           currentMedications: (patient.currentMedications as string[]) || [],
+          // Insurance context for coverage-aware care planning
+          ...(patient.insurancePrimary ? {
+            insuranceBenefits: {
+              primaryInsurer: patient.insurancePrimary,
+              planType: patient.insurancePrimaryPlanType ?? undefined,
+              benefitsSummary: (patient.insuranceBenefitsSummary as Record<string, any>) ?? undefined,
+            }
+          } : {}),
         };
         // Minimal CausalAnalysisResult — enriched by orchestrator's LLM calls
         const causalAnalysis = {
@@ -1622,6 +1819,60 @@ export const appRouter = router({
       }))
       .query(async ({ input }) => {
         return await db.getPatientProgressMetrics(input.patientId, input.carePlanId);
+      }),
+
+    // Patient-initiated What-If Analysis Request
+    requestWhatIfAnalysis: protectedProcedure
+      .input(z.object({
+        patientId: z.number(),
+        chiefConcern: z.string().min(10, 'Please describe your concern in at least 10 characters'),
+        symptoms: z.array(z.string()).optional(),
+        urgency: z.enum(['routine', 'soon', 'urgent']).default('routine'),
+        additionalContext: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const requestText = [
+          `PATIENT WHAT-IF REQUEST`,
+          `Chief Concern: ${input.chiefConcern}`,
+          input.symptoms?.length ? `Symptoms: ${input.symptoms.join(', ')}` : null,
+          `Urgency: ${input.urgency}`,
+          input.additionalContext ? `Additional Context: ${input.additionalContext}` : null,
+        ].filter(Boolean).join('\n');
+
+        // Attach to most recent session as a comment
+        const sessions = await db.getPatientEncounters(input.patientId);
+        const latestSession = sessions?.[0];
+        if (latestSession) {
+          await db.addSessionComment({
+            sessionId: latestSession.id,
+            physicianId: ctx.user.id,
+            commentText: `[Patient Request from ${ctx.user.name || 'Patient'}]\n${requestText}`,
+            commentType: 'patient_request',
+          });
+        }
+
+        // Notify physician
+        try {
+          await notifyOwner({
+            title: `What-If Analysis Requested`,
+            content: `Patient ID ${input.patientId} has requested a what-if analysis.\n\n${requestText}`,
+          });
+        } catch (_e) { /* non-blocking */ }
+
+        return {
+          success: true,
+          message: 'Your request has been sent to your care team. A physician will review and run the analysis.',
+        };
+      }),
+
+    // Get patient what-if requests
+    getWhatIfRequests: protectedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .query(async ({ input }) => {
+        const sessions = await db.getPatientEncounters(input.patientId);
+        if (!sessions?.length) return [];
+        const comments = await db.getSessionComments(sessions[0].id);
+        return (comments || []).filter((c: any) => c.commentType === 'patient_request');
       }),
   }),
 

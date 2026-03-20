@@ -96,7 +96,7 @@ export default function OutcomeAnalytics() {
           <p className="text-sm text-slate-500 mt-0.5">Live data from risk predictions, treatment recommendations, and policy learning engine</p>
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <StatCard label="Total Risk Predictions" value={allPredictions?.length ?? 0}
             sub={`${riskStats?.highRiskCount ?? 0} high-risk`}
             icon={<Brain className="h-5 w-5 text-blue-600" />} color="bg-blue-50" loading={isLoading} />
@@ -111,7 +111,7 @@ export default function OutcomeAnalytics() {
             icon={<TrendingUp className="h-5 w-5 text-amber-600" />} color="bg-amber-50" loading={isLoading} />
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <Card className="border border-slate-200 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -162,7 +162,7 @@ export default function OutcomeAnalytics() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <Card className="border border-slate-200 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -263,7 +263,7 @@ export default function OutcomeAnalytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
                   { label: "Total", value: outcomeMetrics.totalOutcomes, color: "text-slate-700" },
                   { label: "Successful", value: outcomeMetrics.successful, color: "text-emerald-600" },

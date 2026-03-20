@@ -36,8 +36,26 @@ export const patients = mysqlTable("patients", {
   dateOfBirth: timestamp("dateOfBirth").notNull(),
   gender: mysqlEnum("gender", ["male", "female", "other", "unknown"]).notNull(),
   email: varchar("email", { length: 320 }),
-  phone: varchar("phone", { length: 32 }),
+  phone: varchar("phone", { length: 32 }), // legacy / primary phone (kept for backward compat)
+  phoneMobile: varchar("phoneMobile", { length: 32 }),
+  phoneHome: varchar("phoneHome", { length: 32 }),
+  phoneOffice: varchar("phoneOffice", { length: 32 }),
+  preferredPhone: mysqlEnum("preferredPhone", ["mobile", "home", "office"]).default("mobile"),
   address: text("address"),
+  // Insurance
+  insurancePrimary: varchar("insurancePrimary", { length: 255 }),
+  insurancePrimaryPolicyNumber: varchar("insurancePrimaryPolicyNumber", { length: 128 }),
+  insurancePrimaryGroupNumber: varchar("insurancePrimaryGroupNumber", { length: 128 }),
+  insurancePrimaryMemberId: varchar("insurancePrimaryMemberId", { length: 128 }),
+  insurancePrimaryPhone: varchar("insurancePrimaryPhone", { length: 32 }),
+  insurancePrimaryPlanType: varchar("insurancePrimaryPlanType", { length: 64 }),
+  insurancePrimaryEffectiveDate: date("insurancePrimaryEffectiveDate"),
+  insurancePrimaryExpiryDate: date("insurancePrimaryExpiryDate"),
+  insuranceSecondary: varchar("insuranceSecondary", { length: 255 }),
+  insuranceSecondaryPolicyNumber: varchar("insuranceSecondaryPolicyNumber", { length: 128 }),
+  insuranceSecondaryGroupNumber: varchar("insuranceSecondaryGroupNumber", { length: 128 }),
+  insurancePdfUrl: varchar("insurancePdfUrl", { length: 512 }), // S3 URL of uploaded insurance card/policy PDF
+  insuranceBenefitsSummary: json("insuranceBenefitsSummary").$type<Record<string, any>>(), // AI-parsed benefits data
   allergies: json("allergies").$type<string[]>(), // Array of allergy descriptions
   chronicConditions: json("chronicConditions").$type<string[]>(), // Array of chronic conditions
   currentMedications: json("currentMedications").$type<string[]>(), // Array of current medications
@@ -1601,7 +1619,7 @@ export const sessionComments = mysqlTable("session_comments", {
   sessionId: int("sessionId").notNull().references(() => clinicalSessions.id),
   physicianId: int("physicianId").notNull().references(() => users.id),
   commentText: text("commentText").notNull(),
-  commentType: mysqlEnum("commentType", ["general", "diagnosis", "treatment", "recommendation"]).default("general").notNull(),
+  commentType: mysqlEnum("commentType", ["general", "diagnosis", "treatment", "recommendation", "patient_request"]).default("general").notNull(),
   replyToId: int("replyToId"), // For threaded comments
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

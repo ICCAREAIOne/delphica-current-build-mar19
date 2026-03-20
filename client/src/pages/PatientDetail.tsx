@@ -36,11 +36,300 @@ import {
   Info,
   Play,
   Zap,
-  RefreshCw
+  RefreshCw,
+  CreditCard,
+  Building2,
+  Save,
+  Pencil
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link, useParams } from "wouter";
+import { useEffect } from "react";
 import { format } from "date-fns";
 import BiomarkerTrendChart from "@/components/BiomarkerTrendChart";
+import BiomarkerQuickEntry from "@/components/BiomarkerQuickEntry";
+
+// ─── Insurance Tab Sub-component ───────────────────────────────────────────
+function InsuranceTab({ patient }: { patient: any }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+  const [editing, setEditing] = useState(false);
+  const [paDialog, setPaDialog] = useState(false);
+  const [paForm, setPaForm] = useState({
+    requestedTreatment: '',
+    diagnosisCode: '',
+    diagnosisDescription: '',
+    clinicalJustification: '',
+    alternativesTried: '',
+    urgency: 'routine' as 'routine' | 'urgent' | 'emergent',
+    physicianNpi: '',
+    physicianPhone: '',
+    physicianFax: '',
+  });
+
+  const generatePriorAuth = trpc.priorAuth.generate.useMutation({
+    onSuccess: (data) => {
+      toast({ title: 'Prior Auth PDF Generated', description: 'Opening PDF in new tab.' });
+      window.open(data.pdfUrl, '_blank');
+      setPaDialog(false);
+    },
+    onError: (err) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
+  });
+  const [form, setForm] = useState({
+    insurancePrimary: patient.insurancePrimary ?? '',
+    insurancePrimaryPlanType: patient.insurancePrimaryPlanType ?? '',
+    insurancePrimaryMemberId: patient.insurancePrimaryMemberId ?? '',
+    insurancePrimaryPolicyNumber: patient.insurancePrimaryPolicyNumber ?? '',
+    insurancePrimaryGroupNumber: patient.insurancePrimaryGroupNumber ?? '',
+    insurancePrimaryPhone: patient.insurancePrimaryPhone ?? '',
+    insuranceSecondary: patient.insuranceSecondary ?? '',
+    insuranceSecondaryPolicyNumber: patient.insuranceSecondaryPolicyNumber ?? '',
+    insuranceSecondaryGroupNumber: patient.insuranceSecondaryGroupNumber ?? '',
+  });
+
+  const updatePatient = trpc.patients.update.useMutation({
+    onSuccess: () => {
+      toast({ title: 'Insurance updated', description: 'Coverage details saved.' });
+      utils.patients.getWithHistory.invalidate({ patientId: patient.id });
+      setEditing(false);
+    },
+    onError: (err) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
+  });
+
+  const benefits = patient.insuranceBenefitsSummary as Record<string, any> | null;
+
+  const Field = ({ label, value, field }: { label: string; value: string; field: string }) => (
+    <div>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      {editing ? (
+        <Input
+          value={(form as any)[field]}
+          onChange={(e) => setForm(f => ({ ...f, [field]: e.target.value }))}
+          className="h-8 text-sm"
+        />
+      ) : (
+        <p className="text-sm font-medium">{value || <span className="text-muted-foreground italic">Not set</span>}</p>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Primary Insurance */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Primary Insurance
+            </CardTitle>
+            <div className="flex gap-2">
+              {editing ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+                  <Button
+                    size="sm"
+                    onClick={() => updatePatient.mutate({ id: patient.id, updates: form })}
+                    disabled={updatePatient.isPending}
+                  >
+                    {updatePatient.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                    Save
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  Edit
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Field label="Insurance Company" value={patient.insurancePrimary} field="insurancePrimary" />
+            <Field label="Plan Type" value={patient.insurancePrimaryPlanType} field="insurancePrimaryPlanType" />
+            <Field label="Member ID" value={patient.insurancePrimaryMemberId} field="insurancePrimaryMemberId" />
+            <Field label="Policy Number" value={patient.insurancePrimaryPolicyNumber} field="insurancePrimaryPolicyNumber" />
+            <Field label="Group Number" value={patient.insurancePrimaryGroupNumber} field="insurancePrimaryGroupNumber" />
+            <Field label="Insurer Phone" value={patient.insurancePrimaryPhone} field="insurancePrimaryPhone" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Secondary Insurance */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Secondary Insurance
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {patient.insuranceSecondary ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Field label="Insurance Company" value={patient.insuranceSecondary} field="insuranceSecondary" />
+              <Field label="Policy Number" value={patient.insuranceSecondaryPolicyNumber} field="insuranceSecondaryPolicyNumber" />
+              <Field label="Group Number" value={patient.insuranceSecondaryGroupNumber} field="insuranceSecondaryGroupNumber" />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No secondary insurance on file</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* AI-Extracted Benefits Summary */}
+      {benefits && Object.keys(benefits).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-500" />
+              AI-Extracted Benefits Summary
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Extracted from uploaded insurance document</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Object.entries(benefits).map(([key, val]) => (
+                <div key={key} className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground capitalize mb-1">
+                    {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim()}
+                  </p>
+                  <p className="text-sm font-medium">{String(val)}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Prior Authorization */}
+      {patient.insurancePrimary && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4 text-orange-500" />
+                Prior Authorization
+              </CardTitle>
+              <Button size="sm" onClick={() => setPaDialog(true)} className="bg-orange-600 hover:bg-orange-700 text-white">
+                <FileText className="h-3.5 w-3.5 mr-1" />
+                Request Prior Auth
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Generate a pre-filled prior authorization PDF using patient insurance and benefits data</p>
+          </CardHeader>
+        </Card>
+      )}
+
+      {!patient.insurancePrimary && !benefits && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <CreditCard className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Insurance on File</h3>
+            <p className="text-sm text-muted-foreground mb-4">Insurance details can be added during patient registration or by clicking Edit above.</p>
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Add Insurance
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Prior Auth Dialog */}
+      <Dialog open={paDialog} onOpenChange={setPaDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-orange-500" />
+              Prior Authorization Request
+            </DialogTitle>
+            <DialogDescription>
+              Fill in the treatment details. Insurance information will be auto-populated from the patient record.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-sm font-medium">Requested Treatment / Procedure *</Label>
+              <Input
+                value={paForm.requestedTreatment}
+                onChange={(e) => setPaForm(f => ({ ...f, requestedTreatment: e.target.value }))}
+                placeholder="e.g., MRI Brain with contrast, Adalimumab 40mg"
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm font-medium">ICD-10 Code</Label>
+                <Input value={paForm.diagnosisCode} onChange={(e) => setPaForm(f => ({ ...f, diagnosisCode: e.target.value }))} placeholder="e.g., M54.5" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Urgency</Label>
+                <Select value={paForm.urgency} onValueChange={(v) => setPaForm(f => ({ ...f, urgency: v as any }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="routine">Routine</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="emergent">Emergent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Diagnosis Description</Label>
+              <Input value={paForm.diagnosisDescription} onChange={(e) => setPaForm(f => ({ ...f, diagnosisDescription: e.target.value }))} placeholder="e.g., Low back pain, chronic" className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Clinical Justification</Label>
+              <Textarea value={paForm.clinicalJustification} onChange={(e) => setPaForm(f => ({ ...f, clinicalJustification: e.target.value }))} placeholder="Clinical rationale for this treatment..." rows={3} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Alternatives Tried (one per line)</Label>
+              <Textarea value={paForm.alternativesTried} onChange={(e) => setPaForm(f => ({ ...f, alternativesTried: e.target.value }))} placeholder="Ibuprofen 600mg — inadequate response&#10;Physical therapy x 6 weeks — no improvement" rows={3} className="mt-1" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-sm font-medium">Physician NPI</Label>
+                <Input value={paForm.physicianNpi} onChange={(e) => setPaForm(f => ({ ...f, physicianNpi: e.target.value }))} placeholder="1234567890" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Physician Phone</Label>
+                <Input value={paForm.physicianPhone} onChange={(e) => setPaForm(f => ({ ...f, physicianPhone: e.target.value }))} placeholder="(555) 000-0000" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Physician Fax</Label>
+                <Input value={paForm.physicianFax} onChange={(e) => setPaForm(f => ({ ...f, physicianFax: e.target.value }))} placeholder="(555) 000-0001" className="mt-1" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => generatePriorAuth.mutate({
+                patientId: patient.id,
+                requestedTreatment: paForm.requestedTreatment,
+                diagnosisCode: paForm.diagnosisCode || undefined,
+                diagnosisDescription: paForm.diagnosisDescription || undefined,
+                clinicalJustification: paForm.clinicalJustification || undefined,
+                alternativesTried: paForm.alternativesTried ? paForm.alternativesTried.split('\n').filter(Boolean) : [],
+                urgency: paForm.urgency,
+                physicianNpi: paForm.physicianNpi || undefined,
+                physicianPhone: paForm.physicianPhone || undefined,
+                physicianFax: paForm.physicianFax || undefined,
+              })}
+              disabled={!paForm.requestedTreatment || generatePriorAuth.isPending}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {generatePriorAuth.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+              Generate PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 export default function PatientDetail() {
   const { user } = useAuth();
@@ -189,7 +478,7 @@ export default function PatientDetail() {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <Link href="/">
                 <Button variant="outline" size="icon">
@@ -197,15 +486,15 @@ export default function PatientDetail() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold text-foreground">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
                   {patient.firstName} {patient.lastName}
                 </h1>
-                <p className="text-muted-foreground mt-1">
-                  MRN: {patient.mrn} • {age} years old • {patient.gender}
+                <p className="text-muted-foreground mt-1 text-sm">
+                  MRN: {patient.mrn} • {age} yrs • {patient.gender}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {highRiskPredictions.length > 0 && (
                 <Badge className="bg-red-600 text-white gap-1">
                   <ShieldAlert className="h-3 w-3" />
@@ -355,7 +644,7 @@ export default function PatientDetail() {
           {/* Right Column: Clinical Data */}
           <div className="lg:col-span-2 space-y-6">
             <Tabs defaultValue="encounters" className="w-full">
-              <TabsList className="grid w-full grid-cols-6">
+              <TabsList className="flex overflow-x-auto gap-1 w-full">
                 <TabsTrigger value="encounters">
                   <FileText className="h-4 w-4 mr-1" />
                   Encounters
@@ -380,6 +669,10 @@ export default function PatientDetail() {
                 <TabsTrigger value="biomarkers">
                   <Activity className="h-4 w-4 mr-1" />
                   Biomarkers
+                </TabsTrigger>
+                <TabsTrigger value="insurance">
+                  <CreditCard className="h-4 w-4 mr-1" />
+                  Insurance
                 </TabsTrigger>
                 <TabsTrigger value="risk">
                   <ShieldAlert className="h-4 w-4 mr-1" />
@@ -474,7 +767,7 @@ export default function PatientDetail() {
                             <p className="text-xs text-muted-foreground mb-3">
                               {format(new Date(vital.recordedAt), "MMM d, yyyy 'at' h:mm a")}
                             </p>
-                            <div className="grid grid-cols-3 gap-3 text-sm">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                               {vital.bloodPressureSystolic && (
                                 <div>
                                   <p className="text-xs text-muted-foreground">BP</p>
@@ -856,8 +1149,20 @@ export default function PatientDetail() {
                 )}
                </TabsContent>
 
+              {/* Insurance Tab */}
+              <TabsContent value="insurance" className="space-y-4">
+                <InsuranceTab patient={patient} />
+              </TabsContent>
+
               {/* Biomarker Trends Tab */}
               <TabsContent value="biomarkers" className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">Biomarker Trends</h3>
+                    <p className="text-sm text-muted-foreground">Log and track longitudinal biomarker readings</p>
+                  </div>
+                  <BiomarkerQuickEntry patientId={Number(patientId)} />
+                </div>
                 <BiomarkerTrendChart patientId={Number(patientId)} />
               </TabsContent>
             </Tabs>

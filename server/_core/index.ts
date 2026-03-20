@@ -9,6 +9,8 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { scheduleIcd10Refresh } from "../icd10Refresh";
 import { scheduleCptRefresh } from "../cptRefresh";
+import multer from "multer";
+import { storagePut } from "../storage";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -42,6 +44,21 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Insurance PDF / image upload endpoint (multipart)
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 16 * 1024 * 1024 } });
+  app.post("/api/upload-insurance-pdf", upload.single("file"), async (req: any, res: any) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
+      const ext = req.file.originalname.split(".").pop() || "pdf";
+      const key = `insurance-docs/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { url } = await storagePut(key, req.file.buffer, req.file.mimetype);
+      return res.json({ url, key, filename: req.file.originalname });
+    } catch (err: any) {
+      console.error("[upload-insurance-pdf]", err.message);
+      return res.status(500).json({ error: "Upload failed" });
+    }
+  });
+
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // tRPC API

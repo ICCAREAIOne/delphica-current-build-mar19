@@ -324,7 +324,7 @@ function DetailChart({ patientId, biomarkerType }: { patientId: number; biomarke
           />
         </LineChart>
       </ResponsiveContainer>
-      <div className="grid grid-cols-3 gap-4 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
         <div className="border rounded p-3 text-center">
           <p className="text-muted-foreground text-xs">Latest</p>
           <p className="font-bold text-lg">{chartData[chartData.length - 1]?.value}</p>

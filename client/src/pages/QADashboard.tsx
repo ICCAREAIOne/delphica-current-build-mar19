@@ -215,7 +215,7 @@ export default function QADashboard() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="suggestions" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="flex flex-wrap sm:grid sm:grid-cols-4 w-full gap-1">
             <TabsTrigger value="suggestions">
               <Lightbulb className="h-4 w-4 mr-2" />
               Suggestions

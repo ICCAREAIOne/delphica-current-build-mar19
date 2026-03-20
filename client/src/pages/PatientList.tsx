@@ -19,6 +19,7 @@ import {
   SortAsc,
   SortDesc,
   Filter,
+  Phone,
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
@@ -196,7 +197,8 @@ export default function PatientList() {
               </button>
               <span className="col-span-2">MRN</span>
               <span className="col-span-2">DOB / Age</span>
-              <span className="col-span-2">Conditions</span>
+              <span className="col-span-1">Conditions</span>
+              <span className="col-span-2">Phone</span>
               <button
                 className="col-span-1 flex items-center gap-1 hover:text-slate-700"
                 onClick={() => toggleSort("status")}
@@ -209,7 +211,6 @@ export default function PatientList() {
               >
                 Updated <SortIcon field="updatedAt" />
               </button>
-              <span className="col-span-1" />
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -254,10 +255,10 @@ export default function PatientList() {
                           {format(dob, "MM/dd/yyyy")}
                           <span className="text-xs text-slate-400 ml-1">({age}y)</span>
                         </div>
-                        <div className="col-span-2 flex flex-wrap gap-1">
+                        <div className="col-span-1 flex flex-wrap gap-1">
                           {conditions.map((c) => (
                             <Badge key={c} variant="outline" className="text-xs px-1.5 py-0 border-slate-200 text-slate-600">
-                              {c.length > 16 ? c.slice(0, 14) + "…" : c}
+                              {c.length > 12 ? c.slice(0, 10) + "…" : c}
                             </Badge>
                           ))}
                           {(patient.chronicConditions?.length ?? 0) > 2 && (
@@ -265,6 +266,26 @@ export default function PatientList() {
                               +{(patient.chronicConditions?.length ?? 0) - 2}
                             </Badge>
                           )}
+                        </div>
+                        <div className="col-span-2" onClick={(e) => e.preventDefault()}>
+                          {(() => {
+                            const preferred = (patient as any).preferredPhone;
+                            const num = preferred === 'mobile' ? (patient as any).phoneMobile
+                              : preferred === 'home' ? (patient as any).phoneHome
+                              : preferred === 'office' ? (patient as any).phoneOffice
+                              : ((patient as any).phoneMobile || (patient as any).phoneHome || (patient as any).phoneOffice || patient.phone);
+                            if (!num) return <span className="text-xs text-slate-300">—</span>;
+                            return (
+                              <a
+                                href={`tel:${num}`}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                <Phone className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{num}</span>
+                                {preferred && <span className="text-emerald-600 ml-0.5">★</span>}
+                              </a>
+                            );
+                          })()}
                         </div>
                         <div className="col-span-1">
                           <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${statusColor(patient.status)}`}>

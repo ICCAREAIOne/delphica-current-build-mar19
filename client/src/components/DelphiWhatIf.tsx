@@ -174,7 +174,7 @@ function ScenarioCard({ scenario, isSelected, onSelect }: {
                     <p className="text-xs bg-white rounded p-2 border">{opt.predictedOutcome}</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {opt.benefits?.length > 0 && (
                       <div>
                         <p className="text-xs font-medium text-green-700 mb-1 flex items-center gap-1">

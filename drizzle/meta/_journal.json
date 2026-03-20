@@ -218,6 +218,20 @@
       "when": 1773654562330,
       "tag": "0030_keen_swordsman",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "5",
+      "when": 1774000665536,
+      "tag": "0031_amused_black_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "5",
+      "when": 1774001774751,
+      "tag": "0032_chemical_stark_industries",
+      "breakpoints": true
     }
   ]
 }

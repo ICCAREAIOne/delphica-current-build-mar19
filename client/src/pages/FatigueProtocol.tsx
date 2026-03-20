@@ -88,7 +88,7 @@ export default function FatigueProtocol() {
           {/* Main Content */}
           <div className="lg:col-span-3">
             <Tabs defaultValue="assessment" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-6">
+              <TabsList className="flex flex-wrap sm:grid sm:grid-cols-6 w-full gap-1">
                 <TabsTrigger value="assessment">Assessment</TabsTrigger>
                 <TabsTrigger value="labs">Labs</TabsTrigger>
                 <TabsTrigger value="diagnosis">Diagnosis</TabsTrigger>

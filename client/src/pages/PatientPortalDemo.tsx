@@ -94,7 +94,7 @@ export default function PatientPortalDemo() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="flex flex-wrap sm:grid sm:grid-cols-4 w-full gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="checkin">AI Check-in</TabsTrigger>
           <TabsTrigger value="labs">Lab Results</TabsTrigger>

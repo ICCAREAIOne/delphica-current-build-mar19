@@ -31,6 +31,12 @@ export interface PatientContext {
   biomarkers?: BiomarkerReading[];
   familyHistory?: FamilyHistoryEntry[];
   lifestyleFactors?: LifestyleFactors;
+  // Insurance coverage context for care plan optimization
+  insuranceBenefits?: {
+    primaryInsurer?: string;
+    planType?: string;
+    benefitsSummary?: Record<string, any>;
+  };
 }
 
 export interface LabResult {

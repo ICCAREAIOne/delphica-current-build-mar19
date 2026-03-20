@@ -268,3 +268,124 @@ export async function generateProtocolFromCarePlan(
 
   return generateProtocolPDF(pdfData);
 }
+
+// ─── Prior Authorization PDF ─────────────────────────────────────────────────
+
+export interface PriorAuthPDFData {
+  patientName: string;
+  patientDob: string;
+  patientMemberId: string;
+  patientPolicyNumber: string;
+  patientGroupNumber: string;
+  insurerName: string;
+  insurerPhone: string;
+  planType: string;
+  requestedTreatment: string;
+  diagnosisCode: string;
+  diagnosisDescription: string;
+  clinicalJustification: string;
+  alternativesTried: string[];
+  requestingPhysicianName: string;
+  requestingPhysicianNpi?: string;
+  requestingPhysicianPhone?: string;
+  requestingPhysicianFax?: string;
+  requestDate: Date;
+  urgency: 'routine' | 'urgent' | 'emergent';
+  priorAuthRequired?: string[];
+}
+
+export async function generatePriorAuthPDF(data: PriorAuthPDFData): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'LETTER', margins: { top: 50, bottom: 50, left: 60, right: 60 } });
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const W = doc.page.width - 120;
+      const blue = '#1e40af';
+      const gray = '#64748b';
+      const lightGray = '#f1f5f9';
+
+      // Header
+      doc.rect(60, 50, W, 60).fill(blue);
+      doc.fillColor('white').fontSize(18).font('Helvetica-Bold')
+        .text('PRIOR AUTHORIZATION REQUEST', 70, 65, { width: W - 20 });
+      doc.fontSize(10).font('Helvetica')
+        .text('Date: ' + data.requestDate.toLocaleDateString('en-US') + '  |  Urgency: ' + data.urgency.toUpperCase(), 70, 87, { width: W - 20 });
+
+      let y = 130;
+
+      const section = (title: string) => {
+        doc.rect(60, y, W, 22).fill(lightGray);
+        doc.fillColor(blue).fontSize(11).font('Helvetica-Bold').text(title, 65, y + 5, { width: W - 10 });
+        y += 30;
+      };
+
+      const row = (label: string, value: string, col2?: { label: string; value: string }) => {
+        doc.fillColor(gray).fontSize(8).font('Helvetica').text(label, 65, y, { width: 200 });
+        doc.fillColor('#1e293b').fontSize(10).font('Helvetica-Bold').text(value || '—', 65, y + 10, { width: 200 });
+        if (col2) {
+          doc.fillColor(gray).fontSize(8).font('Helvetica').text(col2.label, 310, y, { width: 200 });
+          doc.fillColor('#1e293b').fontSize(10).font('Helvetica-Bold').text(col2.value || '—', 310, y + 10, { width: 200 });
+        }
+        y += 30;
+      };
+
+      section('PATIENT INFORMATION');
+      row('Patient Name', data.patientName, { label: 'Date of Birth', value: data.patientDob });
+      row('Member ID', data.patientMemberId, { label: 'Policy Number', value: data.patientPolicyNumber });
+      row('Group Number', data.patientGroupNumber, { label: 'Plan Type', value: data.planType });
+
+      section('INSURANCE / PAYER INFORMATION');
+      row('Insurance Company', data.insurerName, { label: 'Payer Phone', value: data.insurerPhone });
+
+      section('REQUESTED TREATMENT / SERVICE');
+      row('Treatment / Procedure', data.requestedTreatment, { label: 'ICD-10 Code', value: data.diagnosisCode });
+      row('Diagnosis Description', data.diagnosisDescription);
+
+      section('CLINICAL JUSTIFICATION');
+      doc.fillColor('#1e293b').fontSize(10).font('Helvetica')
+        .text(data.clinicalJustification || 'See attached clinical notes.', 65, y, { width: W - 10 });
+      y += Math.max(50, doc.heightOfString(data.clinicalJustification || '', { width: W - 10 }) + 10);
+
+      if (data.alternativesTried && data.alternativesTried.length > 0) {
+        section('ALTERNATIVES TRIED / STEP THERAPY');
+        data.alternativesTried.forEach((alt, i) => {
+          doc.fillColor('#1e293b').fontSize(10).font('Helvetica')
+            .text((i + 1) + '. ' + alt, 65, y, { width: W - 10 });
+          y += 18;
+        });
+        y += 10;
+      }
+
+      if (data.priorAuthRequired && data.priorAuthRequired.length > 0) {
+        section('KNOWN PRIOR AUTH REQUIREMENTS (from benefits)');
+        data.priorAuthRequired.forEach((req) => {
+          doc.fillColor('#1e293b').fontSize(10).font('Helvetica')
+            .text('• ' + req, 65, y, { width: W - 10 });
+          y += 16;
+        });
+        y += 10;
+      }
+
+      section('REQUESTING PHYSICIAN');
+      row('Physician Name', data.requestingPhysicianName, { label: 'NPI', value: data.requestingPhysicianNpi || '' });
+      row('Phone', data.requestingPhysicianPhone || '', { label: 'Fax', value: data.requestingPhysicianFax || '' });
+
+      y += 10;
+      doc.moveTo(65, y).lineTo(280, y).stroke('#94a3b8');
+      doc.fillColor(gray).fontSize(9).text('Physician Signature', 65, y + 4);
+      doc.moveTo(320, y).lineTo(535, y).stroke('#94a3b8');
+      doc.fillColor(gray).fontSize(9).text('Date', 320, y + 4);
+
+      doc.fontSize(8).fillColor(gray)
+        .text('This prior authorization request was generated by the AI-Driven Physician Portal. Clinical decisions remain the responsibility of the treating physician.', 60, doc.page.height - 55, { width: W, align: 'center' });
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}

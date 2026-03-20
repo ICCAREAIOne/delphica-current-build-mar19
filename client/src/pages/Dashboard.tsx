@@ -17,7 +17,9 @@ import {
   ArrowRight,
   Loader2,
   Bell,
-  Settings
+  Settings,
+  AlertTriangle,
+  CreditCard
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -42,6 +44,10 @@ export default function Dashboard() {
   );
 
   const displayPatients = searchQuery.length > 2 ? searchResults : patients?.slice(0, 10);
+  const { data: expiringInsurance } = trpc.patients.getExpiringInsurance.useQuery(
+    { daysAhead: 30 },
+    { enabled: !!user }
+  );
 
   if (authLoading || statsLoading) {
     return (
@@ -104,6 +110,34 @@ export default function Dashboard() {
       </header>
 
       <div className="container py-8">
+        {/* Insurance Expiry Alert */}
+        {expiringInsurance && expiringInsurance.length > 0 && (
+          <div className="mb-6 p-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
+                  {expiringInsurance.length} patient{expiringInsurance.length > 1 ? 's' : ''} with insurance expiring within 30 days
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {expiringInsurance.map((p: any) => (
+                    <Link key={p.id} href={`/patients/${p.id}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer ${
+                        p.daysUntilExpiry <= 7
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-700'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-700'
+                      }`}>
+                        <CreditCard className="h-3 w-3" />
+                        {p.name} — {p.insurer} ({p.daysUntilExpiry <= 0 ? 'EXPIRED' : `${p.daysUntilExpiry}d`})
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Framework Overview */}
         <Card className="mb-8 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 border-2">
           <CardHeader>
